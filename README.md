@@ -38,7 +38,8 @@ This repo is the public source of truth for the first-party extension source:
 Current source layout:
 
 - `ats/` contains the ATS bundle, skills, templates, and ATS-specific domain source
-- `ats/runtime/domain/` defines Go concepts like vacancies, applicants, and applications
+- `ats/runtime/domain/` defines Go concepts like vacancies, vacancy catalogs,
+  applicants, and applications
 - `web-analytics/runtime/` contains the web analytics runtime source
 - `web-analytics/templates/` contains the analytics admin templates
 - `error-tracking/runtime/` contains the error tracking runtime source
@@ -75,11 +76,12 @@ What it gives you:
 
 - a branded careers site served from the extension
 - a public application flow that creates candidate cases
+- ATS-owned vacancy lifecycle and application-stage logic in Go
 - recruiting queues and workflow tags on the same operational base
 - candidate evaluation built on Move Big Rocks cases, contacts, forms, queues,
   automation, and other shared primitives
-- a natural path toward richer hiring flows, including CV or resume handling,
-  because the underlying platform already has attachment-capable primitives
+- resume or CV linkage through the shared attachment primitives already present
+  in the platform
 - a strong self-hosted foundation for teams that want to keep hiring context in
   the same system as the rest of their operations
 

@@ -54,6 +54,9 @@ func TestBuildCandidateRecord(t *testing.T) {
 		t.Fatalf("new vacancy: %v", err)
 	}
 	vacancy.ID = "vac_123"
+	if err := vacancy.Publish(time.Date(2026, 3, 26, 8, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("publish vacancy: %v", err)
+	}
 
 	applicant, application, err := BuildCandidateRecord("", vacancy, CandidateSubmission{
 		FullName:           "Ada Lovelace",
@@ -88,6 +91,26 @@ func TestBuildCandidateRecord(t *testing.T) {
 	}
 	if application.FormSubmissionID != "sub_123" {
 		t.Fatalf("expected form submission id, got %q", application.FormSubmissionID)
+	}
+}
+
+func TestBuildCandidateRecordRejectsClosedVacancy(t *testing.T) {
+	t.Parallel()
+
+	vacancy, err := NewVacancy("ws_hiring", "support-engineer", "Support Engineer")
+	if err != nil {
+		t.Fatalf("new vacancy: %v", err)
+	}
+	if err := vacancy.Close(time.Date(2026, 3, 26, 18, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("close vacancy: %v", err)
+	}
+
+	_, _, err = BuildCandidateRecord("", vacancy, CandidateSubmission{
+		FullName: "Grace Hopper",
+		Email:    "grace@example.com",
+	})
+	if err == nil {
+		t.Fatalf("expected closed vacancy to reject new applications")
 	}
 }
 

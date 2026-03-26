@@ -44,17 +44,19 @@
       <div class="card">
         <h1>Apply</h1>
         <p>
-          The ATS extension owns the public presentation, while the actual form submission runs through the
-          core Move Big Rocks forms capability.
+          The ATS extension owns the hiring experience for this role. The public application form runs on the
+          shared Move Big Rocks form flow so candidate intake, contact records, cases, and follow-up automation
+          stay on the same operational base.
         </p>
         <div class="embed">
-          <strong>Form handoff</strong>
+          <strong>Application handoff</strong>
           <code>
             GET /forms/{job-application-crypto-id}
           </code>
           <p>
-            In the production flow this template is branded by the operator or agent and wired to
-            the public application form seeded by the extension.
+            In production, this page is branded by the operator, wired to the ATS application form,
+            and can carry a `role_slug` plus shared `resume_attachment_id` so the submission lands as
+            a structured application instead of a generic contact form.
           </p>
         </div>
       </div>

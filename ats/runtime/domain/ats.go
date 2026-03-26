@@ -102,7 +102,7 @@ func NewVacancy(workspaceID, slug, title string) (*Vacancy, error) {
 		WorkMode:            WorkModeRemote,
 		EmploymentType:      EmploymentTypeFullTime,
 		ApplicationFormSlug: "job-application",
-		CareersPath:         "/careers/apply?job=" + slug,
+		CareersPath:         "/careers/apply?role_slug=" + slug,
 		CreatedAt:           now,
 		UpdatedAt:           now,
 	}
@@ -299,22 +299,22 @@ func (a Applicant) CaseCustomFields() map[string]any {
 }
 
 type Application struct {
-	ID                string
-	WorkspaceID       string
-	VacancyID         string
-	ApplicantID       string
-	CaseID            string
-	ContactID         string
-	FormSubmissionID  string
-	Source            string
-	Stage             ApplicationStage
-	AppliedAt         time.Time
+	ID                 string
+	WorkspaceID        string
+	VacancyID          string
+	ApplicantID        string
+	CaseID             string
+	ContactID          string
+	FormSubmissionID   string
+	Source             string
+	Stage              ApplicationStage
+	AppliedAt          time.Time
 	LastStageChangedAt time.Time
-	ReviewedAt        *time.Time
-	HiredAt           *time.Time
-	RejectedAt        *time.Time
-	WithdrawnAt       *time.Time
-	RejectionReason   string
+	ReviewedAt         *time.Time
+	HiredAt            *time.Time
+	RejectedAt         *time.Time
+	WithdrawnAt        *time.Time
+	RejectionReason    string
 }
 
 func NewApplication(workspaceID, vacancyID, applicantID, source string) (*Application, error) {
@@ -483,6 +483,9 @@ func BuildCandidateRecord(workspaceID string, vacancy *Vacancy, submission Candi
 	}
 	if err := vacancy.Validate(); err != nil {
 		return nil, nil, err
+	}
+	if !vacancy.IsOpen() {
+		return nil, nil, fmt.Errorf("vacancy %q is not accepting applications", vacancy.Slug)
 	}
 	workspaceID = strings.TrimSpace(workspaceID)
 	if workspaceID == "" {

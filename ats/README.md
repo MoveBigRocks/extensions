@@ -9,11 +9,12 @@ sample or throwaway example.
 It is intentionally built from the same primitives customers will use:
 
 - workspace-scoped installation
+- vacancy lifecycle modeled in Go
 - seeded queues
 - seeded public form that auto-creates candidate cases
 - seeded `case_created` automation rule for ATS follow-up tagging
 - branded public/admin assets
-- ATS-specific Go domain types for vacancies, applicants, and applications
+- ATS-specific Go domain types for vacancies, applicants, applications, and vacancy catalogs
 - declared endpoints, namespaced extension commands, bundled agent-skill assets, and extension events
 
 This extension is intended to be part of the free public first-party bundle
@@ -21,7 +22,8 @@ set and is the canonical public bundle source for ATS.
 
 ## Source Layout
 
-ATS is mostly declarative today. Its public source lives in this directory:
+ATS owns a clear product slice today. Its public source lives in this
+directory:
 
 - bundle manifest:
   [`manifest.json`](./manifest.json)
@@ -32,8 +34,9 @@ ATS is mostly declarative today. Its public source lives in this directory:
 - ATS domain model source:
   [`runtime/domain/`](./runtime/domain)
 
-It still builds on shared platform primitives like cases, contacts, forms, and
-automation, but the ATS-specific source is already public here.
+It still builds on shared platform primitives like cases, contacts, forms,
+attachments, and automation, but the ATS-specific source is already public
+here.
 
 The current ATS Go model defines explicit ATS concepts that do not exist in the
 shared base by default:
@@ -42,9 +45,33 @@ shared base by default:
 - `Applicant` with resume attachment linkage and profile/contact fields
 - `Application` with explicit stages like `received`, `screening`,
   `interview`, `offer`, `hired`, `rejected`, and `withdrawn`
+- `VacancyCatalog` for published-role lookup and application intake against the
+  active vacancy set
+- `CandidateSubmissionFromFields` to translate generic form payloads into ATS
+  applicant/application input
 
 That means ATS no longer only relies on generic forms/cases language in public
 source; the extension now carries its own product vocabulary in Go as well.
+
+## Defensible Scope
+
+The current ATS scope is intentionally real and bounded:
+
+- define vacancies with open, paused, closed, and archived lifecycle states
+- publish a branded careers site from the extension bundle
+- intake applications into Move Big Rocks using forms, contacts, cases, and
+  ATS tags
+- track applicants and applications with ATS-owned fields and explicit stages
+- link resumes and CVs through the shared attachment primitives by attachment
+  ID
+- give operators and agents first-party skills for publishing roles and
+  reviewing candidates
+
+Things ATS does not claim yet:
+
+- a dedicated interview scheduling system
+- a dedicated offer approval workflow
+- a separate ATS-only persistence schema outside the shared-primitives model
 
 Install it with the operator CLI by pointing at the directory directly:
 

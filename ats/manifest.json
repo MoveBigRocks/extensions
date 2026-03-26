@@ -9,7 +9,7 @@
   "risk": "standard",
   "runtimeClass": "bundle",
   "storageClass": "shared_primitives_only",
-  "description": "Run a lightweight careers site and manage applications with Move Big Rocks cases, contacts, forms, tags, and automations.",
+  "description": "Publish vacancies, run a careers site, intake candidate applications, and manage applicant stages on Move Big Rocks cases, contacts, forms, attachments, tags, and automations.",
   "workspacePlan": {
     "mode": "provision_dedicated_workspace",
     "name": "Hiring",
@@ -21,6 +21,8 @@
     "case:write",
     "contact:read",
     "contact:write",
+    "attachment:read",
+    "attachment:write",
     "form:write",
     "automation:write"
   ],
@@ -93,6 +95,11 @@
             "type": "string",
             "title": "Portfolio URL"
           },
+          "resume_attachment_id": {
+            "type": "string",
+            "title": "Resume Attachment ID",
+            "description": "Optional shared attachment ID for the candidate resume or CV."
+          },
           "cover_note": {
             "type": "string",
             "title": "Why are you interested?"
@@ -108,6 +115,7 @@
           "role_slug",
           "linkedin_url",
           "portfolio_url",
+          "resume_attachment_id",
           "cover_note"
         ]
       },
@@ -277,6 +285,14 @@
     "brand": "Acme",
     "siteTitle": "Careers at Acme",
     "primaryColor": "#0f766e",
+    "resumeField": "resume_attachment_id",
+    "vacancyStatuses": [
+      "draft",
+      "open",
+      "paused",
+      "closed",
+      "archived"
+    ],
     "stages": [
       "applied",
       "screening",
