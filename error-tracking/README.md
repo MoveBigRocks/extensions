@@ -10,21 +10,20 @@ This directory is the canonical public bundle source for the free public
 `error-tracking` first-party bundle published from the public first-party
 extensions repo at `MoveBigRocks/extensions`.
 
-## Where The Runtime Source Lives Today
+## Runtime Source
 
-The bundle source for `error-tracking` lives in this directory. The current
-in-process runtime implementation is still split into the platform repo:
+The public runtime source for `error-tracking` now lives in this directory:
 
-- observability domain and processing:
-  [`MoveBigRocks/platform/internal/observability`](https://github.com/MoveBigRocks/platform/tree/main/internal/observability)
-- SQL stores and persistence:
-  [`MoveBigRocks/platform/internal/infrastructure/stores/sql`](https://github.com/MoveBigRocks/platform/tree/main/internal/infrastructure/stores/sql)
-- extension service-target registration:
-  [`MoveBigRocks/platform/internal/platform/extensionruntime`](https://github.com/MoveBigRocks/platform/tree/main/internal/platform/extensionruntime)
+- runtime domain, handlers, resolvers, services, and SQL-backed store code:
+  [`runtime/`](./runtime)
+- admin templates:
+  [`templates/`](./templates)
+- SQL model definitions used by the runtime store:
+  [`sql-models/`](./sql-models)
 
-So there is not a hidden separate repo for the runtime code. It is currently
-compiled with the core platform, while this repo remains the public source for
-the extension bundle, schema, assets, release tags, and published OCI refs.
+The host platform still carries temporary integration copies of some of this
+runtime while the final de-duplication work lands, but the source that people
+should inspect and learn from is now public here.
 
 Current package scope:
 

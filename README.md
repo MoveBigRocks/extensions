@@ -26,35 +26,29 @@ on the same bounded Move Big Rocks runtime:
 
 ## Where The Source Lives
 
-This repo is the public source of truth for the first-party extension bundle
-layer:
+This repo is the public source of truth for the first-party extension source:
 
 - `manifest.json`
 - extension-owned `assets/`
 - extension-owned `migrations/`
+- runtime implementation under each extension directory
+- templates and admin UI artifacts
 - release tags and published GHCR bundle refs
 
-For service-backed extensions, some runtime implementation still lives in
-[`MoveBigRocks/platform`](https://github.com/MoveBigRocks/platform) today.
-That split is real, and it is not the end state we want long-term.
+Current source layout:
 
-Current runtime locations:
+- `ats/` contains the ATS bundle, skills, and templates
+- `web-analytics/runtime/` contains the web analytics runtime source
+- `web-analytics/templates/` contains the analytics admin templates
+- `error-tracking/runtime/` contains the error tracking runtime source
+- `error-tracking/templates/` contains the error tracking admin templates
+- `error-tracking/sql-models/` contains the SQL model definitions used by the
+  error tracking runtime
 
-- `error-tracking` bundle source lives here; the in-process runtime currently
-  lives in
-  [`platform/internal/observability`](https://github.com/MoveBigRocks/platform/tree/main/internal/observability),
-  [`platform/internal/infrastructure/stores/sql`](https://github.com/MoveBigRocks/platform/tree/main/internal/infrastructure/stores/sql),
-  and
-  [`platform/internal/platform/extensionruntime`](https://github.com/MoveBigRocks/platform/tree/main/internal/platform/extensionruntime)
-- `web-analytics` bundle source lives here; the in-process runtime currently
-  lives in
-  [`platform/internal/analytics`](https://github.com/MoveBigRocks/platform/tree/main/internal/analytics),
-  [`platform/internal/infrastructure/stores/sql`](https://github.com/MoveBigRocks/platform/tree/main/internal/infrastructure/stores/sql),
-  and
-  [`platform/internal/platform/extensionruntime`](https://github.com/MoveBigRocks/platform/tree/main/internal/platform/extensionruntime)
-- `ats` is mostly declarative in this repo today, and builds on the shared
-  platform primitives and generic extension runtime in
-  [`MoveBigRocks/platform`](https://github.com/MoveBigRocks/platform)
+The core platform still contains temporary host-integrated copies of some of
+the service-backed runtime wiring while the final de-duplication work lands,
+but the public extension source is now in this repo where people expect to
+find it.
 
 ## Why This Repo Exists
 

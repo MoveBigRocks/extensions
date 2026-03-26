@@ -18,16 +18,19 @@ It is intentionally built from the same primitives customers will use:
 This extension is intended to be part of the free public first-party bundle
 set and is the canonical public bundle source for ATS.
 
-## Where The Runtime Source Lives Today
+## Source Layout
 
-ATS is more declarative than the service-backed extensions. The public bundle
-source lives in this directory, while the shared extension runtime and the
-platform primitives it depends on still live in
-[`MoveBigRocks/platform`](https://github.com/MoveBigRocks/platform).
+ATS is mostly declarative today. Its public source lives in this directory:
 
-That means the hiring-specific bundle shape is here, while the generic shared
-capabilities it builds on, like cases, contacts, forms, workflows, and the
-extension runtime itself, are still implemented in the core platform repo.
+- bundle manifest:
+  [`manifest.json`](./manifest.json)
+- careers and admin templates:
+  [`assets/templates/`](./assets/templates)
+- agent skills:
+  [`assets/agent-skills/`](./assets/agent-skills)
+
+It still builds on shared platform primitives like cases, contacts, forms, and
+automation, but the ATS-specific source is already public here.
 
 Install it with the operator CLI by pointing at the directory directly:
 
