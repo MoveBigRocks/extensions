@@ -10,11 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gosimple/slug"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
 	"github.com/movebigrocks/platform/internal/infrastructure/middleware"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
 	platformhandlers "github.com/movebigrocks/platform/internal/platform/handlers"
 	platformservices "github.com/movebigrocks/platform/internal/platform/services"
-	"github.com/movebigrocks/platform/internal/shared/contracts"
 )
 
 const (
@@ -32,7 +32,7 @@ type ErrorTrackingAdminHandler struct {
 
 type adminIssueService interface {
 	ListWorkspaceIssues(ctx context.Context, workspaceID string, limit int) ([]*observabilitydomain.Issue, int, error)
-	ListAllIssues(ctx context.Context, filters contracts.IssueFilters) ([]*observabilitydomain.Issue, int, error)
+	ListAllIssues(ctx context.Context, filters storecontracts.IssueFilters) ([]*observabilitydomain.Issue, int, error)
 	GetIssueInWorkspace(ctx context.Context, workspaceID, issueID string) (*observabilitydomain.Issue, error)
 	GetIssueWithProject(ctx context.Context, issueID string) (*observabilitydomain.Issue, *observabilitydomain.Project, error)
 	GetIssueEvents(ctx context.Context, issueID string, limit int) ([]*observabilitydomain.ErrorEvent, error)
@@ -413,7 +413,7 @@ func (h *ErrorTrackingAdminHandler) ShowIssues(c *gin.Context) {
 		pageSubtitle = "View error issues for " + workspaceName
 		workspaceNames[workspaceID] = workspaceName
 	} else {
-		issues, _, err = h.issueService.ListAllIssues(ctx, contracts.IssueFilters{Limit: 100})
+		issues, _, err = h.issueService.ListAllIssues(ctx, storecontracts.IssueFilters{Limit: 100})
 	}
 	if err != nil {
 		c.HTML(http.StatusInternalServerError, "error.html", platformhandlers.ErrorPageData{Error: "Failed to load issues"})

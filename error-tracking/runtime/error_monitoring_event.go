@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
-	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
+	shared "github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
 )
 
 // =============================================================================
@@ -108,7 +109,7 @@ func (s *ErrorMonitoringStore) GetIssueEvents(ctx context.Context, issueID strin
 	return result, nil
 }
 
-func (s *ErrorMonitoringStore) ListProjectEvents(ctx context.Context, projectID string, filter shared.EventFilter) ([]*observabilitydomain.ErrorEvent, error) {
+func (s *ErrorMonitoringStore) ListProjectEvents(ctx context.Context, projectID string, filter storecontracts.EventFilter) ([]*observabilitydomain.ErrorEvent, error) {
 	var conditions []string
 	args := []interface{}{}
 

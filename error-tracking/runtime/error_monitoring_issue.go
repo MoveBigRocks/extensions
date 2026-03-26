@@ -6,9 +6,10 @@ import (
 	"strings"
 	"time"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
-	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
+	shared "github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
 )
 
 // =============================================================================
@@ -221,7 +222,7 @@ func (s *ErrorMonitoringStore) UpdateIssue(ctx context.Context, issue *observabi
 	return nil
 }
 
-func (s *ErrorMonitoringStore) ListProjectIssues(ctx context.Context, projectID string, filter shared.IssueFilter) ([]*observabilitydomain.Issue, error) {
+func (s *ErrorMonitoringStore) ListProjectIssues(ctx context.Context, projectID string, filter storecontracts.IssueFilter) ([]*observabilitydomain.Issue, error) {
 	var conditions []string
 	args := []interface{}{}
 
@@ -268,7 +269,7 @@ func (s *ErrorMonitoringStore) ListProjectIssues(ctx context.Context, projectID 
 	return result, nil
 }
 
-func (s *ErrorMonitoringStore) ListIssues(ctx context.Context, filters shared.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
+func (s *ErrorMonitoringStore) ListIssues(ctx context.Context, filters storecontracts.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
 	var conditions []string
 	args := []interface{}{}
 
@@ -326,7 +327,7 @@ func (s *ErrorMonitoringStore) ListIssues(ctx context.Context, filters shared.Is
 	return result, total, nil
 }
 
-func (s *ErrorMonitoringStore) ListAllIssues(ctx context.Context, filters shared.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
+func (s *ErrorMonitoringStore) ListAllIssues(ctx context.Context, filters storecontracts.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
 	var conditions []string
 	args := []interface{}{}
 

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"
 	"github.com/movebigrocks/platform/internal/infrastructure/metrics"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
 	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
 	"github.com/movebigrocks/platform/pkg/eventbus"
 	"github.com/movebigrocks/platform/pkg/logger"

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
 	coremodels "github.com/movebigrocks/platform/internal/infrastructure/stores/sql/models"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
 	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
 )
 

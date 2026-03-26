@@ -3,17 +3,22 @@ package observabilityservices
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	errortrackingsql "github.com/movebigrocks/platform/extensions/error-tracking/runtime"
+	obsdomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	graphshared "github.com/movebigrocks/platform/internal/graph/shared"
-	obsdomain "github.com/movebigrocks/platform/internal/observability/domain"
+	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
+	"github.com/movebigrocks/platform/internal/infrastructure/stores"
 	platformdomain "github.com/movebigrocks/platform/internal/platform/domain"
 	sharedomain "github.com/movebigrocks/platform/internal/shared/domain"
 	testutil "github.com/movebigrocks/platform/internal/testutil"
 	"github.com/movebigrocks/platform/internal/testutil/refext"
 	"github.com/movebigrocks/platform/pkg/eventbus"
+	"github.com/movebigrocks/platform/pkg/id"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,6 +79,27 @@ func (m *failingOutbox) publishedCount() int {
 	return m.publishCnt
 }
 
+func newTestErrorStore(t testing.TB, store stores.Store) *errortrackingsql.ErrorMonitoringStore {
+	t.Helper()
+
+	concrete, ok := store.(*platformsql.Store)
+	require.True(t, ok)
+
+	rawDB, err := concrete.GetSQLDB()
+	require.NoError(t, err)
+
+	return errortrackingsql.NewErrorMonitoringStore(errortrackingsql.NewSqlxDB(rawDB, concrete.DB().Driver()))
+}
+
+func newTestProject(workspaceID string) *obsdomain.Project {
+	projectID := id.New()
+	project := obsdomain.NewProject(workspaceID, "", "Test Application "+projectID[:8], strings.ToLower(projectID[:12]), "javascript")
+	project.ID = projectID
+	project.CreatedAt = time.Now()
+	project.UpdatedAt = time.Now()
+	return project
+}
+
 func TestIssueService_ResolveIssuePublishesCasesBulkResolvedEvent(t *testing.T) {
 	t.Parallel()
 
@@ -83,9 +109,10 @@ func TestIssueService_ResolveIssuePublishesCasesBulkResolvedEvent(t *testing.T) 
 	baseCtx := context.Background()
 	wsID := testutil.CreateTestWorkspace(t, store, "issue-service")
 	refext.InstallAndActivateReferenceExtension(t, baseCtx, store, wsID, "error-tracking")
+	errorStore := newTestErrorStore(t, store)
 
-	project := testutil.NewIsolatedProject(t, wsID)
-	require.NoError(t, store.Projects().CreateProject(baseCtx, project))
+	project := newTestProject(wsID)
+	require.NoError(t, errorStore.CreateProject(baseCtx, project))
 
 	systemCase := testutil.NewIsolatedCase(t, wsID)
 	systemCase.Source = sharedomain.SourceTypeSystem
@@ -109,13 +136,13 @@ func TestIssueService_ResolveIssuePublishesCasesBulkResolvedEvent(t *testing.T) 
 		RelatedCaseIDs: []string{systemCase.ID, customerCase.ID},
 		HasRelatedCase: true,
 	}
-	require.NoError(t, store.Issues().CreateIssue(baseCtx, issue))
+	require.NoError(t, errorStore.CreateIssue(baseCtx, issue))
 
 	outbox := &mockOutbox{}
 	service := NewIssueService(
-		store.Issues(),
-		store.Projects(),
-		store.ErrorEvents(),
+		errorStore,
+		errorStore,
+		errorStore,
 		store.Workspaces(),
 		outbox,
 	)
@@ -126,7 +153,7 @@ func TestIssueService_ResolveIssuePublishesCasesBulkResolvedEvent(t *testing.T) 
 	err := service.ResolveIssue(authCtx, issue.ID, "", "")
 	require.NoError(t, err)
 
-	storedIssue, err := store.Issues().GetIssue(baseCtx, issue.ID)
+	storedIssue, err := errorStore.GetIssue(baseCtx, issue.ID)
 	require.NoError(t, err)
 	assert.Equal(t, obsdomain.IssueStatusResolved, storedIssue.Status)
 	assert.Equal(t, "fixed", storedIssue.Resolution)
@@ -169,9 +196,10 @@ func TestIssueService_ResolveIssuePublishFailure_BestEffort(t *testing.T) {
 	workspace := testutil.NewIsolatedWorkspace(t)
 	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
 	refext.InstallAndActivateReferenceExtension(t, ctx, store, workspace.ID, "error-tracking")
+	errorStore := newTestErrorStore(t, store)
 
-	project := testutil.NewIsolatedProject(t, workspace.ID)
-	require.NoError(t, store.Projects().CreateProject(ctx, project))
+	project := newTestProject(workspace.ID)
+	require.NoError(t, errorStore.CreateProject(ctx, project))
 
 	issueID := "issue-fail-transaction"
 	issue := &obsdomain.Issue{
@@ -185,13 +213,13 @@ func TestIssueService_ResolveIssuePublishFailure_BestEffort(t *testing.T) {
 		LastSeen:    time.Now(),
 		Platform:    "go",
 	}
-	require.NoError(t, store.Issues().CreateIssue(ctx, issue))
+	require.NoError(t, errorStore.CreateIssue(ctx, issue))
 
 	outbox := &failingOutbox{err: errors.New("outbox publish failed")}
 	service := NewIssueService(
-		store.Issues(),
-		store.Projects(),
-		store.ErrorEvents(),
+		errorStore,
+		errorStore,
+		errorStore,
 		store.Workspaces(),
 		outbox,
 	)
@@ -205,7 +233,7 @@ func TestIssueService_ResolveIssuePublishFailure_BestEffort(t *testing.T) {
 	require.Equal(t, 1, outbox.publishedCount())
 
 	// Issue is still resolved even though publish failed
-	updated, err := store.Issues().GetIssue(ctx, issue.ID)
+	updated, err := errorStore.GetIssue(ctx, issue.ID)
 	require.NoError(t, err)
 	assert.Equal(t, obsdomain.IssueStatusResolved, updated.Status)
 	assert.NotNil(t, updated.ResolvedAt)

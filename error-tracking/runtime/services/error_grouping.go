@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
 	"github.com/movebigrocks/platform/internal/shared/contracts"
 	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
 	"github.com/movebigrocks/platform/pkg/eventbus"
@@ -18,8 +18,8 @@ import (
 // This makes testing 10x easier - only need to mock 1 method!
 type ErrorGroupingService struct {
 	// Read-only store access (for queries only)
-	issueStore   shared.IssueStore
-	projectStore shared.ProjectStore
+	issueStore   storecontracts.IssueStore
+	projectStore storecontracts.ProjectStore
 
 	// Event publishing (the ONLY write dependency!)
 	outbox contracts.OutboxPublisher
@@ -34,7 +34,7 @@ type SimilarityEngine struct{}
 type FingerprintComponents = observabilitydomain.FingerprintComponents
 
 // NewErrorGroupingService creates the event-driven version
-func NewErrorGroupingService(issueStore shared.IssueStore, projectStore shared.ProjectStore, outbox contracts.OutboxPublisher) *ErrorGroupingService {
+func NewErrorGroupingService(issueStore storecontracts.IssueStore, projectStore storecontracts.ProjectStore, outbox contracts.OutboxPublisher) *ErrorGroupingService {
 	return &ErrorGroupingService{
 		issueStore:   issueStore,
 		projectStore: projectStore,
@@ -162,7 +162,7 @@ func (e *ErrorGroupingService) publishIssueUpdated(ctx context.Context, issue *o
 // findSimilarIssue finds issues similar to the given event (unchanged - read-only)
 func (e *ErrorGroupingService) findSimilarIssue(ctx context.Context, event *observabilitydomain.ErrorEvent) (*observabilitydomain.Issue, float64, error) {
 	since := time.Now().Add(-24 * time.Hour)
-	filter := shared.IssueFilter{
+	filter := storecontracts.IssueFilter{
 		Since: &since,
 		Limit: 50,
 	}

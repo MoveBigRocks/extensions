@@ -10,9 +10,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
 	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
 	platformdomain "github.com/movebigrocks/platform/internal/platform/domain"
 )
 

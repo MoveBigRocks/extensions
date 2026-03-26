@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/movebigrocks/platform/internal/infrastructure/config"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 )
 
 // ErrorProcessor handles background processing of error events

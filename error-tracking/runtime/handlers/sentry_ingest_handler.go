@@ -13,9 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	"github.com/movebigrocks/platform/internal/infrastructure/middleware"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
-	"github.com/movebigrocks/platform/internal/shared/contracts"
 	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
 	"github.com/movebigrocks/platform/pkg/id"
 	"github.com/movebigrocks/platform/pkg/logger"
@@ -136,10 +135,10 @@ func (h *SentryIngestHandler) handleEnvelope(c *gin.Context, expectedProjectNumb
 		h.logger.WithError(err).Warn("failed to update project event count")
 	}
 
-	c.JSON(http.StatusOK, contracts.IngestResponse{
-		Success: true,
-		EventID: event.EventID,
-		IssueID: event.IssueID,
+	c.JSON(http.StatusOK, gin.H{
+		"success":  true,
+		"event_id": event.EventID,
+		"issue_id": event.IssueID,
 	})
 }
 

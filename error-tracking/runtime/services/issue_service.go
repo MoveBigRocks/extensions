@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
+	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
 	apierrors "github.com/movebigrocks/platform/internal/infrastructure/errors"
 	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
 	platformdomain "github.com/movebigrocks/platform/internal/platform/domain"
 	"github.com/movebigrocks/platform/internal/shared/authorization"
 	"github.com/movebigrocks/platform/internal/shared/contracts"
@@ -17,9 +18,9 @@ import (
 
 // IssueService handles all issue-related business logic
 type IssueService struct {
-	issueStore      shared.IssueStore
-	projectStore    shared.ProjectStore
-	errorEventStore shared.ErrorEventStore
+	issueStore      storecontracts.IssueStore
+	projectStore    storecontracts.ProjectStore
+	errorEventStore storecontracts.ErrorEventStore
 	workspaceStore  shared.WorkspaceCRUD
 	tx              contracts.TransactionRunner
 	outbox          contracts.OutboxPublisher
@@ -32,9 +33,9 @@ type IssueServiceOption func(*IssueService)
 
 // NewIssueService creates a new issue service
 func NewIssueService(
-	issueStore shared.IssueStore,
-	projectStore shared.ProjectStore,
-	errorEventStore shared.ErrorEventStore,
+	issueStore storecontracts.IssueStore,
+	projectStore storecontracts.ProjectStore,
+	errorEventStore storecontracts.ErrorEventStore,
 	workspaceStore shared.WorkspaceCRUD,
 	outbox contracts.OutboxPublisher,
 	opts ...IssueServiceOption,
@@ -118,7 +119,7 @@ func (s *IssueService) UpdateIssue(ctx context.Context, issue *observabilitydoma
 }
 
 // ListIssues lists issues with filters (workspace-scoped)
-func (s *IssueService) ListIssues(ctx context.Context, filters shared.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
+func (s *IssueService) ListIssues(ctx context.Context, filters storecontracts.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
 	return s.issueStore.ListIssues(ctx, filters)
 }
 
@@ -127,14 +128,14 @@ func (s *IssueService) ListWorkspaceIssues(ctx context.Context, workspaceID stri
 	if workspaceID == "" {
 		return nil, 0, apierrors.NewValidationErrors(apierrors.NewValidationError("workspace_id", "required"))
 	}
-	return s.issueStore.ListIssues(ctx, shared.IssueFilters{
+	return s.issueStore.ListIssues(ctx, storecontracts.IssueFilters{
 		WorkspaceID: workspaceID,
 		Limit:       limit,
 	})
 }
 
 // ListWorkspaceIssuesWithFilters lists workspace issues using the shared issue filters contract.
-func (s *IssueService) ListWorkspaceIssuesWithFilters(ctx context.Context, workspaceID string, filters shared.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
+func (s *IssueService) ListWorkspaceIssuesWithFilters(ctx context.Context, workspaceID string, filters storecontracts.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
 	if workspaceID == "" {
 		return nil, 0, apierrors.NewValidationErrors(apierrors.NewValidationError("workspace_id", "required"))
 	}
@@ -146,7 +147,7 @@ func (s *IssueService) CountOpenWorkspaceIssues(ctx context.Context, workspaceID
 	if workspaceID == "" {
 		return 0, apierrors.NewValidationErrors(apierrors.NewValidationError("workspace_id", "required"))
 	}
-	issues, _, err := s.issueStore.ListIssues(ctx, shared.IssueFilters{
+	issues, _, err := s.issueStore.ListIssues(ctx, storecontracts.IssueFilters{
 		WorkspaceID: workspaceID,
 		Status:      string(observabilitydomain.IssueStatusUnresolved),
 		Limit:       1000,
@@ -158,7 +159,7 @@ func (s *IssueService) CountOpenWorkspaceIssues(ctx context.Context, workspaceID
 }
 
 func (s *IssueService) CountRecentIssues(ctx context.Context, since time.Time) (int64, error) {
-	issues, _, err := s.issueStore.ListAllIssues(ctx, shared.IssueFilters{
+	issues, _, err := s.issueStore.ListAllIssues(ctx, storecontracts.IssueFilters{
 		Limit: 10000,
 	})
 	if err != nil {
@@ -174,12 +175,12 @@ func (s *IssueService) CountRecentIssues(ctx context.Context, since time.Time) (
 }
 
 // ListAllIssues lists all issues across workspaces (requires admin context)
-func (s *IssueService) ListAllIssues(ctx context.Context, filters shared.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
+func (s *IssueService) ListAllIssues(ctx context.Context, filters storecontracts.IssueFilters) ([]*observabilitydomain.Issue, int, error) {
 	return s.issueStore.ListAllIssues(ctx, filters)
 }
 
 // ListProjectIssues lists issues for a specific project
-func (s *IssueService) ListProjectIssues(ctx context.Context, projectID string, filter shared.IssueFilter) ([]*observabilitydomain.Issue, error) {
+func (s *IssueService) ListProjectIssues(ctx context.Context, projectID string, filter storecontracts.IssueFilter) ([]*observabilitydomain.Issue, error) {
 	if projectID == "" {
 		return nil, apierrors.NewValidationErrors(apierrors.NewValidationError("project_id", "required"))
 	}
