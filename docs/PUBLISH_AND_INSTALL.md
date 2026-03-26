@@ -18,9 +18,14 @@ runs successfully for one of these release tags:
 That workflow:
 
 - builds the bundle from the extension directory
+- checks out the pinned `MoveBigRocks/extension-sdk` release used for tooling
 - signs it with `MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64`
 - publishes it to GHCR
 - uploads the signed bundle and publisher-key snippet as artifacts
+
+The current pinned SDK tooling ref is `MoveBigRocks/extension-sdk@v0.8.20`.
+When the SDK tooling changes, cut a new SDK tag first and then update the
+workflow pin in this repo.
 
 ## Prerequisites
 
