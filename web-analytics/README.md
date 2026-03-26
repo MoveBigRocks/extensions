@@ -53,7 +53,7 @@ mbr extensions install ./web-analytics --workspace WORKSPACE_ID
 Install from the published bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v1.0.0 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20 --workspace WORKSPACE_ID
 ```
 
 Public signed bundle installs do not need a token. Keep `--license-token` for

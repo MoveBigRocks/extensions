@@ -41,10 +41,10 @@ The workflow publishes these package names:
 From a checkout of this repo:
 
 ```bash
-git tag ats-v1.0.0
-git tag error-tracking-v1.0.0
-git tag web-analytics-v1.0.0
-git push origin ats-v1.0.0 error-tracking-v1.0.0 web-analytics-v1.0.0
+git tag ats-v0.8.20
+git tag error-tracking-v0.8.20
+git tag web-analytics-v0.8.20
+git push origin ats-v0.8.20 error-tracking-v0.8.20 web-analytics-v0.8.20
 ```
 
 That should trigger three workflow runs and create three GHCR packages.
@@ -60,9 +60,9 @@ For each package, open GitHub Packages and set visibility to `Public`:
 Then verify that the install refs you expect to use are the real published
 ones:
 
-- `ghcr.io/movebigrocks/mbr-ext-ats:v1.0.0`
-- `ghcr.io/movebigrocks/mbr-ext-error-tracking:v1.0.0`
-- `ghcr.io/movebigrocks/mbr-ext-web-analytics:v1.0.0`
+- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.20`
+- `ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20`
+- `ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20`
 
 ## Install Into DemandOps
 
@@ -90,19 +90,19 @@ The current DemandOps desired-state mapping is:
 Install, validate, and activate with the real workspace IDs:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v1.0.0 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_PEOPLE --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.20 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_PEOPLE --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v1.0.0 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_MARKETING --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_MARKETING --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v1.0.0 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_ENGINEERING --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_ENGINEERING --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```

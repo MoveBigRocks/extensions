@@ -127,9 +127,9 @@ The current free public first-party bundle set is:
 Install them by OCI ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v1.0.0 --workspace WORKSPACE_ID
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v1.0.0 --workspace WORKSPACE_ID
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v1.0.0 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.20 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20 --workspace WORKSPACE_ID
 ```
 
 Or install directly from a checked-out source directory during development:

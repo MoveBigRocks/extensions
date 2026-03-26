@@ -125,20 +125,32 @@ jobs:
           echo "publish_latest=${publish_latest}" >> "${GITHUB_OUTPUT}"
 
       - name: Build raw bundle
+        working-directory: mbr-sdk
         run: |
-          test -f "${GITHUB_WORKSPACE}/mbr-sdk/scripts/build-bundle.go"
-          test -f "${GITHUB_WORKSPACE}/${{ steps.target.outputs.source_dir }}/manifest.json"
+          sdk_root="${GITHUB_WORKSPACE}/mbr-sdk"
+          source_root="${GITHUB_WORKSPACE}/${{ steps.target.outputs.source_dir }}"
+          out_path="${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json"
+          if [[ ! -f "${sdk_root}/scripts/build-bundle.go" ]]; then
+            echo "missing build script: ${sdk_root}/scripts/build-bundle.go" >&2
+            exit 1
+          fi
+          if [[ ! -f "${source_root}/manifest.json" ]]; then
+            echo "missing manifest: ${source_root}/manifest.json" >&2
+            ls -la "${GITHUB_WORKSPACE}" >&2
+            exit 1
+          fi
           mkdir -p "${GITHUB_WORKSPACE}/dist"
-          go run "${GITHUB_WORKSPACE}/mbr-sdk/scripts/build-bundle.go" \
-            --source "${GITHUB_WORKSPACE}/${{ steps.target.outputs.source_dir }}" \
-            --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json"
+          go run ./scripts/build-bundle.go \
+            --source "${source_root}" \
+            --out "${out_path}"
 
       - name: Sign public bundle
+        working-directory: mbr-sdk
         env:
           MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64: ${{ secrets.MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 }}
         run: |
           test -n "${MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64}" || (echo "MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 is required" >&2; exit 1)
-          go run "${GITHUB_WORKSPACE}/mbr-sdk/scripts/sign-bundle.go" \
+          go run ./scripts/sign-bundle.go \
             --bundle "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json" \
             --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
             --key-id "${SIGNING_KEY_ID}" \
@@ -154,12 +166,13 @@ jobs:
 
       - name: Publish bundle to GHCR
         id: publish
+        working-directory: mbr-sdk
         run: |
           extra_args=()
           if [[ "${{ steps.target.outputs.publish_latest }}" == "true" ]]; then
             extra_args+=(--extra-tag latest)
           fi
-          bash "${GITHUB_WORKSPACE}/mbr-sdk/scripts/publish-bundle-oci.sh" \
+          bash ./scripts/publish-bundle-oci.sh \
             --bundle "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
             --image "${{ steps.target.outputs.image }}" \
             --tag "${{ steps.target.outputs.publish_tag }}" \

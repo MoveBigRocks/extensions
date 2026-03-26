@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "error-tracking",
   "name": "Error Tracking",
-  "version": "1.0.0",
+  "version": "0.8.20",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "workspace",
