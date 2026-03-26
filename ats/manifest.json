@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "ats",
   "name": "Applicant Tracking",
-  "version": "0.8.20",
+  "version": "0.8.21",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "workspace",
@@ -194,7 +194,7 @@
     {
       "name": "ats-admin-dashboard",
       "class": "admin_page",
-      "mountPath": "/admin/extensions/ats",
+      "mountPath": "/extensions/ats",
       "methods": [
         "GET"
       ],

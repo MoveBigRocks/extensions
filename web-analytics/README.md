@@ -10,6 +10,22 @@ This directory is the canonical public bundle source for the free public
 `web-analytics` first-party bundle published from the public first-party
 extensions repo at `MoveBigRocks/extensions`.
 
+## Where The Runtime Source Lives Today
+
+The bundle source for `web-analytics` lives in this directory. The current
+in-process runtime implementation is still split into the platform repo:
+
+- analytics domain, handlers, and services:
+  [`MoveBigRocks/platform/internal/analytics`](https://github.com/MoveBigRocks/platform/tree/main/internal/analytics)
+- SQL stores and persistence:
+  [`MoveBigRocks/platform/internal/infrastructure/stores/sql`](https://github.com/MoveBigRocks/platform/tree/main/internal/infrastructure/stores/sql)
+- extension service-target registration:
+  [`MoveBigRocks/platform/internal/platform/extensionruntime`](https://github.com/MoveBigRocks/platform/tree/main/internal/platform/extensionruntime)
+
+So there is not a hidden separate repo for the runtime code. It is currently
+compiled with the core platform, while this repo remains the public source for
+the extension bundle, schema, assets, release tags, and published OCI refs.
+
 Current package scope:
 
 - public tracking script at `/js/analytics.js`

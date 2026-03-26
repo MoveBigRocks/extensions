@@ -8,7 +8,7 @@ base to go deeper into a specific product area without adding another SaaS
 tool, another billing relationship, or another place for operational context to
 fragment.
 
-Examples and scaffolds belong in
+Examples and scaffolds live in
 [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk).
 
 It is licensed under BSL 1.1 with the same no-resale rule used across the
@@ -23,6 +23,38 @@ on the same bounded Move Big Rocks runtime:
 - versioned and published as signed GHCR bundles
 - designed to be useful on their own, not just illustrative samples
 - public enough to inspect and learn from if you want to build your own
+
+## Where The Source Lives
+
+This repo is the public source of truth for the first-party extension bundle
+layer:
+
+- `manifest.json`
+- extension-owned `assets/`
+- extension-owned `migrations/`
+- release tags and published GHCR bundle refs
+
+For service-backed extensions, some runtime implementation still lives in
+[`MoveBigRocks/platform`](https://github.com/MoveBigRocks/platform) today.
+That split is real, and it is not the end state we want long-term.
+
+Current runtime locations:
+
+- `error-tracking` bundle source lives here; the in-process runtime currently
+  lives in
+  [`platform/internal/observability`](https://github.com/MoveBigRocks/platform/tree/main/internal/observability),
+  [`platform/internal/infrastructure/stores/sql`](https://github.com/MoveBigRocks/platform/tree/main/internal/infrastructure/stores/sql),
+  and
+  [`platform/internal/platform/extensionruntime`](https://github.com/MoveBigRocks/platform/tree/main/internal/platform/extensionruntime)
+- `web-analytics` bundle source lives here; the in-process runtime currently
+  lives in
+  [`platform/internal/analytics`](https://github.com/MoveBigRocks/platform/tree/main/internal/analytics),
+  [`platform/internal/infrastructure/stores/sql`](https://github.com/MoveBigRocks/platform/tree/main/internal/infrastructure/stores/sql),
+  and
+  [`platform/internal/platform/extensionruntime`](https://github.com/MoveBigRocks/platform/tree/main/internal/platform/extensionruntime)
+- `ats` is mostly declarative in this repo today, and builds on the shared
+  platform primitives and generic extension runtime in
+  [`MoveBigRocks/platform`](https://github.com/MoveBigRocks/platform)
 
 ## Why This Repo Exists
 
@@ -127,7 +159,7 @@ The current free public first-party bundle set is:
 Install them by OCI ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.20 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.21 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20 --workspace WORKSPACE_ID
 ```

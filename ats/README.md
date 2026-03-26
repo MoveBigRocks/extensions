@@ -18,6 +18,17 @@ It is intentionally built from the same primitives customers will use:
 This extension is intended to be part of the free public first-party bundle
 set and is the canonical public bundle source for ATS.
 
+## Where The Runtime Source Lives Today
+
+ATS is more declarative than the service-backed extensions. The public bundle
+source lives in this directory, while the shared extension runtime and the
+platform primitives it depends on still live in
+[`MoveBigRocks/platform`](https://github.com/MoveBigRocks/platform).
+
+That means the hiring-specific bundle shape is here, while the generic shared
+capabilities it builds on, like cases, contacts, forms, workflows, and the
+extension runtime itself, are still implemented in the core platform repo.
+
 Install it with the operator CLI by pointing at the directory directly:
 
 ```bash
@@ -28,7 +39,7 @@ mbr extensions install ./ats \
 Or install the published public bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.20 \
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.21 \
   --workspace WORKSPACE_ID
 ```
 

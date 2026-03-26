@@ -10,6 +10,22 @@ This directory is the canonical public bundle source for the free public
 `error-tracking` first-party bundle published from the public first-party
 extensions repo at `MoveBigRocks/extensions`.
 
+## Where The Runtime Source Lives Today
+
+The bundle source for `error-tracking` lives in this directory. The current
+in-process runtime implementation is still split into the platform repo:
+
+- observability domain and processing:
+  [`MoveBigRocks/platform/internal/observability`](https://github.com/MoveBigRocks/platform/tree/main/internal/observability)
+- SQL stores and persistence:
+  [`MoveBigRocks/platform/internal/infrastructure/stores/sql`](https://github.com/MoveBigRocks/platform/tree/main/internal/infrastructure/stores/sql)
+- extension service-target registration:
+  [`MoveBigRocks/platform/internal/platform/extensionruntime`](https://github.com/MoveBigRocks/platform/tree/main/internal/platform/extensionruntime)
+
+So there is not a hidden separate repo for the runtime code. It is currently
+compiled with the core platform, while this repo remains the public source for
+the extension bundle, schema, assets, release tags, and published OCI refs.
+
 Current package scope:
 
 - Sentry-compatible public ingest routes
