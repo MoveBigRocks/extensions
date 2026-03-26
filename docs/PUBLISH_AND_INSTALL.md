@@ -41,6 +41,22 @@ The workflow publishes these package names:
 - `ghcr.io/movebigrocks/mbr-ext-error-tracking`
 - `ghcr.io/movebigrocks/mbr-ext-web-analytics`
 
+Generate the signing seed and trusted publisher JSON once from the SDK:
+
+```bash
+go run ./scripts/generate-signing-key.go \
+  --publisher DemandOps \
+  --key-id demandops-public-1 \
+  --seed-out secrets/demandops-public-1.seed.b64 \
+  --trusted-publishers-out dist/demandops-public-1.publisher.json
+```
+
+Then:
+
+- put the seed file content into the GitHub Actions secret `MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64`
+- add the trusted publisher JSON to the instance config as `EXTENSION_TRUSTED_PUBLISHERS_JSON`
+- if the publish workflow fails in `Sign public bundle`, first verify that the secret exists and contains the raw base64 seed or private key with no extra quoting
+
 ## First Publish
 
 From a checkout of this repo:
