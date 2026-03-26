@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"
 	observabilitydomain "github.com/movebigrocks/platform/internal/observability/domain"
-	observabilityservices "github.com/movebigrocks/platform/internal/observability/services"
 	"github.com/movebigrocks/platform/pkg/eventbus"
 	"github.com/movebigrocks/platform/pkg/logger"
 )

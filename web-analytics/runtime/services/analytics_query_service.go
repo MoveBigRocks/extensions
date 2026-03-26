@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	analyticsdomain "github.com/movebigrocks/platform/internal/analytics/domain"
+	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
 )
 
 // QueryService handles all analytics dashboard queries.

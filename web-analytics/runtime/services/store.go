@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	analyticsdomain "github.com/movebigrocks/platform/internal/analytics/domain"
+	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
 )
 
 // QueryStore contains the analytics persistence operations needed by dashboard queries.

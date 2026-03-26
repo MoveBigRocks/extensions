@@ -16,7 +16,9 @@
     "migrationEngine": "postgres_sql"
   },
   "runtime": {
-    "protocol": "in_process_http"
+    "protocol": "unix_socket_http",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime:v0.8.20",
+    "digest": "sha256:pending"
   },
   "description": "Sentry-compatible error ingestion and issue workflows for a Move Big Rocks workspace.",
   "adminNavigation": [

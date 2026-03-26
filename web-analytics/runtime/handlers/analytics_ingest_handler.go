@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	analyticsservices "github.com/movebigrocks/platform/internal/analytics/services"
+	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
 	"github.com/movebigrocks/platform/internal/infrastructure/metrics"
 	"github.com/movebigrocks/platform/pkg/logger"
 )

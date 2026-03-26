@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	analyticsdomain "github.com/movebigrocks/platform/internal/analytics/domain"
-	analyticsservices "github.com/movebigrocks/platform/internal/analytics/services"
+	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
+	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
 )
 
 const defaultAnalyticsPeriod = "LAST_28_DAYS"

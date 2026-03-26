@@ -16,7 +16,9 @@
     "migrationEngine": "postgres_sql"
   },
   "runtime": {
-    "protocol": "in_process_http"
+    "protocol": "unix_socket_http",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-web-analytics-runtime:v0.8.20",
+    "digest": "sha256:pending"
   },
   "description": "Privacy-first web analytics with a lightweight tracking script and event ingest endpoint.",
   "adminNavigation": [

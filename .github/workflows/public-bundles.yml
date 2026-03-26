@@ -36,9 +36,17 @@ jobs:
     env:
       SIGNING_KEY_ID: demandops-public-1
       SDK_REF: v0.8.22
+      PLATFORM_REF: main
     steps:
       - name: Checkout extension sources
         uses: actions/checkout@v4
+
+      - name: Checkout platform sources for runtime builds
+        uses: actions/checkout@v4
+        with:
+          repository: MoveBigRocks/platform
+          ref: ${{ env.PLATFORM_REF }}
+          path: platform
 
       - name: Checkout extension SDK tooling
         uses: actions/checkout@v4
@@ -52,6 +60,12 @@ jobs:
         with:
           go-version: '1.26.0'
           cache: false
+
+      - name: Set up Go workspace
+        run: |
+          rm -f go.work go.work.sum
+          go work init .
+          go work use ./platform
 
       - name: Install ORAS
         run: |
@@ -74,18 +88,27 @@ jobs:
                 extension="ats"
                 source_dir="ats"
                 image="ghcr.io/movebigrocks/mbr-ext-ats"
+                runtime_image=""
+                runtime_cmd=""
+                needs_runtime="false"
                 publish_tag="${ref_name#ats-}"
                 ;;
               error-tracking-v*)
                 extension="error-tracking"
                 source_dir="error-tracking"
                 image="ghcr.io/movebigrocks/mbr-ext-error-tracking"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime"
+                runtime_cmd="./cmd/error-tracking-runtime"
+                needs_runtime="true"
                 publish_tag="${ref_name#error-tracking-}"
                 ;;
               web-analytics-v*)
                 extension="web-analytics"
                 source_dir="web-analytics"
                 image="ghcr.io/movebigrocks/mbr-ext-web-analytics"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-web-analytics-runtime"
+                runtime_cmd="./cmd/web-analytics-runtime"
+                needs_runtime="true"
                 publish_tag="${ref_name#web-analytics-}"
                 ;;
               *)
@@ -100,14 +123,23 @@ jobs:
               ats)
                 source_dir="ats"
                 image="ghcr.io/movebigrocks/mbr-ext-ats"
+                runtime_image=""
+                runtime_cmd=""
+                needs_runtime="false"
                 ;;
               error-tracking)
                 source_dir="error-tracking"
                 image="ghcr.io/movebigrocks/mbr-ext-error-tracking"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime"
+                runtime_cmd="./cmd/error-tracking-runtime"
+                needs_runtime="true"
                 ;;
               web-analytics)
                 source_dir="web-analytics"
                 image="ghcr.io/movebigrocks/mbr-ext-web-analytics"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-web-analytics-runtime"
+                runtime_cmd="./cmd/web-analytics-runtime"
+                needs_runtime="true"
                 ;;
               *)
                 echo "Unsupported extension input: ${extension}" >&2
@@ -124,14 +156,63 @@ jobs:
           echo "extension=${extension}" >> "${GITHUB_OUTPUT}"
           echo "source_dir=${source_dir}" >> "${GITHUB_OUTPUT}"
           echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          echo "runtime_image=${runtime_image}" >> "${GITHUB_OUTPUT}"
+          echo "runtime_cmd=${runtime_cmd}" >> "${GITHUB_OUTPUT}"
+          echo "needs_runtime=${needs_runtime}" >> "${GITHUB_OUTPUT}"
           echo "publish_tag=${publish_tag}" >> "${GITHUB_OUTPUT}"
           echo "publish_latest=${publish_latest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build runtime binary
+        if: ${{ steps.target.outputs.needs_runtime == 'true' }}
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -o "dist/${{ steps.target.outputs.extension }}-runtime" \
+            "${{ steps.target.outputs.runtime_cmd }}"
+          tar -czf "dist/${{ steps.target.outputs.extension }}-runtime-linux-amd64.tar.gz" \
+            -C dist "${{ steps.target.outputs.extension }}-runtime"
+
+      - name: Publish runtime artifact to GHCR
+        if: ${{ steps.target.outputs.needs_runtime == 'true' }}
+        id: runtime_publish
+        run: |
+          oras push "${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}" \
+            --disable-path-validation \
+            --artifact-type application/vnd.mbr.extension.runtime.v1+tar+gzip \
+            "dist/${{ steps.target.outputs.extension }}-runtime-linux-amd64.tar.gz:application/gzip"
+          if [[ "${{ steps.target.outputs.publish_latest }}" == "true" ]]; then
+            oras tag "${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}" latest
+          fi
+          digest="$(oras manifest fetch "${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}" --descriptor | jq -r '.digest')"
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Prepare staged bundle source
+        run: |
+          rm -rf staged-source
+          mkdir -p staged-source
+          cp -R "${{ steps.target.outputs.source_dir }}" "staged-source/${{ steps.target.outputs.source_dir }}"
+          if [[ "${{ steps.target.outputs.needs_runtime }}" == "true" ]]; then
+            tmp_manifest="$(mktemp)"
+            jq \
+              --arg runtime_ref "${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}" \
+              --arg runtime_digest "${{ steps.runtime_publish.outputs.digest }}" \
+              '.runtime.protocol = "unix_socket_http" | .runtime.ociReference = $runtime_ref | .runtime.digest = $runtime_digest' \
+              "staged-source/${{ steps.target.outputs.source_dir }}/manifest.json" > "${tmp_manifest}"
+            mv "${tmp_manifest}" "staged-source/${{ steps.target.outputs.source_dir }}/manifest.json"
+          fi
 
       - name: Build raw bundle
         working-directory: mbr-sdk
         run: |
           sdk_root="${GITHUB_WORKSPACE}/mbr-sdk"
-          source_root="${GITHUB_WORKSPACE}/${{ steps.target.outputs.source_dir }}"
+          source_root="${GITHUB_WORKSPACE}/staged-source/${{ steps.target.outputs.source_dir }}"
           out_path="${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json"
           if [[ ! -f "${sdk_root}/scripts/build-bundle.go" ]]; then
             echo "::error title=Missing SDK build script::${sdk_root}/scripts/build-bundle.go is missing" >&2
@@ -166,13 +247,6 @@ jobs:
             --private-key-env MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 \
             --publisher-key-out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.publisher-key.json"
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Publish bundle to GHCR
         id: publish
         working-directory: mbr-sdk
@@ -202,6 +276,10 @@ jobs:
             echo "- Source: \`${{ steps.target.outputs.source_dir }}\`"
             echo "- SDK ref: \`${SDK_REF}\`"
             echo "- OCI Ref: \`${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }}\`"
+            if [[ "${{ steps.target.outputs.needs_runtime }}" == "true" ]]; then
+              echo "- Runtime Ref: \`${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}\`"
+              echo "- Runtime Digest: \`${{ steps.runtime_publish.outputs.digest }}\`"
+            fi
             echo "- Install: \`mbr extensions install ${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }} --workspace WORKSPACE_ID\`"
             if [[ "${{ steps.target.outputs.publish_latest }}" == "true" ]]; then
               echo "- Also tagged as: \`${{ steps.target.outputs.image }}:latest\`"

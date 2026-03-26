@@ -19,6 +19,10 @@ func NewAnalyticsScriptHandler() *AnalyticsScriptHandler {
 	return &AnalyticsScriptHandler{scriptContent: content}
 }
 
+func NewAnalyticsScriptHandlerWithContent(content []byte) *AnalyticsScriptHandler {
+	return &AnalyticsScriptHandler{scriptContent: append([]byte(nil), content...)}
+}
+
 // ServeScript handles GET /js/analytics.js with aggressive caching.
 func (h *AnalyticsScriptHandler) ServeScript(c *gin.Context) {
 	if len(h.scriptContent) == 0 {
