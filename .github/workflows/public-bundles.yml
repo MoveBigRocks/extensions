@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MoveBigRocks/extension-sdk
-          path: .mbr-sdk
+          path: mbr-sdk
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -126,22 +126,24 @@ jobs:
 
       - name: Build raw bundle
         run: |
-          mkdir -p dist
-          go run ./.mbr-sdk/scripts/build-bundle.go \
-            --source "${{ steps.target.outputs.source_dir }}" \
-            --out "dist/${{ steps.target.outputs.extension }}.bundle.json"
+          test -f "${GITHUB_WORKSPACE}/mbr-sdk/scripts/build-bundle.go"
+          test -f "${GITHUB_WORKSPACE}/${{ steps.target.outputs.source_dir }}/manifest.json"
+          mkdir -p "${GITHUB_WORKSPACE}/dist"
+          go run "${GITHUB_WORKSPACE}/mbr-sdk/scripts/build-bundle.go" \
+            --source "${GITHUB_WORKSPACE}/${{ steps.target.outputs.source_dir }}" \
+            --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json"
 
       - name: Sign public bundle
         env:
           MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64: ${{ secrets.MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 }}
         run: |
           test -n "${MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64}" || (echo "MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 is required" >&2; exit 1)
-          go run ./.mbr-sdk/scripts/sign-bundle.go \
-            --bundle "dist/${{ steps.target.outputs.extension }}.bundle.json" \
-            --out "dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
+          go run "${GITHUB_WORKSPACE}/mbr-sdk/scripts/sign-bundle.go" \
+            --bundle "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json" \
+            --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
             --key-id "${SIGNING_KEY_ID}" \
             --private-key-env MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 \
-            --publisher-key-out "dist/${{ steps.target.outputs.extension }}.publisher-key.json"
+            --publisher-key-out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.publisher-key.json"
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -157,8 +159,8 @@ jobs:
           if [[ "${{ steps.target.outputs.publish_latest }}" == "true" ]]; then
             extra_args+=(--extra-tag latest)
           fi
-          ./.mbr-sdk/scripts/publish-bundle-oci.sh \
-            --bundle "dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
+          bash "${GITHUB_WORKSPACE}/mbr-sdk/scripts/publish-bundle-oci.sh" \
+            --bundle "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
             --image "${{ steps.target.outputs.image }}" \
             --tag "${{ steps.target.outputs.publish_tag }}" \
             "${extra_args[@]}"
