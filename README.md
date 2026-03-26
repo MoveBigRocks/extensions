@@ -37,7 +37,8 @@ This repo is the public source of truth for the first-party extension source:
 
 Current source layout:
 
-- `ats/` contains the ATS bundle, skills, and templates
+- `ats/` contains the ATS bundle, skills, templates, and ATS-specific domain source
+- `ats/runtime/domain/` defines Go concepts like vacancies, applicants, and applications
 - `web-analytics/runtime/` contains the web analytics runtime source
 - `web-analytics/templates/` contains the analytics admin templates
 - `error-tracking/runtime/` contains the error tracking runtime source

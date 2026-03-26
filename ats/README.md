@@ -13,6 +13,7 @@ It is intentionally built from the same primitives customers will use:
 - seeded public form that auto-creates candidate cases
 - seeded `case_created` automation rule for ATS follow-up tagging
 - branded public/admin assets
+- ATS-specific Go domain types for vacancies, applicants, and applications
 - declared endpoints, namespaced extension commands, bundled agent-skill assets, and extension events
 
 This extension is intended to be part of the free public first-party bundle
@@ -28,9 +29,22 @@ ATS is mostly declarative today. Its public source lives in this directory:
   [`assets/templates/`](./assets/templates)
 - agent skills:
   [`assets/agent-skills/`](./assets/agent-skills)
+- ATS domain model source:
+  [`runtime/domain/`](./runtime/domain)
 
 It still builds on shared platform primitives like cases, contacts, forms, and
 automation, but the ATS-specific source is already public here.
+
+The current ATS Go model defines explicit ATS concepts that do not exist in the
+shared base by default:
+
+- `Vacancy` with lifecycle methods like publish, pause, close, and reopen
+- `Applicant` with resume attachment linkage and profile/contact fields
+- `Application` with explicit stages like `received`, `screening`,
+  `interview`, `offer`, `hired`, `rejected`, and `withdrawn`
+
+That means ATS no longer only relies on generic forms/cases language in public
+source; the extension now carries its own product vocabulary in Go as well.
 
 Install it with the operator CLI by pointing at the directory directly:
 
