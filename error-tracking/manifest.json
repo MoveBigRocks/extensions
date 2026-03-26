@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "slug": "error-tracking",
+  "name": "Error Tracking",
+  "version": "1.0.0",
+  "publisher": "DemandOps",
+  "kind": "product",
+  "scope": "workspace",
+  "risk": "standard",
+  "runtimeClass": "service_backed",
+  "storageClass": "owned_schema",
+  "schema": {
+    "name": "ext_demandops_error_tracking",
+    "packageKey": "demandops/error-tracking",
+    "targetVersion": "000002",
+    "migrationEngine": "postgres_sql"
+  },
+  "runtime": {
+    "protocol": "in_process_http"
+  },
+  "description": "Sentry-compatible error ingestion and issue workflows for a Move Big Rocks workspace.",
+  "adminNavigation": [
+    {
+      "name": "error-tracking-applications",
+      "section": "Error Tracking",
+      "title": "Applications",
+      "icon": "app-window",
+      "endpoint": "error-tracking-admin-applications",
+      "activePage": "applications"
+    },
+    {
+      "name": "error-tracking-issues",
+      "section": "Error Tracking",
+      "title": "Issues",
+      "icon": "alert-circle",
+      "endpoint": "error-tracking-admin-issues",
+      "activePage": "issues"
+    }
+  ],
+  "permissions": [
+    "case:read",
+    "case:write",
+    "automation:read",
+    "automation:write"
+  ],
+  "events": {
+    "publishes": [
+      {
+        "type": "ext.demandops.error-tracking.event_ingested",
+        "description": "Published when a Sentry-compatible envelope is accepted.",
+        "schemaVersion": 1
+      }
+    ],
+    "subscribes": [
+      "case.created",
+      "case.resolved"
+    ]
+  },
+  "eventConsumers": [
+    {
+      "name": "error-events",
+      "description": "Process raw ingested error events into grouped issue updates.",
+      "stream": "error-events",
+      "consumerGroup": "error-processors",
+      "serviceTarget": "error-tracking.consumer.errors"
+    },
+    {
+      "name": "issue-events",
+      "description": "Project issue lifecycle events into extension-owned issue state.",
+      "stream": "issue-events",
+      "consumerGroup": "issue-events",
+      "serviceTarget": "error-tracking.consumer.issue-events"
+    },
+    {
+      "name": "error-tracking-case-events",
+      "description": "Apply issue-driven case linking, case creation, and bulk resolution through the error-tracking runtime.",
+      "stream": "case-events",
+      "consumerGroup": "error-tracking-case-events",
+      "serviceTarget": "error-tracking.consumer.case-events"
+    }
+  ],
+  "endpoints": [
+    {
+      "name": "error-tracking-admin-applications",
+      "class": "admin_page",
+      "mountPath": "/extensions/error-tracking/applications",
+      "methods": ["GET", "HEAD"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.applications"
+    },
+    {
+      "name": "error-tracking-admin-application-new",
+      "class": "admin_page",
+      "mountPath": "/extensions/error-tracking/applications/new",
+      "methods": ["GET", "HEAD"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.application.detail"
+    },
+    {
+      "name": "error-tracking-admin-application-detail",
+      "class": "admin_page",
+      "mountPath": "/extensions/error-tracking/applications/:id",
+      "methods": ["GET", "HEAD"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.application.detail"
+    },
+    {
+      "name": "error-tracking-admin-application-create",
+      "class": "admin_action",
+      "mountPath": "/extensions/error-tracking/applications",
+      "methods": ["POST"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.application.create"
+    },
+    {
+      "name": "error-tracking-admin-application-read",
+      "class": "admin_action",
+      "mountPath": "/extensions/error-tracking/applications/:id",
+      "methods": ["GET"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.application.get"
+    },
+    {
+      "name": "error-tracking-admin-application-update",
+      "class": "admin_action",
+      "mountPath": "/extensions/error-tracking/applications/:id",
+      "methods": ["PUT"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.application.update"
+    },
+    {
+      "name": "error-tracking-admin-application-delete",
+      "class": "admin_action",
+      "mountPath": "/extensions/error-tracking/applications/:id",
+      "methods": ["DELETE"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.application.delete"
+    },
+    {
+      "name": "error-tracking-admin-issues",
+      "class": "admin_page",
+      "mountPath": "/extensions/error-tracking/issues",
+      "methods": ["GET", "HEAD"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.issues"
+    },
+    {
+      "name": "error-tracking-admin-issue-detail",
+      "class": "admin_page",
+      "mountPath": "/extensions/error-tracking/issues/:id",
+      "methods": ["GET", "HEAD"],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.admin.issue.detail"
+    },
+    {
+      "name": "sentry-envelope",
+      "class": "public_ingest",
+      "mountPath": "/api/envelope",
+      "methods": ["POST"],
+      "auth": "public",
+      "contentTypes": ["application/x-sentry-envelope"],
+      "serviceTarget": "error-tracking.ingest.envelope"
+    },
+    {
+      "name": "sentry-envelope-project",
+      "class": "public_ingest",
+      "mountPath": "/api/:projectNumber/envelope",
+      "methods": ["POST"],
+      "auth": "public",
+      "contentTypes": ["application/x-sentry-envelope"],
+      "serviceTarget": "error-tracking.ingest.envelope.project"
+    },
+    {
+      "name": "sentry-envelope-v1",
+      "class": "public_ingest",
+      "mountPath": "/1/envelope",
+      "methods": ["POST"],
+      "auth": "public",
+      "contentTypes": ["application/x-sentry-envelope"],
+      "serviceTarget": "error-tracking.ingest.envelope"
+    },
+    {
+      "name": "error-tracking-runtime-health",
+      "class": "health",
+      "mountPath": "/extensions/error-tracking/health",
+      "methods": ["GET", "HEAD"],
+      "auth": "internal_only",
+      "workspaceBinding": "instance_scoped",
+      "serviceTarget": "error-tracking.runtime.health"
+    }
+  ],
+  "commands": [
+    {
+      "name": "error-tracking.issues.list",
+      "description": "List issues for the installed error-tracking pack."
+    }
+  ]
+}

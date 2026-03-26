@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "publisher": "DemandOps",
+  "bundles": [
+    {
+      "slug": "ats",
+      "name": "Applicant Tracking",
+      "sourceDir": "ats",
+      "ociRef": "ghcr.io/movebigrocks/mbr-ext-ats:<version>",
+      "releaseTagPattern": "ats-v<version>",
+      "kind": "product",
+      "scope": "workspace",
+      "risk": "standard",
+      "runtimeClass": "bundle"
+    },
+    {
+      "slug": "error-tracking",
+      "name": "Error Tracking",
+      "sourceDir": "error-tracking",
+      "ociRef": "ghcr.io/movebigrocks/mbr-ext-error-tracking:<version>",
+      "releaseTagPattern": "error-tracking-v<version>",
+      "kind": "product",
+      "scope": "workspace",
+      "risk": "standard",
+      "runtimeClass": "service_backed"
+    },
+    {
+      "slug": "web-analytics",
+      "name": "Web Analytics",
+      "sourceDir": "web-analytics",
+      "ociRef": "ghcr.io/movebigrocks/mbr-ext-web-analytics:<version>",
+      "releaseTagPattern": "web-analytics-v<version>",
+      "kind": "product",
+      "scope": "workspace",
+      "risk": "standard",
+      "runtimeClass": "service_backed"
+    }
+  ]
+}

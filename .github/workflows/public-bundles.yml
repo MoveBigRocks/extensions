@@ -1,0 +1,186 @@
+name: Public Extension Bundles
+
+on:
+  push:
+    tags:
+      - 'ats-v*'
+      - 'error-tracking-v*'
+      - 'web-analytics-v*'
+  workflow_dispatch:
+    inputs:
+      extension:
+        description: Extension to publish
+        required: true
+        type: choice
+        options:
+          - ats
+          - error-tracking
+          - web-analytics
+      publish_tag:
+        description: Optional OCI tag override (defaults to sha-<commit>)
+        required: false
+        type: string
+      publish_latest:
+        description: Also tag the pushed artifact as latest
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      SIGNING_KEY_ID: demandops-public-1
+    steps:
+      - name: Checkout extension sources
+        uses: actions/checkout@v4
+
+      - name: Checkout extension SDK tooling
+        uses: actions/checkout@v4
+        with:
+          repository: MoveBigRocks/extension-sdk
+          path: .mbr-sdk
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+
+      - name: Install ORAS
+        run: |
+          VERSION="1.2.0"
+          curl -LO "https://github.com/oras-project/oras/releases/download/v${VERSION}/oras_${VERSION}_linux_amd64.tar.gz"
+          tar -xzf "oras_${VERSION}_linux_amd64.tar.gz"
+          sudo mv oras /usr/local/bin/
+          oras version
+
+      - name: Resolve publication target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            ref_name="${GITHUB_REF_NAME}"
+            case "${ref_name}" in
+              ats-v*)
+                extension="ats"
+                source_dir="ats"
+                image="ghcr.io/movebigrocks/mbr-ext-ats"
+                publish_tag="${ref_name#ats-}"
+                ;;
+              error-tracking-v*)
+                extension="error-tracking"
+                source_dir="error-tracking"
+                image="ghcr.io/movebigrocks/mbr-ext-error-tracking"
+                publish_tag="${ref_name#error-tracking-}"
+                ;;
+              web-analytics-v*)
+                extension="web-analytics"
+                source_dir="web-analytics"
+                image="ghcr.io/movebigrocks/mbr-ext-web-analytics"
+                publish_tag="${ref_name#web-analytics-}"
+                ;;
+              *)
+                echo "Unsupported release tag: ${ref_name}" >&2
+                exit 1
+                ;;
+            esac
+            publish_latest="true"
+          else
+            extension="${{ github.event.inputs.extension }}"
+            case "${extension}" in
+              ats)
+                source_dir="ats"
+                image="ghcr.io/movebigrocks/mbr-ext-ats"
+                ;;
+              error-tracking)
+                source_dir="error-tracking"
+                image="ghcr.io/movebigrocks/mbr-ext-error-tracking"
+                ;;
+              web-analytics)
+                source_dir="web-analytics"
+                image="ghcr.io/movebigrocks/mbr-ext-web-analytics"
+                ;;
+              *)
+                echo "Unsupported extension input: ${extension}" >&2
+                exit 1
+                ;;
+            esac
+            publish_tag="${{ github.event.inputs.publish_tag }}"
+            if [[ -z "${publish_tag}" ]]; then
+              publish_tag="sha-${GITHUB_SHA::12}"
+            fi
+            publish_latest="${{ github.event.inputs.publish_latest }}"
+          fi
+
+          echo "extension=${extension}" >> "${GITHUB_OUTPUT}"
+          echo "source_dir=${source_dir}" >> "${GITHUB_OUTPUT}"
+          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          echo "publish_tag=${publish_tag}" >> "${GITHUB_OUTPUT}"
+          echo "publish_latest=${publish_latest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build raw bundle
+        run: |
+          mkdir -p dist
+          go run ./.mbr-sdk/scripts/build-bundle.go \
+            --source "${{ steps.target.outputs.source_dir }}" \
+            --out "dist/${{ steps.target.outputs.extension }}.bundle.json"
+
+      - name: Sign public bundle
+        env:
+          MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64: ${{ secrets.MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 }}
+        run: |
+          test -n "${MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64}" || (echo "MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 is required" >&2; exit 1)
+          go run ./.mbr-sdk/scripts/sign-bundle.go \
+            --bundle "dist/${{ steps.target.outputs.extension }}.bundle.json" \
+            --out "dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
+            --key-id "${SIGNING_KEY_ID}" \
+            --private-key-env MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 \
+            --publisher-key-out "dist/${{ steps.target.outputs.extension }}.publisher-key.json"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish bundle to GHCR
+        id: publish
+        run: |
+          extra_args=()
+          if [[ "${{ steps.target.outputs.publish_latest }}" == "true" ]]; then
+            extra_args+=(--extra-tag latest)
+          fi
+          ./.mbr-sdk/scripts/publish-bundle-oci.sh \
+            --bundle "dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
+            --image "${{ steps.target.outputs.image }}" \
+            --tag "${{ steps.target.outputs.publish_tag }}" \
+            "${extra_args[@]}"
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-bundle-${{ steps.target.outputs.extension }}-${{ steps.target.outputs.publish_tag }}
+          path: dist/*
+
+      - name: Publish summary
+        run: |
+          {
+            echo "## Public Bundle Published"
+            echo
+            echo "- Extension: \`${{ steps.target.outputs.extension }}\`"
+            echo "- Source: \`${{ steps.target.outputs.source_dir }}\`"
+            echo "- OCI Ref: \`${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }}\`"
+            echo "- Install: \`mbr extensions install ${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }} --workspace WORKSPACE_ID\`"
+            if [[ "${{ steps.target.outputs.publish_latest }}" == "true" ]]; then
+              echo "- Also tagged as: \`${{ steps.target.outputs.image }}:latest\`"
+            fi
+            echo
+            echo "Trusted publisher key snippet is uploaded as a workflow artifact."
+          } >> "${GITHUB_STEP_SUMMARY}"

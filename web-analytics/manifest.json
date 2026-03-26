@@ -1,0 +1,365 @@
+{
+  "schemaVersion": 1,
+  "slug": "web-analytics",
+  "name": "Web Analytics",
+  "version": "1.0.0",
+  "publisher": "DemandOps",
+  "kind": "product",
+  "scope": "workspace",
+  "risk": "standard",
+  "runtimeClass": "service_backed",
+  "storageClass": "owned_schema",
+  "schema": {
+    "name": "ext_demandops_web_analytics",
+    "packageKey": "demandops/web-analytics",
+    "targetVersion": "000002",
+    "migrationEngine": "postgres_sql"
+  },
+  "runtime": {
+    "protocol": "in_process_http"
+  },
+  "description": "Privacy-first web analytics with a lightweight tracking script and event ingest endpoint.",
+  "adminNavigation": [
+    {
+      "name": "web-analytics-properties",
+      "section": "Analytics",
+      "title": "Web Analytics",
+      "icon": "bar-chart-3",
+      "endpoint": "analytics-admin-properties",
+      "activePage": "analytics"
+    }
+  ],
+  "dashboardWidgets": [
+    {
+      "name": "analytics-overview",
+      "title": "Web Analytics",
+      "description": "Open analytics properties and workspace dashboards.",
+      "icon": "bar-chart-3",
+      "endpoint": "analytics-admin-properties"
+    }
+  ],
+  "permissions": [
+    "analytics:write",
+    "analytics:read"
+  ],
+  "endpoints": [
+    {
+      "name": "analytics-ingest",
+      "class": "public_ingest",
+      "mountPath": "/api/analytics/event",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "analytics.ingest.event",
+      "contentTypes": [
+        "text/plain",
+        "application/json"
+      ],
+      "maxBodyBytes": 65536,
+      "rateLimitPerMinute": 240
+    },
+    {
+      "name": "analytics-script",
+      "class": "public_asset",
+      "mountPath": "/js/analytics.js",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "analytics.asset.script",
+      "contentTypes": [
+        "application/javascript"
+      ],
+      "rateLimitPerMinute": 1200
+    },
+    {
+      "name": "analytics-admin-properties",
+      "class": "admin_page",
+      "mountPath": "/extensions/web-analytics",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.admin.properties"
+    },
+    {
+      "name": "analytics-admin-dashboard",
+      "class": "admin_page",
+      "mountPath": "/extensions/web-analytics/:id",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.admin.property.dashboard"
+    },
+    {
+      "name": "analytics-admin-setup",
+      "class": "admin_page",
+      "mountPath": "/extensions/web-analytics/:id/setup",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.admin.property.setup"
+    },
+    {
+      "name": "analytics-admin-settings",
+      "class": "admin_page",
+      "mountPath": "/extensions/web-analytics/:id/settings",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.admin.property.settings"
+    },
+    {
+      "name": "analytics-api-properties",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.properties"
+    },
+    {
+      "name": "analytics-api-properties-create",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.properties.create"
+    },
+    {
+      "name": "analytics-api-property",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.get"
+    },
+    {
+      "name": "analytics-api-property-update",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id",
+      "methods": [
+        "PATCH"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.update"
+    },
+    {
+      "name": "analytics-api-property-delete",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id",
+      "methods": [
+        "DELETE"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.delete"
+    },
+    {
+      "name": "analytics-api-property-reset",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/reset",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.reset"
+    },
+    {
+      "name": "analytics-api-property-current-visitors",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/current-visitors",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.current_visitors"
+    },
+    {
+      "name": "analytics-api-property-verify",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/verify",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.verify"
+    },
+    {
+      "name": "analytics-api-property-metrics",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/metrics",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.metrics"
+    },
+    {
+      "name": "analytics-api-property-timeseries",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/timeseries",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.timeseries"
+    },
+    {
+      "name": "analytics-api-property-breakdown",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/breakdown",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.breakdown"
+    },
+    {
+      "name": "analytics-api-property-goals",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/goals",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.goals"
+    },
+    {
+      "name": "analytics-api-property-goal-results",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/goal-results",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.goal_results"
+    },
+    {
+      "name": "analytics-api-property-goal-create",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/goals",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.goal.create"
+    },
+    {
+      "name": "analytics-api-goal-delete",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/goals/:goalID",
+      "methods": [
+        "DELETE"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.goal.delete"
+    },
+    {
+      "name": "analytics-api-property-hostname-rules",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/hostname-rules",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.hostname_rules"
+    },
+    {
+      "name": "analytics-api-property-hostname-rule-create",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/properties/:id/hostname-rules",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.property.hostname_rule.create"
+    },
+    {
+      "name": "analytics-api-hostname-rule-delete",
+      "class": "extension_api",
+      "mountPath": "/extensions/web-analytics/api/hostname-rules/:ruleID",
+      "methods": [
+        "DELETE"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "analytics.api.hostname_rule.delete"
+    },
+    {
+      "name": "analytics-runtime-health",
+      "class": "health",
+      "mountPath": "/extensions/web-analytics/health",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "internal_only",
+      "workspaceBinding": "instance_scoped",
+      "serviceTarget": "analytics.runtime.health"
+    }
+  ],
+  "events": {
+    "publishes": [
+      {
+        "type": "ext.demandops.web_analytics.goal_triggered",
+        "description": "A tracked analytics goal was matched for a property.",
+        "schemaVersion": 1
+      }
+    ],
+    "subscribes": [
+      "form.submitted",
+      "case.created"
+    ]
+  },
+  "scheduledJobs": [
+    {
+      "name": "analytics-maintenance",
+      "description": "Rotate salts, refresh caches, and clean expired rate limit entries.",
+      "intervalSeconds": 300,
+      "serviceTarget": "analytics.job.maintenance"
+    }
+  ],
+  "commands": [
+    {
+      "name": "web-analytics.properties.list",
+      "description": "List configured analytics properties."
+    }
+  ]
+}
