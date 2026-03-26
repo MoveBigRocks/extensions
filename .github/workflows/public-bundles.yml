@@ -51,6 +51,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.0'
+          cache: false
 
       - name: Install ORAS
         run: |
@@ -133,10 +134,12 @@ jobs:
           source_root="${GITHUB_WORKSPACE}/${{ steps.target.outputs.source_dir }}"
           out_path="${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json"
           if [[ ! -f "${sdk_root}/scripts/build-bundle.go" ]]; then
+            echo "::error title=Missing SDK build script::${sdk_root}/scripts/build-bundle.go is missing" >&2
             echo "missing build script: ${sdk_root}/scripts/build-bundle.go" >&2
             exit 1
           fi
           if [[ ! -f "${source_root}/manifest.json" ]]; then
+            echo "::error title=Missing extension manifest::${source_root}/manifest.json is missing" >&2
             echo "missing manifest: ${source_root}/manifest.json" >&2
             ls -la "${GITHUB_WORKSPACE}" >&2
             exit 1
@@ -151,7 +154,11 @@ jobs:
         env:
           MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64: ${{ secrets.MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 }}
         run: |
-          test -n "${MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64}" || (echo "MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 is required" >&2; exit 1)
+          if [[ -z "${MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64}" ]]; then
+            echo "::error title=Missing signing secret::Set MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 in the MoveBigRocks/extensions repo secrets." >&2
+            echo "MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 is required" >&2
+            exit 1
+          fi
           go run ./scripts/sign-bundle.go \
             --bundle "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json" \
             --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
