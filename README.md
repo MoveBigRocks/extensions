@@ -8,10 +8,11 @@ base to go deeper into a specific product area without adding another SaaS
 tool, another billing relationship, or another place for operational context to
 fragment.
 
-Examples and scaffolds belong in `MoveBigRocks/extension-sdk`.
+Examples and scaffolds belong in
+[`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk).
 
 It is licensed under BSL 1.1 with the same no-resale rule used across the
-public Move Big Rocks code and extension surfaces. See `LICENSE`.
+public Move Big Rocks code and extension surfaces. See [LICENSE](LICENSE).
 
 ## Production Intent
 
@@ -63,7 +64,7 @@ Good fit:
 - teams that want to inspect or extend the full source instead of renting a
   black box
 
-- source: `ats/`
+- source: [`ats/`](./ats)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-ats:<version>`
 
 ### Error Tracking
@@ -87,7 +88,7 @@ Good fit:
 
 Compatibility note: Sentry-compatible ingest is the core positioning here.
 
-- source: `error-tracking/`
+- source: [`error-tracking/`](./error-tracking)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-error-tracking:<version>`
 
 ### Web Analytics
@@ -112,7 +113,7 @@ Good fit:
 
 Positioning note: cookie-free, privacy-first analytics out of the box.
 
-- source: `web-analytics/`
+- source: [`web-analytics/`](./web-analytics)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-web-analytics:<version>`
 
 ## Install The Current Bundle Set
@@ -150,7 +151,8 @@ mbr extensions activate --id EXTENSION_ID
 
 - keep first-party production extensions out of the core repo
 - keep them together in one public first-party extensions repo for now
-- keep templates, examples, and scaffolds in `MoveBigRocks/extension-sdk`
+- keep templates, examples, and scaffolds in
+  [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk)
 - split extensions into separate repos later only if ownership, release
   cadence, or compliance needs diverge
 
@@ -173,18 +175,28 @@ Release tags are:
 - `web-analytics-v<version>`
 
 The machine-readable catalog for the public bundle set lives in
-`catalog/public-bundles.json`.
+[`catalog/public-bundles.json`](./catalog/public-bundles.json).
+
+Packages are created by
+[`public-bundles.yml`](./.github/workflows/public-bundles.yml) when one of the
+release tags below is pushed. If the GitHub Packages tab is empty, the first
+tagged publish has not completed yet.
 
 Operational note: after the first GHCR publication for each package, set the
 package visibility to `Public` in GitHub Packages so the OCI refs are
 anonymously pullable.
+
+The end-to-end publish and install runbook lives in
+[`docs/PUBLISH_AND_INSTALL.md`](./docs/PUBLISH_AND_INSTALL.md).
 
 ## Repo Rules
 
 - keep first-party extensions installable from source checkout
 - keep the public set non-privileged
 - publish the free public first-party bundle set from this public repo
-- keep examples and scaffolds in `MoveBigRocks/extension-sdk`, not here
+- keep examples and scaffolds in
+  [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk),
+  not here
 - do not use this repo as the source of truth for privileged first-party packs
 
 ## Learn From These
