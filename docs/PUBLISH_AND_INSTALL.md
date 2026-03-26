@@ -23,7 +23,7 @@ That workflow:
 - publishes it to GHCR
 - uploads the signed bundle and publisher-key snippet as artifacts
 
-The current pinned SDK tooling ref is `MoveBigRocks/extension-sdk@v0.8.20`.
+The current pinned SDK tooling ref is `MoveBigRocks/extension-sdk@v0.8.22`.
 When the SDK tooling changes, cut a new SDK tag first and then update the
 workflow pin in this repo.
 
