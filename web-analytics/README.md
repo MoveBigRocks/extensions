@@ -14,6 +14,8 @@ extensions repo at `MoveBigRocks/extensions`.
 
 The public runtime source for `web-analytics` now lives in this directory:
 
+- contract assertions:
+  [`extension.contract.json`](./extension.contract.json)
 - runtime domain, handlers, resolvers, services, and SQL-backed store code:
   [`runtime/`](./runtime)
 - admin templates:
@@ -60,7 +62,8 @@ Distribution status:
 Install from source during development:
 
 ```bash
-mbr extensions install ./web-analytics --workspace WORKSPACE_ID
+mbr extensions lint ./web-analytics --json
+mbr extensions verify ./web-analytics --workspace WORKSPACE_ID --json
 ```
 
 Install from the published bundle ref:

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{{.Idea.Title}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        color: #0f172a;
+        background:
+          radial-gradient(circle at top left, rgba(14, 116, 144, 0.14), transparent 22rem),
+          linear-gradient(180deg, #f8fbff, #eef4fa);
+      }
+      .page {
+        max-width: 60rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #dbe4f0;
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+      }
+      .status {
+        display: inline-flex;
+        border-radius: 999px;
+        padding: 0.3rem 0.6rem;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        font-size: 0.78rem;
+        margin-bottom: 0.7rem;
+      }
+      .meta {
+        color: #475569;
+        margin-bottom: 1.2rem;
+      }
+      .body {
+        white-space: pre-wrap;
+        line-height: 1.7;
+        color: #1e293b;
+      }
+      .actions {
+        display: flex;
+        gap: 0.8rem;
+        align-items: center;
+        margin-top: 1.5rem;
+      }
+      button, a {
+        font: inherit;
+      }
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 0.8rem 1rem;
+        background: linear-gradient(135deg, #0f4c81, #0f766e);
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      a {
+        color: #0f4c81;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <article class="card">
+        <a href="/community/ideas">← Back to board</a>
+        <div class="status" style="margin-top:1rem;">{{statusLabel .Idea.Status}}</div>
+        <h1 style="margin:0 0 0.5rem;">{{.Idea.Title}}</h1>
+        <div class="meta">
+          {{.Idea.VoteCount}} votes • submitted {{fmtTime .Idea.CreatedAt}}
+          {{if .Idea.SubmitterName}} • by {{.Idea.SubmitterName}}{{end}}
+        </div>
+        <div class="body">{{.Idea.DescriptionMarkdown}}</div>
+        <div class="actions">
+          <form action="/community/ideas/{{.Idea.Slug}}/vote" method="post">
+            <button type="submit">Vote for this idea</button>
+          </form>
+          <span style="color:#475569;">One vote per browser.</span>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>

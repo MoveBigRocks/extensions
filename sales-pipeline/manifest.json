@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "slug": "sales-pipeline",
+  "name": "Sales Pipeline",
+  "version": "0.1.0",
+  "publisher": "DemandOps",
+  "kind": "product",
+  "scope": "workspace",
+  "risk": "standard",
+  "runtimeClass": "service_backed",
+  "storageClass": "owned_schema",
+  "schema": {
+    "name": "ext_demandops_sales_pipeline",
+    "packageKey": "demandops/sales-pipeline",
+    "targetVersion": "000001",
+    "migrationEngine": "postgres_sql"
+  },
+  "runtime": {
+    "protocol": "unix_socket_http",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-sales-pipeline-runtime:v0.1.0",
+    "digest": "sha256:pending"
+  },
+  "description": "Manage a lightweight sales pipeline with configurable stages, opportunity values, and workspace-native intake hooks.",
+  "workspacePlan": {
+    "mode": "provision_dedicated_workspace",
+    "name": "Sales",
+    "slug": "sales",
+    "description": "Dedicated workspace for sales operations, intake, and follow-up."
+  },
+  "permissions": [
+    "case:read",
+    "case:write",
+    "contact:read",
+    "contact:write",
+    "form:read",
+    "form:write",
+    "automation:write"
+  ],
+  "queues": [
+    {
+      "slug": "sales-follow-up",
+      "name": "Sales Follow-up",
+      "description": "Default queue for deal intake and follow-up actions."
+    }
+  ],
+  "forms": [
+    {
+      "slug": "sales-deal-intake",
+      "name": "Sales Deal Intake",
+      "description": "Internal intake form for capturing new deals from operators or automations.",
+      "status": "active",
+      "isPublic": false,
+      "requiresAuth": true,
+      "allowMultiple": true,
+      "collectEmail": true,
+      "autoCreateCase": true,
+      "autoCasePriority": "normal",
+      "autoCaseType": "sales",
+      "autoTags": [
+        "sales",
+        "pipeline"
+      ],
+      "submissionMessage": "The opportunity has been captured and routed into the pipeline.",
+      "theme": "sales-pipeline",
+      "schema": {
+        "type": "object",
+        "required": [
+          "opportunity_name"
+        ],
+        "properties": {
+          "opportunity_name": {
+            "type": "string",
+            "title": "Opportunity Name"
+          },
+          "organization_name": {
+            "type": "string",
+            "title": "Account / Organization"
+          },
+          "contact_name": {
+            "type": "string",
+            "title": "Primary Contact"
+          },
+          "contact_email": {
+            "type": "string",
+            "title": "Contact Email",
+            "format": "email"
+          },
+          "estimated_value": {
+            "type": "number",
+            "title": "Estimated Value"
+          },
+          "expected_close_date": {
+            "type": "string",
+            "title": "Expected Close Date"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes"
+          }
+        }
+      },
+      "uiSchema": {
+        "order": [
+          "opportunity_name",
+          "organization_name",
+          "contact_name",
+          "contact_email",
+          "estimated_value",
+          "expected_close_date",
+          "notes"
+        ]
+      }
+    }
+  ],
+  "automationRules": [
+    {
+      "key": "ext.demandops.sales-pipeline.deal_intake_tag",
+      "title": "Sales deal intake follow-up",
+      "description": "Tag new intake cases that came from the sales deal intake form.",
+      "isActive": true,
+      "priority": 45,
+      "maxExecutionsPerHour": 500,
+      "maxExecutionsPerDay": 5000,
+      "conditions": {
+        "operator": "and",
+        "conditions": [
+          {
+            "type": "event",
+            "field": "trigger",
+            "operator": "equals",
+            "value": "case_created"
+          },
+          {
+            "type": "field",
+            "field": "form_slug",
+            "operator": "equals",
+            "value": "sales-deal-intake"
+          }
+        ]
+      },
+      "actions": {
+        "actions": [
+          {
+            "type": "add_tag",
+            "value": "sales-pipeline-review"
+          }
+        ]
+      }
+    }
+  ],
+  "adminNavigation": [
+    {
+      "name": "sales-pipeline-dashboard",
+      "section": "Revenue",
+      "title": "Sales Pipeline",
+      "icon": "briefcase-business",
+      "endpoint": "sales-pipeline-admin-dashboard",
+      "activePage": "sales-pipeline"
+    }
+  ],
+  "dashboardWidgets": [
+    {
+      "name": "sales-pipeline-overview",
+      "title": "Sales Pipeline",
+      "description": "Open the opportunity board and review active stages.",
+      "icon": "briefcase-business",
+      "endpoint": "sales-pipeline-admin-dashboard"
+    }
+  ],
+  "endpoints": [
+    {
+      "name": "sales-pipeline-admin-dashboard",
+      "class": "admin_page",
+      "mountPath": "/extensions/sales-pipeline",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "sales-pipeline.admin.dashboard"
+    },
+    {
+      "name": "sales-pipeline-api-board",
+      "class": "extension_api",
+      "mountPath": "/extensions/sales-pipeline/api/board",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "sales-pipeline.api.board"
+    },
+    {
+      "name": "sales-pipeline-api-deal-create",
+      "class": "extension_api",
+      "mountPath": "/extensions/sales-pipeline/api/deals",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "sales-pipeline.api.deals.create"
+    },
+    {
+      "name": "sales-pipeline-api-deal-move",
+      "class": "extension_api",
+      "mountPath": "/extensions/sales-pipeline/api/deals/:id/stage",
+      "methods": [
+        "PATCH"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "sales-pipeline.api.deals.move"
+    },
+    {
+      "name": "sales-pipeline-runtime-health",
+      "class": "health",
+      "mountPath": "/extensions/sales-pipeline/health",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "internal_only",
+      "workspaceBinding": "instance_scoped",
+      "serviceTarget": "sales-pipeline.runtime.health"
+    }
+  ],
+  "commands": [
+    {
+      "name": "sales-pipeline.board.open",
+      "description": "Open the sales board and review current stage totals."
+    }
+  ],
+  "agentSkills": [
+    {
+      "name": "operate-sales-pipeline",
+      "description": "Review the board, validate intake hooks, and monitor the pack after activation.",
+      "assetPath": "agent-skills/operate-pack.md"
+    }
+  ],
+  "defaultConfig": {
+    "mode": "b2b"
+  }
+}

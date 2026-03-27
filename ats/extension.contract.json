@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "extensionSlug": "ats",
+  "resolvedAdminNavigation": [
+    {
+      "section": "Extensions",
+      "title": "ATS",
+      "icon": "briefcase-business",
+      "href": "/extensions/ats",
+      "activePage": "ats"
+    }
+  ],
+  "resolvedDashboardWidgets": [
+    {
+      "title": "ATS Workspace",
+      "description": "Open the hiring dashboard and review candidate workflows.",
+      "icon": "briefcase-business",
+      "href": "/extensions/ats"
+    }
+  ],
+  "seededQueues": [
+    "general-applications",
+    "talent-pool"
+  ],
+  "seededForms": [
+    "job-application"
+  ],
+  "seededAutomationRules": [
+    "ext.demandops.ats.application_received_tag"
+  ],
+  "publicPaths": [
+    "/careers",
+    "/careers/apply"
+  ],
+  "adminPaths": [
+    "/extensions/ats"
+  ],
+  "commands": [
+    "ats.candidates.stage.set",
+    "ats.jobs.close",
+    "ats.jobs.publish"
+  ],
+  "agentSkills": [
+    "publish-job",
+    "review-candidates"
+  ]
+}

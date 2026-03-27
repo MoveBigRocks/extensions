@@ -12,7 +12,9 @@ The packages are created only when
 runs successfully for one of these release tags:
 
 - `ats-v<version>`
+- `community-feature-requests-v<version>`
 - `error-tracking-v<version>`
+- `sales-pipeline-v<version>`
 - `web-analytics-v<version>`
 
 That workflow:
@@ -27,6 +29,20 @@ The current pinned SDK tooling ref is `MoveBigRocks/extension-sdk@v0.8.22`.
 When the SDK tooling changes, cut a new SDK tag first and then update the
 workflow pin in this repo.
 
+Before tagging and publishing, each extension directory should pass:
+
+```bash
+mbr extensions lint ./EXTENSION_DIR --json
+mbr extensions verify ./EXTENSION_DIR --workspace WORKSPACE_ID --json
+```
+
+If the declared extension surface changed intentionally, refresh the checked-in
+contract file first:
+
+```bash
+mbr extensions lint ./EXTENSION_DIR --write-contract --json
+```
+
 ## Prerequisites
 
 Before the first publish, make sure the `MoveBigRocks/extensions` repo has:
@@ -38,7 +54,9 @@ Before the first publish, make sure the `MoveBigRocks/extensions` repo has:
 The workflow publishes these package names:
 
 - `ghcr.io/movebigrocks/mbr-ext-ats`
+- `ghcr.io/movebigrocks/mbr-ext-community-feature-requests`
 - `ghcr.io/movebigrocks/mbr-ext-error-tracking`
+- `ghcr.io/movebigrocks/mbr-ext-sales-pipeline`
 - `ghcr.io/movebigrocks/mbr-ext-web-analytics`
 
 Generate the signing seed and trusted publisher JSON once from the SDK:
@@ -63,26 +81,32 @@ From a checkout of this repo:
 
 ```bash
 git tag ats-v0.8.21
+git tag community-feature-requests-v0.1.0
 git tag error-tracking-v0.8.20
+git tag sales-pipeline-v0.1.0
 git tag web-analytics-v0.8.20
-git push origin ats-v0.8.21 error-tracking-v0.8.20 web-analytics-v0.8.20
+git push origin ats-v0.8.21 community-feature-requests-v0.1.0 error-tracking-v0.8.20 sales-pipeline-v0.1.0 web-analytics-v0.8.20
 ```
 
-That should trigger three workflow runs and create three GHCR packages.
+That should trigger five workflow runs and create five GHCR packages.
 
 ## After The First Publish
 
 For each package, open GitHub Packages and set visibility to `Public`:
 
 - `mbr-ext-ats`
+- `mbr-ext-community-feature-requests`
 - `mbr-ext-error-tracking`
+- `mbr-ext-sales-pipeline`
 - `mbr-ext-web-analytics`
 
 Then verify that the install refs you expect to use are the real published
 ones:
 
 - `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.21`
+- `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0`
 - `ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20`
+- `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0`
 - `ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20`
 
 ## Install Into DemandOps

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "extensionSlug": "web-analytics",
+  "resolvedAdminNavigation": [
+    {
+      "section": "Analytics",
+      "title": "Web Analytics",
+      "icon": "bar-chart-3",
+      "href": "/extensions/web-analytics",
+      "activePage": "analytics"
+    }
+  ],
+  "resolvedDashboardWidgets": [
+    {
+      "title": "Web Analytics",
+      "description": "Open analytics properties and workspace dashboards.",
+      "icon": "bar-chart-3",
+      "href": "/extensions/web-analytics"
+    }
+  ],
+  "publicPaths": [
+    "/api/analytics/event",
+    "/js/analytics.js"
+  ],
+  "adminPaths": [
+    "/extensions/web-analytics",
+    "/extensions/web-analytics/:id",
+    "/extensions/web-analytics/:id/settings",
+    "/extensions/web-analytics/:id/setup",
+    "/extensions/web-analytics/api/goals/:goalID",
+    "/extensions/web-analytics/api/hostname-rules/:ruleID",
+    "/extensions/web-analytics/api/properties",
+    "/extensions/web-analytics/api/properties/:id",
+    "/extensions/web-analytics/api/properties/:id/breakdown",
+    "/extensions/web-analytics/api/properties/:id/current-visitors",
+    "/extensions/web-analytics/api/properties/:id/goal-results",
+    "/extensions/web-analytics/api/properties/:id/goals",
+    "/extensions/web-analytics/api/properties/:id/hostname-rules",
+    "/extensions/web-analytics/api/properties/:id/metrics",
+    "/extensions/web-analytics/api/properties/:id/reset",
+    "/extensions/web-analytics/api/properties/:id/timeseries",
+    "/extensions/web-analytics/api/properties/:id/verify"
+  ],
+  "healthPaths": [
+    "/extensions/web-analytics/health"
+  ],
+  "commands": [
+    "web-analytics.properties.list"
+  ]
+}

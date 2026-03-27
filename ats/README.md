@@ -27,6 +27,8 @@ directory:
 
 - bundle manifest:
   [`manifest.json`](./manifest.json)
+- contract assertions:
+  [`extension.contract.json`](./extension.contract.json)
 - careers and admin templates:
   [`assets/templates/`](./assets/templates)
 - agent skills:
@@ -76,6 +78,8 @@ Things ATS does not claim yet:
 Install it with the operator CLI by pointing at the directory directly:
 
 ```bash
+mbr extensions lint ./ats --json
+mbr extensions verify ./ats --workspace WORKSPACE_ID --json
 mbr extensions install ./ats \
   --workspace WORKSPACE_ID
 ```

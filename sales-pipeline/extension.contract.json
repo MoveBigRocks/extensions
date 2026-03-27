@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "extensionSlug": "sales-pipeline",
+  "resolvedAdminNavigation": [
+    {
+      "section": "Revenue",
+      "title": "Sales Pipeline",
+      "icon": "briefcase-business",
+      "href": "/extensions/sales-pipeline",
+      "activePage": "sales-pipeline"
+    }
+  ],
+  "resolvedDashboardWidgets": [
+    {
+      "title": "Sales Pipeline",
+      "description": "Open the opportunity board and review active stages.",
+      "icon": "briefcase-business",
+      "href": "/extensions/sales-pipeline"
+    }
+  ],
+  "seededQueues": [
+    "sales-follow-up"
+  ],
+  "seededForms": [
+    "sales-deal-intake"
+  ],
+  "seededAutomationRules": [
+    "ext.demandops.sales-pipeline.deal_intake_tag"
+  ],
+  "adminPaths": [
+    "/extensions/sales-pipeline",
+    "/extensions/sales-pipeline/api/board",
+    "/extensions/sales-pipeline/api/deals",
+    "/extensions/sales-pipeline/api/deals/:id/stage"
+  ],
+  "healthPaths": [
+    "/extensions/sales-pipeline/health"
+  ],
+  "commands": [
+    "sales-pipeline.board.open"
+  ],
+  "agentSkills": [
+    "operate-sales-pipeline"
+  ]
+}

@@ -14,6 +14,8 @@ extensions repo at `MoveBigRocks/extensions`.
 
 The public runtime source for `error-tracking` now lives in this directory:
 
+- contract assertions:
+  [`extension.contract.json`](./extension.contract.json)
 - runtime domain, handlers, resolvers, services, and SQL-backed store code:
   [`runtime/`](./runtime)
 - admin templates:
@@ -61,7 +63,8 @@ Distribution status:
 Install from source during development:
 
 ```bash
-mbr extensions install ./error-tracking --workspace WORKSPACE_ID
+mbr extensions lint ./error-tracking --json
+mbr extensions verify ./error-tracking --workspace WORKSPACE_ID --json
 ```
 
 Install from the published bundle ref:

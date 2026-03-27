@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "slug": "community-feature-requests",
+  "name": "Community Feature Requests",
+  "version": "0.1.0",
+  "publisher": "DemandOps",
+  "kind": "product",
+  "scope": "workspace",
+  "risk": "standard",
+  "runtimeClass": "service_backed",
+  "storageClass": "owned_schema",
+  "schema": {
+    "name": "ext_demandops_community_feature_requests",
+    "packageKey": "demandops/community-feature-requests",
+    "targetVersion": "000001",
+    "migrationEngine": "postgres_sql"
+  },
+  "runtime": {
+    "protocol": "unix_socket_http",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-community-feature-requests-runtime:v0.1.0",
+    "digest": "sha256:pending"
+  },
+  "description": "Collect public product ideas, let the community vote, and triage requests inside Move Big Rocks.",
+  "workspacePlan": {
+    "mode": "provision_dedicated_workspace",
+    "name": "Community",
+    "slug": "community",
+    "description": "Dedicated workspace for public feedback, triage, and roadmap review."
+  },
+  "permissions": [
+    "case:read",
+    "case:write",
+    "queue:read",
+    "queue:write",
+    "knowledge:read"
+  ],
+  "queues": [
+    {
+      "slug": "community-triage",
+      "name": "Community Triage",
+      "description": "Default queue for reviewing and responding to incoming public feature requests."
+    }
+  ],
+  "adminNavigation": [
+    {
+      "name": "community-feature-requests-dashboard",
+      "section": "Community",
+      "title": "Feature Requests",
+      "icon": "messages-square",
+      "endpoint": "community-feature-requests-admin-dashboard",
+      "activePage": "community-feature-requests"
+    }
+  ],
+  "dashboardWidgets": [
+    {
+      "name": "community-feature-requests-overview",
+      "title": "Community Requests",
+      "description": "Review the public board and update request status.",
+      "icon": "messages-square",
+      "endpoint": "community-feature-requests-admin-dashboard"
+    }
+  ],
+  "endpoints": [
+    {
+      "name": "community-feature-requests-public-board",
+      "class": "public_page",
+      "mountPath": "/community/ideas",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "community-feature-requests.public.board"
+    },
+    {
+      "name": "community-feature-requests-public-detail",
+      "class": "public_page",
+      "mountPath": "/community/ideas/:slug",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "community-feature-requests.public.detail"
+    },
+    {
+      "name": "community-feature-requests-public-submit",
+      "class": "public_ingest",
+      "mountPath": "/community/ideas",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "community-feature-requests.public.submit",
+      "contentTypes": [
+        "application/x-www-form-urlencoded",
+        "multipart/form-data"
+      ],
+      "maxBodyBytes": 65536,
+      "rateLimitPerMinute": 60
+    },
+    {
+      "name": "community-feature-requests-public-vote",
+      "class": "public_ingest",
+      "mountPath": "/community/ideas/:slug/vote",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "community-feature-requests.public.vote",
+      "contentTypes": [
+        "application/x-www-form-urlencoded",
+        "multipart/form-data"
+      ],
+      "maxBodyBytes": 16384,
+      "rateLimitPerMinute": 120
+    },
+    {
+      "name": "community-feature-requests-admin-dashboard",
+      "class": "admin_page",
+      "mountPath": "/extensions/community-feature-requests",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "community-feature-requests.admin.dashboard"
+    },
+    {
+      "name": "community-feature-requests-admin-update",
+      "class": "admin_action",
+      "mountPath": "/extensions/community-feature-requests/ideas/:id",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "community-feature-requests.admin.idea.update"
+    },
+    {
+      "name": "community-feature-requests-runtime-health",
+      "class": "health",
+      "mountPath": "/extensions/community-feature-requests/health",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "internal_only",
+      "workspaceBinding": "instance_scoped",
+      "serviceTarget": "community-feature-requests.runtime.health"
+    }
+  ],
+  "commands": [
+    {
+      "name": "community-feature-requests.board.open",
+      "description": "Open the public idea board and review top requests."
+    }
+  ],
+  "agentSkills": [
+    {
+      "name": "operate-community-feature-requests",
+      "description": "Review the board, triage requests, and verify public voting after activation.",
+      "assetPath": "agent-skills/operate-pack.md"
+    }
+  ],
+  "defaultConfig": {
+    "voteThreshold": 15
+  }
+}

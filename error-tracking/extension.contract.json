@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "extensionSlug": "error-tracking",
+  "resolvedAdminNavigation": [
+    {
+      "section": "Error Tracking",
+      "title": "Applications",
+      "icon": "app-window",
+      "href": "/extensions/error-tracking/applications",
+      "activePage": "applications"
+    },
+    {
+      "section": "Error Tracking",
+      "title": "Issues",
+      "icon": "alert-circle",
+      "href": "/extensions/error-tracking/issues",
+      "activePage": "issues"
+    }
+  ],
+  "publicPaths": [
+    "/1/envelope",
+    "/api/:projectNumber/envelope",
+    "/api/envelope"
+  ],
+  "adminPaths": [
+    "/extensions/error-tracking/applications",
+    "/extensions/error-tracking/applications/:id",
+    "/extensions/error-tracking/applications/new",
+    "/extensions/error-tracking/issues",
+    "/extensions/error-tracking/issues/:id"
+  ],
+  "healthPaths": [
+    "/extensions/error-tracking/health"
+  ],
+  "commands": [
+    "error-tracking.issues.list"
+  ]
+}

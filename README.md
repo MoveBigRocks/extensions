@@ -37,6 +37,8 @@ This repo is the public source of truth for the first-party extension source:
 
 Current source layout:
 
+- every first-party extension now ships an `extension.contract.json` file that
+  captures its expected menu, routes, seeded resources, commands, and skills
 - `ats/` contains the ATS bundle, skills, templates, and ATS-specific domain source
 - `ats/runtime/domain/` defines Go concepts like vacancies, vacancy catalogs,
   applicants, and applications
@@ -46,6 +48,8 @@ Current source layout:
 - `error-tracking/templates/` contains the error tracking admin templates
 - `error-tracking/sql-models/` contains the SQL model definitions used by the
   error tracking runtime
+- `sales-pipeline/runtime/` contains the sales board runtime and deal storage
+- `community-feature-requests/runtime/` contains the public idea-board runtime
 
 The core platform still contains temporary host-integrated copies of some of
 the service-backed runtime wiring while the final de-duplication work lands,
@@ -59,10 +63,29 @@ The point of this repo is simple:
 - use ATS without paying for a separate recruiting SaaS too early
 - run Sentry-compatible error tracking on infrastructure you control
 - get privacy-first website analytics without bolting on another silo
+- keep lightweight sales flow inside the same operating base
+- collect community roadmap feedback without another voting SaaS
 - inspect real extension source if you want to build your own
 
 These extensions are meant to be compelling in their own right, and also good
 examples of how to build bounded products on the Move Big Rocks primitives.
+
+## Validation Standard
+
+Every first-party extension in this repo is expected to pass the same
+contract-first lifecycle we want custom extension authors to use:
+
+```bash
+mbr extensions lint ./EXTENSION_DIR --json
+mbr extensions verify ./EXTENSION_DIR --workspace WORKSPACE_ID --json
+```
+
+If a pack intentionally changes its declared extension surface, refresh its
+contract file and review the diff:
+
+```bash
+mbr extensions lint ./EXTENSION_DIR --write-contract --json
+```
 
 ## First-Party Catalog
 
@@ -145,19 +168,67 @@ Positioning note: cookie-free, privacy-first analytics out of the box.
 - source: [`web-analytics/`](./web-analytics)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-web-analytics:<version>`
 
+### Sales Pipeline
+
+Lightweight CRM and pipeline tracking for teams that want a practical
+opportunity board inside Move Big Rocks instead of adding a separate deal tool
+too early.
+
+What it gives you:
+
+- extension-owned deal and stage state in a dedicated schema
+- workspace-native board UI for reviewing and moving opportunities
+- seeded intake form, queue, and follow-up automation hook
+- a B2B/B2C mode switch driven from extension config
+
+Good fit:
+
+- teams that want a simple opportunity board without paying for a full CRM
+- operators who already use Move Big Rocks for intake and follow-up
+- builders who want a service-backed example of product state plus shared
+  primitives
+
+- source: [`sales-pipeline/`](./sales-pipeline)
+- install ref: `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:<version>`
+
+### Community Feature Requests
+
+Public idea collection and voting for teams that want customer feedback and
+internal triage on the same base.
+
+What it gives you:
+
+- public idea board and detail pages
+- anonymous one-vote-per-browser upvoting
+- admin dashboard for status and visibility changes
+- extension-owned request state that stays close to internal workflow
+
+Good fit:
+
+- product teams that want a self-hosted feedback board
+- teams that want public roadmap conversation without another SaaS
+- builders who want a service-backed public-page extension example
+
+- source: [`community-feature-requests/`](./community-feature-requests)
+- install ref: `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:<version>`
+
 ## Install The Current Bundle Set
 
 The current free public first-party bundle set is:
 
 - ATS
+- community feature requests
 - error tracking
+- sales pipeline
 - web analytics
 
 Install them by OCI ref:
 
 ```bash
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.21 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20 --workspace WORKSPACE_ID
 ```
 
@@ -165,7 +236,9 @@ Or install directly from a checked-out source directory during development:
 
 ```bash
 mbr extensions install ./ats --workspace WORKSPACE_ID
+mbr extensions install ./community-feature-requests --workspace WORKSPACE_ID
 mbr extensions install ./error-tracking --workspace WORKSPACE_ID
+mbr extensions install ./sales-pipeline --workspace WORKSPACE_ID
 mbr extensions install ./web-analytics --workspace WORKSPACE_ID
 ```
 
@@ -194,13 +267,17 @@ This repo is the canonical public publication surface for the free public
 first-party bundle set:
 
 - `ghcr.io/movebigrocks/mbr-ext-ats:<version>`
+- `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:<version>`
 - `ghcr.io/movebigrocks/mbr-ext-error-tracking:<version>`
+- `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:<version>`
 - `ghcr.io/movebigrocks/mbr-ext-web-analytics:<version>`
 
 Release tags are:
 
 - `ats-v<version>`
+- `community-feature-requests-v<version>`
 - `error-tracking-v<version>`
+- `sales-pipeline-v<version>`
 - `web-analytics-v<version>`
 
 The machine-readable catalog for the public bundle set lives in

@@ -25,6 +25,28 @@
       "runtimeClass": "service_backed"
     },
     {
+      "slug": "sales-pipeline",
+      "name": "Sales Pipeline",
+      "sourceDir": "sales-pipeline",
+      "ociRef": "ghcr.io/movebigrocks/mbr-ext-sales-pipeline:<version>",
+      "releaseTagPattern": "sales-pipeline-v<version>",
+      "kind": "product",
+      "scope": "workspace",
+      "risk": "standard",
+      "runtimeClass": "service_backed"
+    },
+    {
+      "slug": "community-feature-requests",
+      "name": "Community Feature Requests",
+      "sourceDir": "community-feature-requests",
+      "ociRef": "ghcr.io/movebigrocks/mbr-ext-community-feature-requests:<version>",
+      "releaseTagPattern": "community-feature-requests-v<version>",
+      "kind": "product",
+      "scope": "workspace",
+      "risk": "standard",
+      "runtimeClass": "service_backed"
+    },
+    {
       "slug": "web-analytics",
       "name": "Web Analytics",
       "sourceDir": "web-analytics",

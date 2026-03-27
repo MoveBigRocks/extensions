@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Community Feature Requests</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        color: #0f172a;
+        background: #f4f7fb;
+      }
+      .page {
+        max-width: 88rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+      }
+      .panel {
+        background: white;
+        border: 1px solid #dbe4f0;
+        border-radius: 1.15rem;
+        padding: 1.25rem;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 0.9rem 0.7rem;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+        text-align: left;
+      }
+      th {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #475569;
+      }
+      .idea-title {
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+      }
+      .muted {
+        color: #64748b;
+        font-size: 0.84rem;
+      }
+      select, button {
+        font: inherit;
+      }
+      select {
+        border: 1px solid #cbd5e1;
+        border-radius: 0.7rem;
+        padding: 0.55rem 0.7rem;
+        background: white;
+      }
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 0.65rem 0.95rem;
+        background: #0f4c81;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        align-items: center;
+      }
+      @media (max-width: 900px) {
+        table, thead, tbody, tr, th, td {
+          display: block;
+        }
+        thead {
+          display: none;
+        }
+        td {
+          padding-left: 0;
+          padding-right: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel">
+        <h1 style="margin:0 0 0.35rem;">Community Feature Requests</h1>
+        <p style="margin:0 0 1rem; color:#475569;">Public ideas flowing into Move Big Rocks for triage and roadmap review.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Idea</th>
+              <th>Votes</th>
+              <th>Status</th>
+              <th>Visibility</th>
+              <th>Update</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Ideas}}
+            <tr>
+              {{$currentStatus := .Status}}
+              <td>
+                <div class="idea-title">{{.Title}}</div>
+                <div class="muted">{{.Slug}} • {{fmtTime .CreatedAt}}</div>
+              </td>
+              <td>{{.VoteCount}}</td>
+              <td>{{statusLabel .Status}}</td>
+              <td>{{if .IsPublic}}Public{{else}}Hidden{{end}}</td>
+              <td>
+                <form method="post" action="/extensions/community-feature-requests/ideas/{{.ID}}">
+                  <select name="status">
+                    {{range $.StatusOptions}}
+                    <option value="{{.}}" {{if eq $currentStatus .}}selected{{end}}>{{statusLabel .}}</option>
+                    {{end}}
+                  </select>
+                  <label class="muted" style="display:flex; align-items:center; gap:0.35rem;">
+                    <input type="checkbox" name="isPublic" {{if .IsPublic}}checked{{end}}>
+                    Public
+                  </label>
+                  <button type="submit">Save</button>
+                </form>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </body>
+</html>

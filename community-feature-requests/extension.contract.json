@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "extensionSlug": "community-feature-requests",
+  "resolvedAdminNavigation": [
+    {
+      "section": "Community",
+      "title": "Feature Requests",
+      "icon": "messages-square",
+      "href": "/extensions/community-feature-requests",
+      "activePage": "community-feature-requests"
+    }
+  ],
+  "resolvedDashboardWidgets": [
+    {
+      "title": "Community Requests",
+      "description": "Review the public board and update request status.",
+      "icon": "messages-square",
+      "href": "/extensions/community-feature-requests"
+    }
+  ],
+  "seededQueues": [
+    "community-triage"
+  ],
+  "publicPaths": [
+    "/community/ideas",
+    "/community/ideas/:slug",
+    "/community/ideas/:slug/vote"
+  ],
+  "adminPaths": [
+    "/extensions/community-feature-requests",
+    "/extensions/community-feature-requests/ideas/:id"
+  ],
+  "healthPaths": [
+    "/extensions/community-feature-requests/health"
+  ],
+  "commands": [
+    "community-feature-requests.board.open"
+  ],
+  "agentSkills": [
+    "operate-community-feature-requests"
+  ]
+}

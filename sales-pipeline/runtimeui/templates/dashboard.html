@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Sales Pipeline</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      :root {
+        --ink: #0f172a;
+        --muted: #475569;
+        --line: #dbe4f0;
+        --paper: #f7fafc;
+        --card: #ffffff;
+        --accent: #0f766e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 22rem),
+          linear-gradient(180deg, #f8fbff, #eef3f8);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      .page {
+        max-width: 88rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 1.3fr 0.9fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .panel {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--line);
+        border-radius: 1.2rem;
+        padding: 1.25rem;
+        box-shadow: 0 16px 50px rgba(15, 23, 42, 0.08);
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.74rem;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      h1 {
+        margin: 0.35rem 0 0.5rem;
+        font-size: 2.1rem;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1.2rem;
+      }
+      .metric {
+        padding: 0.95rem;
+        border-radius: 1rem;
+        background: #f8fafc;
+        border: 1px solid var(--line);
+      }
+      .metric strong {
+        display: block;
+        font-size: 1.4rem;
+        margin-top: 0.2rem;
+      }
+      form {
+        display: grid;
+        gap: 0.8rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+      label {
+        display: block;
+        font-size: 0.88rem;
+        color: var(--muted);
+        margin-bottom: 0.3rem;
+      }
+      input, textarea, select, button {
+        font: inherit;
+      }
+      input, textarea, select {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.8rem;
+        padding: 0.7rem 0.8rem;
+        background: white;
+      }
+      textarea {
+        min-height: 6rem;
+        resize: vertical;
+      }
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 0.8rem 1rem;
+        background: linear-gradient(135deg, #0f766e, #0f4c81);
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      #board {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        gap: 1rem;
+      }
+      .column {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.82);
+        border-radius: 1rem;
+        padding: 1rem;
+        min-height: 18rem;
+      }
+      .column-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      .column h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.28rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        background: #ecfeff;
+        color: #155e75;
+        border: 1px solid #bae6fd;
+      }
+      .deal {
+        border-radius: 0.95rem;
+        border: 1px solid var(--line);
+        background: var(--card);
+        padding: 0.9rem;
+        margin-bottom: 0.8rem;
+      }
+      .deal h3 {
+        margin: 0 0 0.3rem;
+        font-size: 0.96rem;
+      }
+      .deal p {
+        font-size: 0.87rem;
+        margin-bottom: 0.55rem;
+      }
+      .deal-meta {
+        display: grid;
+        gap: 0.3rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .error {
+        color: #b91c1c;
+        font-size: 0.88rem;
+      }
+      @media (max-width: 960px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <article class="panel">
+          <div class="eyebrow">Revenue Workspace</div>
+          <h1>Sales Pipeline</h1>
+          <p>
+            Keep opportunities inside Move Big Rocks, anchored to the same workspace that already owns intake,
+            cases, and follow-up.
+          </p>
+          <div class="summary" id="summary">
+            <div class="metric">
+              <span>Mode</span>
+              <strong id="summary-mode">-</strong>
+            </div>
+            <div class="metric">
+              <span>Total Deals</span>
+              <strong id="summary-deals">0</strong>
+            </div>
+            <div class="metric">
+              <span>Pipeline Value</span>
+              <strong id="summary-value">$0</strong>
+            </div>
+          </div>
+        </article>
+        <aside class="panel">
+          <div class="eyebrow">New Deal</div>
+          <h2 style="margin:0.4rem 0 0.8rem;">Capture an opportunity</h2>
+          <form id="deal-form">
+            <div class="grid">
+              <div>
+                <label for="title">Opportunity</label>
+                <input id="title" name="title" required>
+              </div>
+              <div id="organization-group">
+                <label for="organizationName">Organization</label>
+                <input id="organizationName" name="organizationName">
+              </div>
+              <div>
+                <label for="contactName">Contact</label>
+                <input id="contactName" name="contactName">
+              </div>
+              <div>
+                <label for="contactEmail">Contact Email</label>
+                <input id="contactEmail" name="contactEmail" type="email">
+              </div>
+              <div>
+                <label for="value">Value</label>
+                <input id="value" name="value" type="number" min="0" step="0.01" value="0">
+              </div>
+              <div>
+                <label for="winProbability">Win Probability</label>
+                <input id="winProbability" name="winProbability" type="number" min="0" max="100" value="25">
+              </div>
+              <div>
+                <label for="closeDate">Expected Close</label>
+                <input id="closeDate" name="closeDate" type="date">
+              </div>
+              <div>
+                <label for="linkedCaseId">Linked Case ID</label>
+                <input id="linkedCaseId" name="linkedCaseId">
+              </div>
+            </div>
+            <div>
+              <label for="notes">Notes</label>
+              <textarea id="notes" name="notes"></textarea>
+            </div>
+            <div class="error" id="form-error"></div>
+            <button type="submit">Add Deal</button>
+          </form>
+        </aside>
+      </section>
+      <section id="board"></section>
+    </main>
+    <script>
+      const boardEl = document.getElementById("board");
+      const form = document.getElementById("deal-form");
+      const formError = document.getElementById("form-error");
+      const organizationGroup = document.getElementById("organization-group");
+
+      let currentBoard = null;
+
+      function formatMoney(cents) {
+        return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format((cents || 0) / 100);
+      }
+
+      async function loadBoard() {
+        const response = await fetch("/extensions/sales-pipeline/api/board");
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load board");
+        }
+        currentBoard = data;
+        document.getElementById("summary-mode").textContent = (data.mode || "b2b").toUpperCase();
+        document.getElementById("summary-deals").textContent = String(data.summary.totalDeals || 0);
+        document.getElementById("summary-value").textContent = formatMoney(data.summary.totalCents || 0);
+        organizationGroup.style.display = data.mode === "b2c" ? "none" : "block";
+
+        boardEl.innerHTML = "";
+        for (const column of data.stages) {
+          const section = document.createElement("section");
+          section.className = "column";
+          section.innerHTML = `
+            <div class="column-header">
+              <div>
+                <div class="badge" style="border-color:${column.stage.color}; color:${column.stage.color}; background:${column.stage.color}14;">${column.stage.name}</div>
+                <h2>${column.totalCount} deal${column.totalCount === 1 ? "" : "s"}</h2>
+              </div>
+              <strong>${formatMoney(column.totalCents)}</strong>
+            </div>
+          `;
+          for (const deal of column.deals) {
+            const card = document.createElement("article");
+            card.className = "deal";
+            card.innerHTML = `
+              <h3>${escapeHtml(deal.title)}</h3>
+              <p>${escapeHtml(deal.organizationName || deal.contactName || "Opportunity in progress")}</p>
+              <div class="deal-meta">
+                <span>${formatMoney(deal.valueCents)} • ${deal.winProbability}% likely</span>
+                <span>${deal.contactEmail ? escapeHtml(deal.contactEmail) : "No email recorded"}</span>
+                <label>
+                  Move to
+                  <select data-deal-id="${deal.id}">
+                    ${data.stages.map((stage) => `<option value="${stage.stage.id}" ${stage.stage.id === deal.stageId ? "selected" : ""}>${escapeHtml(stage.stage.name)}</option>`).join("")}
+                  </select>
+                </label>
+              </div>
+            `;
+            section.appendChild(card);
+          }
+          boardEl.appendChild(section);
+        }
+        bindMoveSelectors();
+      }
+
+      function bindMoveSelectors() {
+        document.querySelectorAll("select[data-deal-id]").forEach((select) => {
+          select.addEventListener("change", async (event) => {
+            const dealId = event.target.getAttribute("data-deal-id");
+            const stageId = event.target.value;
+            const response = await fetch(`/extensions/sales-pipeline/api/deals/${dealId}/stage`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ stageId })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              alert(data.error || "Unable to move the deal");
+              await loadBoard();
+              return;
+            }
+            await loadBoard();
+          });
+        });
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        formError.textContent = "";
+        const payload = {
+          title: form.title.value,
+          organizationName: form.organizationName.value,
+          contactName: form.contactName.value,
+          contactEmail: form.contactEmail.value,
+          linkedCaseId: form.linkedCaseId.value,
+          value: Number(form.value.value || 0),
+          closeDate: form.closeDate.value,
+          winProbability: Number(form.winProbability.value || 0),
+          notes: form.notes.value
+        };
+        const response = await fetch("/extensions/sales-pipeline/api/deals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          formError.textContent = data.error || "Failed to create the deal";
+          return;
+        }
+        form.reset();
+        form.value.value = "0";
+        form.winProbability.value = "25";
+        await loadBoard();
+      });
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      loadBoard().catch((error) => {
+        boardEl.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+      });
+    </script>
+  </body>
+</html>
