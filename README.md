@@ -94,6 +94,12 @@ discoverable for an instance admin with no active workspace selection. The
 instance-level menu entry should still open a working page, and static admin
 pages that call workspace-bound APIs should preserve the `?workspace=...` hint.
 
+To re-run the strict first-party catalog proof locally, use:
+
+```bash
+MBR_BIN=/path/to/mbr bash ./scripts/validate-first-party.sh
+```
+
 ## First-Party Catalog
 
 ### ATS

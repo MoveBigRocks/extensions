@@ -4,7 +4,9 @@ on:
   push:
     tags:
       - 'ats-v*'
+      - 'community-feature-requests-v*'
       - 'error-tracking-v*'
+      - 'sales-pipeline-v*'
       - 'web-analytics-v*'
   workflow_dispatch:
     inputs:
@@ -14,7 +16,9 @@ on:
         type: choice
         options:
           - ats
+          - community-feature-requests
           - error-tracking
+          - sales-pipeline
           - web-analytics
       publish_tag:
         description: Optional OCI tag override (defaults to sha-<commit>)
@@ -93,6 +97,15 @@ jobs:
                 needs_runtime="false"
                 publish_tag="${ref_name#ats-}"
                 ;;
+              community-feature-requests-v*)
+                extension="community-feature-requests"
+                source_dir="community-feature-requests"
+                image="ghcr.io/movebigrocks/mbr-ext-community-feature-requests"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-community-feature-requests-runtime"
+                runtime_cmd="./cmd/community-feature-requests-runtime"
+                needs_runtime="true"
+                publish_tag="${ref_name#community-feature-requests-}"
+                ;;
               error-tracking-v*)
                 extension="error-tracking"
                 source_dir="error-tracking"
@@ -101,6 +114,15 @@ jobs:
                 runtime_cmd="./cmd/error-tracking-runtime"
                 needs_runtime="true"
                 publish_tag="${ref_name#error-tracking-}"
+                ;;
+              sales-pipeline-v*)
+                extension="sales-pipeline"
+                source_dir="sales-pipeline"
+                image="ghcr.io/movebigrocks/mbr-ext-sales-pipeline"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-sales-pipeline-runtime"
+                runtime_cmd="./cmd/sales-pipeline-runtime"
+                needs_runtime="true"
+                publish_tag="${ref_name#sales-pipeline-}"
                 ;;
               web-analytics-v*)
                 extension="web-analytics"
@@ -127,11 +149,25 @@ jobs:
                 runtime_cmd=""
                 needs_runtime="false"
                 ;;
+              community-feature-requests)
+                source_dir="community-feature-requests"
+                image="ghcr.io/movebigrocks/mbr-ext-community-feature-requests"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-community-feature-requests-runtime"
+                runtime_cmd="./cmd/community-feature-requests-runtime"
+                needs_runtime="true"
+                ;;
               error-tracking)
                 source_dir="error-tracking"
                 image="ghcr.io/movebigrocks/mbr-ext-error-tracking"
                 runtime_image="ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime"
                 runtime_cmd="./cmd/error-tracking-runtime"
+                needs_runtime="true"
+                ;;
+              sales-pipeline)
+                source_dir="sales-pipeline"
+                image="ghcr.io/movebigrocks/mbr-ext-sales-pipeline"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-sales-pipeline-runtime"
+                runtime_cmd="./cmd/sales-pipeline-runtime"
                 needs_runtime="true"
                 ;;
               web-analytics)

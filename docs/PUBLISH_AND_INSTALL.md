@@ -49,6 +49,12 @@ Do not treat the workspace-scoped happy path as sufficient proof on its own.
 For any extension with admin UI, also confirm that an instance admin with no
 active workspace selection can still discover and open the extension cleanly.
 
+For the public first-party catalog, the repo-level proof loop is:
+
+```bash
+MBR_BIN=/path/to/mbr bash ./scripts/validate-first-party.sh
+```
+
 ## Prerequisites
 
 Before the first publish, make sure the `MoveBigRocks/extensions` repo has:
