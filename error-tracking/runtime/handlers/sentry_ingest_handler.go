@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -269,50 +270,23 @@ func convertSentryEvent(data map[string]interface{}, projectID string) (*observa
 	event.Release = asString(data["release"])
 	event.Dist = asString(data["dist"])
 
-	if timestamp := asString(data["timestamp"]); timestamp != "" {
-		if parsed, err := parseSentryTimestamp(timestamp); err == nil {
-			event.Timestamp = parsed
-		}
+	if parsed, ok := parseSentryTimestampValue(data["timestamp"]); ok {
+		event.Timestamp = parsed
 	}
 
-	if exceptions, ok := data["exception"].([]interface{}); ok {
-		for _, exception := range exceptions {
-			exceptionData, ok := exception.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			exc := observabilitydomain.ExceptionData{
-				Type:  asString(exceptionData["type"]),
-				Value: asString(exceptionData["value"]),
-			}
-
-			if stackData, ok := exceptionData["stacktrace"].(map[string]interface{}); ok {
-				if frames, ok := stackData["frames"].([]interface{}); ok {
-					framesData := make([]observabilitydomain.FrameData, 0, len(frames))
-					for _, frame := range frames {
-						frameData, ok := frame.(map[string]interface{})
-						if !ok {
-							continue
-						}
-						framesData = append(framesData, observabilitydomain.FrameData{
-							Filename:    asString(frameData["filename"]),
-							Function:    asString(frameData["function"]),
-							Module:      asString(frameData["module"]),
-							LineNumber:  asInt(frameData["lineno"]),
-							ColNumber:   asInt(frameData["colno"]),
-							AbsPath:     asString(frameData["abs_path"]),
-							ContextLine: asString(frameData["context_line"]),
-							InApp:       asBool(frameData["in_app"]),
-							Vars:        shareddomain.MetadataFromMap(asMetadataMap(frameData, "vars")),
-						})
-					}
-					exc.Stacktrace = &observabilitydomain.StacktraceData{Frames: framesData}
-				}
-			}
-
-			event.Exception = append(event.Exception, exc)
+	for _, exception := range asSentryValues(data["exception"]) {
+		exceptionData, ok := exception.(map[string]interface{})
+		if !ok {
+			continue
 		}
+
+		exc := observabilitydomain.ExceptionData{
+			Type:       asString(exceptionData["type"]),
+			Value:      asString(exceptionData["value"]),
+			Module:     asString(exceptionData["module"]),
+			Stacktrace: parseSentryStacktrace(exceptionData["stacktrace"]),
+		}
+		event.Exception = append(event.Exception, exc)
 	}
 
 	if userData, ok := data["user"].(map[string]interface{}); ok {
@@ -328,29 +302,27 @@ func convertSentryEvent(data map[string]interface{}, projectID string) (*observa
 	event.Extra = shareddomain.MetadataFromMap(asMetadataMap(data, "extra"))
 	event.Contexts = shareddomain.MetadataFromMap(asMetadataMap(data, "contexts"))
 
-	if breadcrumbs, ok := data["breadcrumbs"].([]interface{}); ok {
-		for _, breadcrumb := range breadcrumbs {
-			breadcrumbData, ok := breadcrumb.(map[string]interface{})
-			if !ok {
-				continue
-			}
+	event.Stacktrace = parseSentryStacktrace(data["stacktrace"])
 
-			ts := time.Time{}
-			if tsStr, ok := breadcrumbData["timestamp"].(string); ok && tsStr != "" {
-				if parsed, err := parseSentryTimestamp(tsStr); err == nil {
-					ts = parsed
-				}
-			}
-
-			event.Breadcrumbs = append(event.Breadcrumbs, observabilitydomain.Breadcrumb{
-				Timestamp: ts,
-				Message:   asString(breadcrumbData["message"]),
-				Category:  asString(breadcrumbData["category"]),
-				Level:     asString(breadcrumbData["level"]),
-				Type:      asString(breadcrumbData["type"]),
-				Data:      shareddomain.MetadataFromMap(asMetadataMap(breadcrumbData, "data")),
-			})
+	for _, breadcrumb := range asSentryValues(data["breadcrumbs"]) {
+		breadcrumbData, ok := breadcrumb.(map[string]interface{})
+		if !ok {
+			continue
 		}
+
+		ts := time.Time{}
+		if parsed, ok := parseSentryTimestampValue(breadcrumbData["timestamp"]); ok {
+			ts = parsed
+		}
+
+		event.Breadcrumbs = append(event.Breadcrumbs, observabilitydomain.Breadcrumb{
+			Timestamp: ts,
+			Message:   asString(breadcrumbData["message"]),
+			Category:  asString(breadcrumbData["category"]),
+			Level:     asString(breadcrumbData["level"]),
+			Type:      asString(breadcrumbData["type"]),
+			Data:      shareddomain.MetadataFromMap(asMetadataMap(breadcrumbData, "data")),
+		})
 	}
 
 	if requestData, ok := data["request"].(map[string]interface{}); ok {
@@ -381,6 +353,88 @@ func parseSentryTimestamp(raw string) (time.Time, error) {
 	}
 
 	return time.Time{}, fmt.Errorf("invalid timestamp")
+}
+
+func parseSentryTimestampValue(raw interface{}) (time.Time, bool) {
+	switch value := raw.(type) {
+	case nil:
+		return time.Time{}, false
+	case string:
+		if parsed, err := parseSentryTimestamp(value); err == nil {
+			return parsed, true
+		}
+		if seconds, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
+			return parseUnixTimestamp(seconds), true
+		}
+	case float64:
+		return parseUnixTimestamp(value), true
+	case float32:
+		return parseUnixTimestamp(float64(value)), true
+	case int:
+		return time.Unix(int64(value), 0).UTC(), true
+	case int64:
+		return time.Unix(value, 0).UTC(), true
+	case json.Number:
+		if seconds, err := value.Float64(); err == nil {
+			return parseUnixTimestamp(seconds), true
+		}
+	}
+
+	return time.Time{}, false
+}
+
+func parseUnixTimestamp(seconds float64) time.Time {
+	wholeSeconds, fraction := math.Modf(seconds)
+	return time.Unix(int64(wholeSeconds), int64(fraction*float64(time.Second))).UTC()
+}
+
+func asSentryValues(value interface{}) []interface{} {
+	switch typed := value.(type) {
+	case []interface{}:
+		return typed
+	case map[string]interface{}:
+		if values, ok := typed["values"].([]interface{}); ok {
+			return values
+		}
+	}
+
+	return nil
+}
+
+func parseSentryStacktrace(value interface{}) *observabilitydomain.StacktraceData {
+	stackData, ok := value.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	frames := asSentryValues(stackData["frames"])
+	if len(frames) == 0 {
+		return nil
+	}
+
+	framesData := make([]observabilitydomain.FrameData, 0, len(frames))
+	for _, frame := range frames {
+		frameData, ok := frame.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		framesData = append(framesData, observabilitydomain.FrameData{
+			Filename:    asString(frameData["filename"]),
+			Function:    asString(frameData["function"]),
+			Module:      asString(frameData["module"]),
+			LineNumber:  asInt(frameData["lineno"]),
+			ColNumber:   asInt(frameData["colno"]),
+			AbsPath:     asString(frameData["abs_path"]),
+			ContextLine: asString(frameData["context_line"]),
+			InApp:       asBool(frameData["in_app"]),
+			Vars:        shareddomain.MetadataFromMap(asMetadataMap(frameData, "vars")),
+		})
+	}
+	if len(framesData) == 0 {
+		return nil
+	}
+
+	return &observabilitydomain.StacktraceData{Frames: framesData}
 }
 
 func asString(v interface{}) string {
