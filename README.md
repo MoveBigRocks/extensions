@@ -11,8 +11,9 @@ fragment.
 Examples and scaffolds live in
 [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk).
 
-It is licensed under BSL 1.1 with the same no-resale rule used across the
-public Move Big Rocks code and extension surfaces. See [LICENSE](LICENSE).
+It is licensed under the MBR Source Code Available License 1.0 with the same
+no-commercialization rule used across the public Move Big Rocks code and
+extension surfaces. See [LICENSE](LICENSE).
 
 ## Production Intent
 
