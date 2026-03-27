@@ -3,71 +3,1796 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ATS Dashboard</title>
+    <title>Applicant Tracking</title>
     <style>
-      body {
-        margin: 0;
-        font-family: "Helvetica Neue", Arial, sans-serif;
-        background: #f8fafc;
-        color: #0f172a;
+      .ats-dashboard {
+        --ats-ink: #10213a;
+        --ats-muted: #51617c;
+        --ats-border: rgba(16, 33, 58, 0.12);
+        --ats-surface: #ffffff;
+        --ats-surface-alt: #f5f8ff;
+        --ats-accent: #0f766e;
+        --ats-accent-strong: #115e59;
+        --ats-warning: #b45309;
+        --ats-danger: #b42318;
+        --ats-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+        color: var(--ats-ink);
+        padding: 1.5rem;
       }
-      main {
-        padding: 2rem;
+
+      .ats-dashboard,
+      .ats-dashboard * {
+        box-sizing: border-box;
       }
-      .grid {
+
+      .ats-shell {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+        gap: 1.5rem;
+        max-width: 88rem;
+        margin: 0 auto;
+      }
+
+      .ats-panel {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 255, 0.96));
+        border: 1px solid var(--ats-border);
+        border-radius: 1.5rem;
+        box-shadow: var(--ats-shadow);
+      }
+
+      .ats-hero {
+        padding: 1.75rem;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .ats-hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -8rem -8rem auto;
+        width: 18rem;
+        height: 18rem;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle, rgba(15, 118, 110, 0.18) 0%, rgba(15, 118, 110, 0.03) 52%, transparent 72%);
+        pointer-events: none;
+      }
+
+      .ats-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.7rem;
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--ats-accent-strong);
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .ats-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.9fr);
+        gap: 1.5rem;
+        align-items: end;
+        margin-top: 1rem;
+      }
+
+      .ats-hero h1,
+      .ats-panel h2,
+      .ats-panel h3,
+      .ats-panel h4 {
+        margin: 0;
+        color: var(--ats-ink);
+      }
+
+      .ats-hero h1 {
+        font-size: clamp(2.2rem, 4vw, 3.4rem);
+        line-height: 0.96;
+        letter-spacing: -0.05em;
+      }
+
+      .ats-lede,
+      .ats-copy,
+      .ats-muted,
+      .ats-note,
+      .ats-case-meta,
+      .ats-check span:last-child,
+      .ats-workspace-meta,
+      .ats-section-copy {
+        color: var(--ats-muted);
+      }
+
+      .ats-lede {
+        font-size: 1.06rem;
+        line-height: 1.7;
+        max-width: 52rem;
+        margin: 0.9rem 0 0;
+      }
+
+      .ats-link-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: flex-end;
+      }
+
+      .ats-button,
+      .ats-button:visited {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        min-height: 2.75rem;
+        padding: 0.7rem 1rem;
+        border-radius: 999px;
+        border: 1px solid var(--ats-border);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--ats-ink);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .ats-button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(16, 33, 58, 0.18);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      .ats-button:disabled {
+        opacity: 0.62;
+        cursor: progress;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .ats-button-primary,
+      .ats-button-primary:visited {
+        background: linear-gradient(135deg, #0f766e, #155eef);
+        border-color: transparent;
+        color: #ffffff;
+      }
+
+      .ats-button-secondary,
+      .ats-button-secondary:visited {
+        background: rgba(15, 118, 110, 0.08);
+        color: var(--ats-accent-strong);
+        border-color: rgba(15, 118, 110, 0.12);
+      }
+
+      .ats-context-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.1rem;
+        border-radius: 1rem;
+        background: rgba(16, 33, 58, 0.05);
+        border: 1px solid rgba(16, 33, 58, 0.08);
+        margin-top: 1.25rem;
+      }
+
+      .ats-context-text strong {
+        color: var(--ats-ink);
+      }
+
+      .ats-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 1rem;
       }
-      .card {
-        background: white;
+
+      .ats-metric {
+        padding: 1.2rem 1.25rem;
+      }
+
+      .ats-metric-label {
+        font-size: 0.83rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        color: var(--ats-muted);
+      }
+
+      .ats-metric-value {
+        display: block;
+        margin-top: 0.6rem;
+        font-size: clamp(2rem, 3vw, 2.7rem);
+        line-height: 0.95;
+        letter-spacing: -0.05em;
+        font-weight: 800;
+      }
+
+      .ats-metric-note {
+        margin-top: 0.55rem;
+        font-size: 0.92rem;
+      }
+
+      .ats-main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(20rem, 0.8fr);
+        gap: 1rem;
+      }
+
+      .ats-section {
+        padding: 1.35rem;
+      }
+
+      .ats-section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .ats-section-head h2 {
+        font-size: 1.45rem;
+        letter-spacing: -0.03em;
+      }
+
+      .ats-chip-row,
+      .ats-action-row,
+      .ats-checklist,
+      .ats-stack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      .ats-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.45rem 0.7rem;
+        border-radius: 999px;
+        background: rgba(16, 33, 58, 0.06);
+        border: 1px solid rgba(16, 33, 58, 0.08);
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+
+      .ats-chip-good {
+        background: rgba(15, 118, 110, 0.09);
+        color: var(--ats-accent-strong);
+        border-color: rgba(15, 118, 110, 0.14);
+      }
+
+      .ats-chip-warn {
+        background: rgba(180, 83, 9, 0.09);
+        color: var(--ats-warning);
+        border-color: rgba(180, 83, 9, 0.14);
+      }
+
+      .ats-chip-danger {
+        background: rgba(180, 35, 24, 0.09);
+        color: var(--ats-danger);
+        border-color: rgba(180, 35, 24, 0.14);
+      }
+
+      .ats-mini-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+
+      .ats-mini-stat {
+        padding: 0.95rem;
         border-radius: 1rem;
+        background: var(--ats-surface-alt);
+        border: 1px solid rgba(16, 33, 58, 0.08);
+      }
+
+      .ats-mini-label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--ats-muted);
+      }
+
+      .ats-mini-value {
+        display: block;
+        margin-top: 0.45rem;
+        font-size: 1.65rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+      }
+
+      .ats-checklist {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 1rem;
+      }
+
+      .ats-check {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.85rem 0.95rem;
+        border-radius: 1rem;
+        border: 1px solid rgba(16, 33, 58, 0.08);
+        background: rgba(255, 255, 255, 0.76);
+      }
+
+      .ats-check-dot {
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 999px;
+        flex: 0 0 auto;
+      }
+
+      .ats-check-dot-good {
+        background: var(--ats-accent);
+      }
+
+      .ats-check-dot-warn {
+        background: var(--ats-warning);
+      }
+
+      .ats-check-dot-neutral {
+        background: rgba(16, 33, 58, 0.25);
+      }
+
+      .ats-alert-list {
+        display: grid;
+        gap: 0.7rem;
+        margin-top: 1rem;
+      }
+
+      .ats-alert {
+        padding: 0.9rem 1rem;
+        border-radius: 1rem;
+        background: rgba(180, 83, 9, 0.08);
+        border: 1px solid rgba(180, 83, 9, 0.14);
+        color: #7c2d12;
+      }
+
+      .ats-alert-danger {
+        background: rgba(180, 35, 24, 0.08);
+        border-color: rgba(180, 35, 24, 0.14);
+        color: #7a271a;
+      }
+
+      .ats-case-list,
+      .ats-playbook-list {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+
+      .ats-case {
+        display: grid;
+        gap: 0.45rem;
+        padding: 0.95rem 1rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(16, 33, 58, 0.08);
+      }
+
+      .ats-case-title {
+        font-weight: 700;
+      }
+
+      .ats-case-title a,
+      .ats-case-title a:visited {
+        color: var(--ats-ink);
+        text-decoration: none;
+      }
+
+      .ats-case-title a:hover {
+        text-decoration: underline;
+      }
+
+      .ats-inline-link,
+      .ats-inline-link:visited {
+        color: var(--ats-ink);
+        text-decoration: none;
+      }
+
+      .ats-inline-link:hover {
+        text-decoration: underline;
+      }
+
+      .ats-case-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        font-size: 0.9rem;
+      }
+
+      .ats-playbook {
         padding: 1rem;
-        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 1rem;
+        border: 1px solid rgba(16, 33, 58, 0.08);
+        background: rgba(255, 255, 255, 0.82);
       }
-      h1, h2 {
-        margin-top: 0;
+
+      .ats-playbook h3 {
+        font-size: 1.03rem;
       }
-      ul {
-        padding-left: 1rem;
+
+      .ats-playbook p {
+        margin: 0.55rem 0 0;
+        color: var(--ats-muted);
+        line-height: 1.6;
+      }
+
+      .ats-playbook .ats-action-row {
+        margin-top: 0.9rem;
+      }
+
+      .ats-workspace-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+        gap: 1rem;
+      }
+
+      .ats-workspace-card {
+        display: grid;
+        gap: 1rem;
+        padding: 1.2rem;
+      }
+
+      .ats-workspace-card-current {
+        border-color: rgba(21, 94, 239, 0.25);
+        box-shadow: 0 20px 48px rgba(21, 94, 239, 0.1);
+      }
+
+      .ats-workspace-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .ats-workspace-name {
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+
+      .ats-workspace-meta {
+        margin-top: 0.35rem;
+        font-size: 0.95rem;
+      }
+
+      .ats-status-stack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        justify-content: flex-end;
+      }
+
+      .ats-banner {
+        display: none;
+        padding: 0.95rem 1rem;
+        border-radius: 1rem;
+        border: 1px solid rgba(180, 35, 24, 0.16);
+        background: rgba(180, 35, 24, 0.08);
+        color: #7a271a;
+      }
+
+      .ats-empty {
+        padding: 1.25rem;
+        border-radius: 1rem;
+        border: 1px dashed rgba(16, 33, 58, 0.16);
+        background: rgba(255, 255, 255, 0.56);
+        color: var(--ats-muted);
+      }
+
+      .ats-skeleton {
+        position: relative;
+        overflow: hidden;
+        min-height: 9rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid rgba(16, 33, 58, 0.08);
+      }
+
+      .ats-skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+        animation: ats-sweep 1.6s infinite;
+      }
+
+      @keyframes ats-sweep {
+        100% {
+          transform: translateX(100%);
+        }
+      }
+
+      @media (max-width: 1080px) {
+        .ats-hero-grid,
+        .ats-main-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .ats-link-grid {
+          justify-content: flex-start;
+        }
+
+        .ats-metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        .ats-dashboard {
+          padding: 1rem;
+        }
+
+        .ats-context-strip,
+        .ats-section-head,
+        .ats-workspace-head {
+          flex-direction: column;
+        }
+
+        .ats-metrics,
+        .ats-mini-grid,
+        .ats-checklist {
+          grid-template-columns: 1fr;
+        }
+
+        .ats-button,
+        .ats-button:visited {
+          width: 100%;
+        }
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>Applicant Tracking</h1>
-      <p>
-        This extension turns shared Move Big Rocks primitives into a focused hiring workspace:
-        vacancies, candidate intake, application stages, and recruiter workflows all stay on the
-        same operational base as the rest of the business.
-      </p>
+    <div class="ats-dashboard">
+      <div class="ats-shell">
+        <section class="ats-panel ats-hero">
+          <span class="ats-eyebrow">Hiring Operations</span>
+          <div class="ats-hero-grid">
+            <div>
+              <h1>Applicant Tracking</h1>
+              <p class="ats-lede">
+                Live hiring overview for instance admins and workspace operators. Switch into the
+                right workspace, open forms and rules, and review candidate cases without losing
+                the shared admin shell.
+              </p>
+            </div>
+            <div class="ats-link-grid">
+              <a class="ats-button ats-button-primary" href="/workspaces">Workspaces</a>
+              <a class="ats-button" href="/cases">Cases</a>
+              <a class="ats-button" href="/forms">Forms</a>
+              <a class="ats-button" href="/rules">Rules</a>
+            </div>
+          </div>
+          <div class="ats-context-strip" id="ats-context-strip">
+            <div class="ats-context-text">
+              Loading current context and ATS coverage.
+            </div>
+            <div class="ats-action-row" id="ats-context-actions"></div>
+          </div>
+        </section>
 
-      <section class="grid">
-        <article class="card">
-          <h2>Vacancy model</h2>
-          <ul>
-            <li>Open, paused, closed, and archived vacancy states</li>
-            <li>Published careers paths per role</li>
-            <li>Dedicated application form and queue mapping</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h2>Candidate intake</h2>
-          <ul>
-            <li>Public application flow creates candidate cases</li>
-            <li>Applicant profiles stay linked to contacts and attachments</li>
-            <li>ATS automation tags new applications for triage</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h2>Operator actions</h2>
-          <ul>
-            <li>Publish or close vacancies</li>
-            <li>Move applicants through screening, interview, offer, and outcome stages</li>
-            <li>Keep hiring operations in the same workspace model as the rest of Move Big Rocks</li>
-          </ul>
-        </article>
-      </section>
-    </main>
+        <div class="ats-banner" id="ats-banner"></div>
+
+        <section class="ats-metrics" id="ats-summary-metrics">
+          <article class="ats-panel ats-metric ats-skeleton"></article>
+          <article class="ats-panel ats-metric ats-skeleton"></article>
+          <article class="ats-panel ats-metric ats-skeleton"></article>
+          <article class="ats-panel ats-metric ats-skeleton"></article>
+        </section>
+
+        <section class="ats-main-grid">
+          <article class="ats-panel ats-section" id="ats-focus-panel">
+            <div class="ats-section-head">
+              <div>
+                <h2>Current focus</h2>
+                <p class="ats-section-copy">
+                  Workspace-specific actions and candidate flow, based on your current admin
+                  context.
+                </p>
+              </div>
+            </div>
+            <div class="ats-empty">Loading ATS workspace details.</div>
+          </article>
+
+          <article class="ats-panel ats-section" id="ats-playbooks-panel">
+            <div class="ats-section-head">
+              <div>
+                <h2>Operator playbooks</h2>
+                <p class="ats-section-copy">
+                  The bundle now points straight at the jobs that matter instead of just describing
+                  them.
+                </p>
+              </div>
+            </div>
+            <div class="ats-playbook-list" id="ats-playbook-list">
+              <article class="ats-playbook">
+                <h3>Publish a role</h3>
+                <p>
+                  Confirm the workspace, job wording, and public timing, then validate the related
+                  form and careers assets before publishing.
+                </p>
+                <div class="ats-action-row">
+                  <a class="ats-button ats-button-secondary" href="/forms">Open forms</a>
+                  <a class="ats-button" href="/rules">Open rules</a>
+                </div>
+              </article>
+              <article class="ats-playbook">
+                <h3>Review candidates</h3>
+                <p>
+                  Triage the newest candidate cases, compare evidence explicitly, and write notes
+                  before making interpretation-heavy stage changes.
+                </p>
+                <div class="ats-action-row">
+                  <a class="ats-button ats-button-secondary" href="/cases">Open candidate cases</a>
+                </div>
+              </article>
+              <article class="ats-playbook">
+                <h3>Audit the install</h3>
+                <p>
+                  Check that the public application form, ATS automation rule, and seeded queues
+                  still match the bundle contract in every hiring workspace.
+                </p>
+                <div class="ats-action-row">
+                  <a class="ats-button" href="/workspaces">Review workspaces</a>
+                </div>
+              </article>
+            </div>
+          </article>
+        </section>
+
+        <section class="ats-panel ats-section">
+          <div class="ats-section-head">
+            <div>
+              <h2>Workspace directory</h2>
+              <p class="ats-section-copy">
+                Every accessible workspace at a glance, with direct context switches into ATS,
+                cases, forms, and automation.
+              </p>
+            </div>
+          </div>
+          <div class="ats-workspace-grid" id="ats-workspace-grid">
+            <article class="ats-panel ats-workspace-card ats-skeleton"></article>
+            <article class="ats-panel ats-workspace-card ats-skeleton"></article>
+            <article class="ats-panel ats-workspace-card ats-skeleton"></article>
+          </div>
+        </section>
+
+        <noscript>
+          <section class="ats-panel ats-section">
+            <div class="ats-empty">
+              JavaScript is required for live ATS counts and context switches. The shared shell is
+              still available, and you can use Workspaces, Cases, Forms, and Rules from the buttons
+              above.
+            </div>
+          </section>
+        </noscript>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        "use strict";
+
+        var ATS_QUERY = [
+          "query ATSDashboard {",
+          "  workspaces {",
+          "    id",
+          "    name",
+          "    shortCode",
+          "    extensions {",
+          "      id",
+          "      slug",
+          "      version",
+          "      status",
+          "      validationStatus",
+          "      validationMessage",
+          "      healthStatus",
+          "      healthMessage",
+          "      seededResources {",
+          "        queues {",
+          "          slug",
+          "          resourceID",
+          "          exists",
+          "          matchesSeed",
+          "        }",
+          "        forms {",
+          "          slug",
+          "          resourceID",
+          "          exists",
+          "          matchesSeed",
+          "        }",
+          "        automationRules {",
+          "          key",
+          "          resourceID",
+          "          exists",
+          "          matchesSeed",
+          "        }",
+          "      }",
+          "    }",
+          "    newCases: cases(filter: { first: 5, status: [new] }) {",
+          "      totalCount",
+          "      edges {",
+          "        node {",
+          "          id",
+          "          caseID",
+          "          subject",
+          "          status",
+          "          priority",
+          "          createdAt",
+          "          queue {",
+          "            slug",
+          "            name",
+          "          }",
+          "        }",
+          "      }",
+          "    }",
+          "    openCases: cases(filter: { first: 5, status: [open] }) {",
+          "      totalCount",
+          "    }",
+          "    pendingCases: cases(filter: { first: 5, status: [pending] }) {",
+          "      totalCount",
+          "    }",
+          "    recentCases: cases(filter: { first: 5 }) {",
+          "      totalCount",
+          "      edges {",
+          "        node {",
+          "          id",
+          "          caseID",
+          "          subject",
+          "          status",
+          "          priority",
+          "          createdAt",
+          "          queue {",
+          "            slug",
+          "            name",
+          "          }",
+          "        }",
+          "      }",
+          "    }",
+          "  }",
+          "}"
+        ].join("\n");
+
+        var state = {
+          currentContext: null,
+          availableContexts: [],
+          workspaces: [],
+          graphError: ""
+        };
+
+        var bannerEl = document.getElementById("ats-banner");
+        var contextStripEl = document.getElementById("ats-context-strip");
+        var contextActionsEl = document.getElementById("ats-context-actions");
+        var metricsEl = document.getElementById("ats-summary-metrics");
+        var focusEl = document.getElementById("ats-focus-panel");
+        var playbooksEl = document.getElementById("ats-playbook-list");
+        var workspaceGridEl = document.getElementById("ats-workspace-grid");
+
+        function escapeHTML(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+
+        function fetchJSON(url, options) {
+          var requestOptions = Object.assign(
+            {
+              credentials: "same-origin",
+              headers: {
+                Accept: "application/json"
+              }
+            },
+            options || {}
+          );
+
+          if (requestOptions.body && !requestOptions.headers["Content-Type"]) {
+            requestOptions.headers["Content-Type"] = "application/json";
+          }
+
+          return fetch(url, requestOptions).then(function(response) {
+            return response.text().then(function(body) {
+              var data = {};
+              if (body) {
+                try {
+                  data = JSON.parse(body);
+                } catch (error) {
+                  throw new Error("Invalid JSON response from " + url);
+                }
+              }
+
+              if (!response.ok) {
+                throw new Error(data.message || data.error || ("Request failed with " + response.status));
+              }
+              return data;
+            });
+          });
+        }
+
+        function fetchGraphQL() {
+          return fetchJSON("/graphql", {
+            method: "POST",
+            body: JSON.stringify({ query: ATS_QUERY })
+          }).then(function(payload) {
+            if (payload.errors && payload.errors.length > 0) {
+              throw new Error(payload.errors[0].message || "GraphQL query failed");
+            }
+            return payload.data || {};
+          });
+        }
+
+        function hasInstanceContext() {
+          return state.availableContexts.some(function(ctx) {
+            return ctx.type === "instance";
+          });
+        }
+
+        function workspaceContextMap() {
+          var map = {};
+          state.availableContexts.forEach(function(ctx) {
+            if (ctx.type === "workspace" && ctx.workspace_id) {
+              map[ctx.workspace_id] = ctx;
+            }
+          });
+          return map;
+        }
+
+        function currentWorkspaceID() {
+          if (!state.currentContext || state.currentContext.type !== "workspace") {
+            return "";
+          }
+          return state.currentContext.workspace_id || "";
+        }
+
+        function getContextLabel(ctx) {
+          if (!ctx) {
+            return "Unknown context";
+          }
+          if (ctx.type === "instance") {
+            return "Instance Admin";
+          }
+          return ctx.workspace_name || "Workspace";
+        }
+
+        function statusChip(label, tone) {
+          var toneClass = "";
+          if (tone === "good") {
+            toneClass = " ats-chip-good";
+          } else if (tone === "warn") {
+            toneClass = " ats-chip-warn";
+          } else if (tone === "danger") {
+            toneClass = " ats-chip-danger";
+          }
+          return '<span class="ats-chip' + toneClass + '">' + escapeHTML(label) + "</span>";
+        }
+
+        function buildWorkspaceModels() {
+          var byID = {};
+          var contextMap = workspaceContextMap();
+
+          Object.keys(contextMap).forEach(function(id) {
+            var ctx = contextMap[id];
+            byID[id] = {
+              id: id,
+              name: ctx.workspace_name || "Workspace",
+              shortCode: ctx.workspace_slug || "",
+              accessible: true,
+              current: id === currentWorkspaceID(),
+              dataLoaded: false,
+              hasATS: false,
+              installed: false,
+              active: false,
+              healthStatus: "",
+              healthMessage: "",
+              validationStatus: "",
+              validationMessage: "",
+              version: "",
+              newCount: 0,
+              openCount: 0,
+              pendingCount: 0,
+              recentCases: [],
+              checklist: [],
+              attention: [],
+              formResourceID: "",
+              ruleResourceID: ""
+            };
+          });
+
+          state.workspaces.forEach(function(workspace) {
+            var model = byID[workspace.id] || {
+              id: workspace.id,
+              name: workspace.name,
+              shortCode: workspace.shortCode || "",
+              accessible: true,
+              current: workspace.id === currentWorkspaceID(),
+              dataLoaded: false,
+              hasATS: false,
+              installed: false,
+              active: false,
+              healthStatus: "",
+              healthMessage: "",
+              validationStatus: "",
+              validationMessage: "",
+              version: "",
+              newCount: 0,
+              openCount: 0,
+              pendingCount: 0,
+              recentCases: [],
+              checklist: [],
+              attention: [],
+              formResourceID: "",
+              ruleResourceID: ""
+            };
+
+            model.name = workspace.name;
+            model.shortCode = workspace.shortCode || model.shortCode;
+            model.current = workspace.id === currentWorkspaceID();
+            model.dataLoaded = true;
+
+            var extension = null;
+            (workspace.extensions || []).forEach(function(item) {
+              if (item && item.slug === "ats") {
+                extension = item;
+              }
+            });
+
+            if (extension) {
+              var seeded = extension.seededResources || {};
+              var formState = findByKey(seeded.forms, "slug", "job-application");
+              var automationState = findByKey(
+                seeded.automationRules,
+                "key",
+                "ext.demandops.ats.application_received_tag"
+              );
+              var generalQueueState = findByKey(seeded.queues, "slug", "general-applications");
+              var talentPoolState = findByKey(seeded.queues, "slug", "talent-pool");
+
+              model.hasATS = true;
+              model.installed = true;
+              model.active = extension.status === "active";
+              model.version = extension.version || "";
+              model.healthStatus = extension.healthStatus || "";
+              model.healthMessage = extension.healthMessage || "";
+              model.validationStatus = extension.validationStatus || "";
+              model.validationMessage = extension.validationMessage || "";
+              model.newCount = numberValue(workspace.newCases && workspace.newCases.totalCount);
+              model.openCount = numberValue(workspace.openCases && workspace.openCases.totalCount);
+              model.pendingCount = numberValue(workspace.pendingCases && workspace.pendingCases.totalCount);
+              model.recentCases = extractCases(workspace.recentCases);
+              model.formResourceID = formState && formState.resourceID ? formState.resourceID : "";
+              model.ruleResourceID = automationState && automationState.resourceID ? automationState.resourceID : "";
+              model.checklist = [
+                checkItem(
+                  "Public application form",
+                  !!(formState && formState.exists && formState.matchesSeed)
+                ),
+                checkItem(
+                  "General applications queue",
+                  !!(generalQueueState && generalQueueState.exists && generalQueueState.matchesSeed)
+                ),
+                checkItem(
+                  "Talent pool queue",
+                  !!(talentPoolState && talentPoolState.exists && talentPoolState.matchesSeed)
+                ),
+                checkItem(
+                  "Intake automation",
+                  !!(automationState && automationState.exists && automationState.matchesSeed)
+                )
+              ];
+
+              if (!model.active) {
+                model.attention.push("ATS is installed but not active in this workspace.");
+              }
+              if (model.healthStatus && model.healthStatus !== "healthy") {
+                model.attention.push(model.healthMessage || "ATS runtime health is not healthy.");
+              }
+              if (model.validationStatus && model.validationStatus !== "valid") {
+                model.attention.push(model.validationMessage || "The installed bundle needs validation follow-up.");
+              }
+              model.checklist.forEach(function(item) {
+                if (!item.ok) {
+                  model.attention.push(item.label + " needs attention.");
+                }
+              });
+            } else if (model.dataLoaded) {
+              model.attention.push("ATS is not installed in this workspace.");
+            }
+
+            byID[workspace.id] = model;
+          });
+
+          return Object.keys(byID)
+            .map(function(id) {
+              return byID[id];
+            })
+            .sort(function(left, right) {
+              if (left.current && !right.current) {
+                return -1;
+              }
+              if (!left.current && right.current) {
+                return 1;
+              }
+              if (left.hasATS && !right.hasATS) {
+                return -1;
+              }
+              if (!left.hasATS && right.hasATS) {
+                return 1;
+              }
+              if (left.active && !right.active) {
+                return -1;
+              }
+              if (!left.active && right.active) {
+                return 1;
+              }
+              return left.name.localeCompare(right.name);
+            });
+        }
+
+        function numberValue(value) {
+          var parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : 0;
+        }
+
+        function findByKey(items, key, target) {
+          if (!items || !items.length) {
+            return null;
+          }
+          for (var index = 0; index < items.length; index += 1) {
+            if (items[index] && items[index][key] === target) {
+              return items[index];
+            }
+          }
+          return null;
+        }
+
+        function extractCases(connection) {
+          if (!connection || !connection.edges) {
+            return [];
+          }
+          return connection.edges
+            .map(function(edge) {
+              return edge ? edge.node : null;
+            })
+            .filter(Boolean)
+            .sort(function(left, right) {
+              return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+            });
+        }
+
+        function checkItem(label, ok) {
+          return {
+            label: label,
+            ok: !!ok
+          };
+        }
+
+        function renderDashboard() {
+          var workspaces = buildWorkspaceModels();
+          renderBanner();
+          renderContextStrip(workspaces);
+          renderMetrics(workspaces);
+          renderFocus(workspaces);
+          renderPlaybooks(workspaces);
+          renderWorkspaceDirectory(workspaces);
+        }
+
+        function renderBanner() {
+          if (!state.graphError) {
+            bannerEl.style.display = "none";
+            bannerEl.textContent = "";
+            return;
+          }
+
+          bannerEl.style.display = "block";
+          bannerEl.textContent =
+            "Live ATS workspace data is temporarily unavailable. You can still switch context and use the shared admin pages.";
+        }
+
+        function renderContextStrip(workspaces) {
+          var currentLabel = getContextLabel(state.currentContext);
+          var atsCount = workspaces.filter(function(workspace) {
+            return workspace.hasATS;
+          }).length;
+          var message = "";
+
+          if (state.currentContext && state.currentContext.type === "workspace") {
+            message =
+              "<strong>Current context:</strong> " +
+              escapeHTML(currentLabel) +
+              ". Use the actions below to open candidates, forms, and automation for this workspace, or switch back to instance admin.";
+          } else {
+            message =
+              "<strong>Current context:</strong> " +
+              escapeHTML(currentLabel) +
+              ". " +
+              escapeHTML(String(atsCount)) +
+              " accessible workspace" +
+              (atsCount === 1 ? " has" : "s have") +
+              " ATS installed. Use a workspace card to jump straight into operations.";
+          }
+
+          contextStripEl.querySelector(".ats-context-text").innerHTML = message;
+
+          var actions = [];
+          if (state.currentContext && state.currentContext.type === "workspace" && hasInstanceContext()) {
+            actions.push(
+              buttonHTML("Switch to instance admin", "ats-button ats-button-secondary", {
+                switchType: "instance",
+                target: "/extensions/ats"
+              })
+            );
+          }
+
+          if (state.currentContext && state.currentContext.type === "workspace") {
+            actions.push(
+              buttonHTML("Open candidate cases", "ats-button", {
+                target: "/cases"
+              })
+            );
+          } else {
+            actions.push(
+              '<a class="ats-button" href="/workspaces">Review workspaces</a>',
+              '<a class="ats-button" href="/cases">Open cases</a>'
+            );
+          }
+
+          contextActionsEl.innerHTML = actions.join("");
+        }
+
+        function renderMetrics(workspaces) {
+          var atsInstalled = workspaces.filter(function(workspace) {
+            return workspace.hasATS;
+          });
+          var liveCount = atsInstalled.filter(function(workspace) {
+            return workspace.active && workspace.healthStatus === "healthy";
+          }).length;
+          var needsReview = sumBy(atsInstalled, function(workspace) {
+            return workspace.newCount;
+          });
+          var inProgress = sumBy(atsInstalled, function(workspace) {
+            return workspace.openCount + workspace.pendingCount;
+          });
+          var attentionCount = atsInstalled.filter(function(workspace) {
+            return workspace.attention.length > 0;
+          }).length;
+
+          metricsEl.innerHTML = [
+            metricCard("Accessible workspaces", workspaces.length, "Every workspace you can switch into from this page."),
+            metricCard("ATS live", liveCount, "Healthy, active ATS installs ready for operators."),
+            metricCard("Needs review", needsReview, "New candidate cases waiting for the next pass."),
+            metricCard("Needs attention", attentionCount, "Install, health, or seed issues that need operator follow-up.")
+          ].join("");
+        }
+
+        function metricCard(label, value, note) {
+          return [
+            '<article class="ats-panel ats-metric">',
+            '<span class="ats-metric-label">' + escapeHTML(label) + "</span>",
+            '<span class="ats-metric-value">' + escapeHTML(String(value)) + "</span>",
+            '<div class="ats-metric-note">' + escapeHTML(note) + "</div>",
+            "</article>"
+          ].join("");
+        }
+
+        function renderFocus(workspaces) {
+          var currentID = currentWorkspaceID();
+          var currentWorkspace = null;
+          var firstActiveWorkspace = null;
+          var index;
+
+          for (index = 0; index < workspaces.length; index += 1) {
+            if (!currentWorkspace && workspaces[index].id === currentID) {
+              currentWorkspace = workspaces[index];
+            }
+            if (!firstActiveWorkspace && workspaces[index].active) {
+              firstActiveWorkspace = workspaces[index];
+            }
+          }
+
+          if (currentWorkspace && currentWorkspace.hasATS) {
+            focusEl.innerHTML = workspaceFocusHTML(currentWorkspace, true);
+            return;
+          }
+
+          if (currentWorkspace && !currentWorkspace.dataLoaded) {
+            focusEl.innerHTML = [
+              '<div class="ats-section-head">',
+              "  <div>",
+              "    <h2>Current focus</h2>",
+              '    <p class="ats-section-copy">Live ATS data is unavailable for the current workspace.</p>',
+              "  </div>",
+              "</div>",
+              '<div class="ats-empty">',
+              "Use the shared shell actions above while the live ATS workspace query recovers, or refresh the page to retry.",
+              "</div>"
+            ].join("");
+            return;
+          }
+
+          if (state.currentContext && state.currentContext.type === "workspace" && currentWorkspace && !currentWorkspace.hasATS) {
+            focusEl.innerHTML = workspaceMissingHTML(currentWorkspace);
+            return;
+          }
+
+          if (firstActiveWorkspace) {
+            focusEl.innerHTML = instanceOverviewHTML(firstActiveWorkspace, workspaces);
+            return;
+          }
+
+          focusEl.innerHTML = [
+            '<div class="ats-section-head">',
+            "  <div>",
+            "    <h2>Current focus</h2>",
+            '    <p class="ats-section-copy">No ATS workspace is currently active for your account.</p>',
+            "  </div>",
+            "</div>",
+            '<div class="ats-empty">',
+            "Install ATS into a workspace, or switch into a workspace where the extension is already active, to start reviewing candidate operations here.",
+            "</div>"
+          ].join("");
+        }
+
+        function workspaceFocusHTML(workspace, isCurrent) {
+          var actions = [];
+          actions.push(
+            buttonHTML("Review candidates", "ats-button ats-button-primary", {
+              target: "/cases",
+              switchType: isCurrent ? "" : "workspace",
+              workspaceID: workspace.id
+            })
+          );
+          actions.push(
+            buttonHTML("Open ATS", "ats-button", {
+              target: "/extensions/ats",
+              switchType: isCurrent ? "" : "workspace",
+              workspaceID: workspace.id
+            })
+          );
+          actions.push(
+            buttonHTML("Application form", "ats-button", {
+              target: workspace.formResourceID ? "/forms/" + workspace.formResourceID : "/forms",
+              switchType: isCurrent ? "" : "workspace",
+              workspaceID: workspace.id
+            })
+          );
+          actions.push(
+            buttonHTML("Automation rule", "ats-button", {
+              target: workspace.ruleResourceID ? "/rules/" + workspace.ruleResourceID : "/rules",
+              switchType: isCurrent ? "" : "workspace",
+              workspaceID: workspace.id
+            })
+          );
+          if (hasInstanceContext()) {
+            actions.push(
+              buttonHTML("Back to instance admin", "ats-button ats-button-secondary", {
+                switchType: "instance",
+                target: "/extensions/ats"
+              })
+            );
+          }
+
+          return [
+            '<div class="ats-section-head">',
+            "  <div>",
+            "    <h2>" + escapeHTML(workspace.name) + "</h2>",
+            '    <p class="ats-section-copy">Current ATS workspace with direct links into candidate review, forms, and automation.</p>',
+            "  </div>",
+            "  <div class=\"ats-status-stack\">",
+            statusChip("ATS " + (workspace.active ? "active" : "installed"), workspace.active ? "good" : "warn"),
+            statusChip(workspace.healthStatus === "healthy" ? "Healthy" : "Health needs attention", workspace.healthStatus === "healthy" ? "good" : "warn"),
+            workspace.version ? statusChip("v" + workspace.version, "") : "",
+            "  </div>",
+            "</div>",
+            '<div class="ats-action-row">' + actions.join("") + "</div>",
+            '<div class="ats-mini-grid">' +
+              miniStat("New", workspace.newCount) +
+              miniStat("Open", workspace.openCount) +
+              miniStat("Pending", workspace.pendingCount) +
+            "</div>",
+            checklistHTML(workspace.checklist),
+            alertsHTML(workspace.attention),
+            casesHTML(workspace.recentCases, workspace.id, "Recent candidate cases")
+          ].join("");
+        }
+
+        function workspaceMissingHTML(workspace) {
+          return [
+            '<div class="ats-section-head">',
+            "  <div>",
+            "    <h2>" + escapeHTML(workspace.name) + "</h2>",
+            '    <p class="ats-section-copy">You are in a workspace context, but ATS is not installed here yet.</p>',
+            "  </div>",
+            "  <div class=\"ats-status-stack\">" + statusChip("Not installed", "warn") + "</div>",
+            "</div>",
+            '<div class="ats-empty">',
+            "Switch to a workspace with ATS installed or return to instance admin to review workspace coverage.",
+            "</div>",
+            '<div class="ats-action-row">' +
+              '<a class="ats-button" href="/workspaces">Open workspaces</a>' +
+              (hasInstanceContext()
+                ? buttonHTML("Switch to instance admin", "ats-button ats-button-secondary", {
+                    switchType: "instance",
+                    target: "/extensions/ats"
+                  })
+                : "") +
+            "</div>"
+          ].join("");
+        }
+
+        function instanceOverviewHTML(featuredWorkspace, workspaces) {
+          var atsWorkspaces = workspaces.filter(function(workspace) {
+            return workspace.hasATS;
+          });
+          return [
+            '<div class="ats-section-head">',
+            "  <div>",
+            "    <h2>Instance admin overview</h2>",
+            '    <p class="ats-section-copy">Use the workspace directory below to jump into the right ATS workspace. The highlighted workspace is the best current starting point.</p>',
+            "  </div>",
+            "</div>",
+            '<div class="ats-chip-row">' +
+              statusChip(String(atsWorkspaces.length) + " ATS workspace" + (atsWorkspaces.length === 1 ? "" : "s"), "good") +
+              statusChip(featuredWorkspace.name + " is ready", "good") +
+            "</div>",
+            workspaceFocusHTML(featuredWorkspace, false)
+          ].join("");
+        }
+
+        function renderPlaybooks(workspaces) {
+          var targetWorkspace = currentWorkspaceID()
+            ? workspaces.find(function(workspace) {
+                return workspace.id === currentWorkspaceID();
+              })
+            : workspaces.find(function(workspace) {
+                return workspace.active;
+              });
+
+          var publishActions = targetWorkspace
+            ? [
+                buttonHTML("Open ATS workspace", "ats-button ats-button-secondary", {
+                  switchType: targetWorkspace.current ? "" : "workspace",
+                  workspaceID: targetWorkspace.id,
+                  target: "/extensions/ats"
+                }),
+                buttonHTML("Open form", "ats-button", {
+                  switchType: targetWorkspace.current ? "" : "workspace",
+                  workspaceID: targetWorkspace.id,
+                  target: targetWorkspace.formResourceID ? "/forms/" + targetWorkspace.formResourceID : "/forms"
+                })
+              ]
+            : ['<a class="ats-button ats-button-secondary" href="/workspaces">Open workspaces</a>'];
+
+          var reviewActions = targetWorkspace
+            ? [
+                buttonHTML("Review cases", "ats-button ats-button-secondary", {
+                  switchType: targetWorkspace.current ? "" : "workspace",
+                  workspaceID: targetWorkspace.id,
+                  target: "/cases"
+                })
+              ]
+            : ['<a class="ats-button ats-button-secondary" href="/cases">Open cases</a>'];
+
+          var auditActions = targetWorkspace
+            ? [
+                buttonHTML("Open automation", "ats-button", {
+                  switchType: targetWorkspace.current ? "" : "workspace",
+                  workspaceID: targetWorkspace.id,
+                  target: targetWorkspace.ruleResourceID ? "/rules/" + targetWorkspace.ruleResourceID : "/rules"
+                }),
+                '<a class="ats-button" href="/workspaces">Workspace coverage</a>'
+              ]
+            : ['<a class="ats-button" href="/workspaces">Workspace coverage</a>'];
+
+          playbooksEl.innerHTML = [
+            playbookHTML(
+              "Publish a role",
+              "Confirm the workspace, job wording, and public timing before you update the ATS surface and application intake path.",
+              publishActions.join("")
+            ),
+            playbookHTML(
+              "Review candidates",
+              "Use the ATS workspace to triage new applications, compare evidence explicitly, and leave notes before you change interpretation-heavy data.",
+              reviewActions.join("")
+            ),
+            playbookHTML(
+              "Audit the install",
+              "Check that the public application form, ATS automation rule, and seeded queues still match the extension contract in the target workspace.",
+              auditActions.join("")
+            )
+          ].join("");
+        }
+
+        function playbookHTML(title, copy, actionsHTML) {
+          return [
+            '<article class="ats-playbook">',
+            "  <h3>" + escapeHTML(title) + "</h3>",
+            "  <p>" + escapeHTML(copy) + "</p>",
+            '  <div class="ats-action-row">' + actionsHTML + "</div>",
+            "</article>"
+          ].join("");
+        }
+
+        function renderWorkspaceDirectory(workspaces) {
+          if (!workspaces.length) {
+            workspaceGridEl.innerHTML = '<div class="ats-empty">No accessible workspaces were returned for this session.</div>';
+            return;
+          }
+
+          workspaceGridEl.innerHTML = workspaces
+            .map(function(workspace) {
+              return workspaceCardHTML(workspace);
+            })
+            .join("");
+        }
+
+        function workspaceCardHTML(workspace) {
+          if (!workspace.dataLoaded) {
+            return [
+              '<article class="ats-panel ats-workspace-card' + (workspace.current ? " ats-workspace-card-current" : "") + '">',
+              '  <div class="ats-workspace-head">',
+              "    <div>",
+              '      <div class="ats-workspace-name">' + escapeHTML(workspace.name) + "</div>",
+              '      <div class="ats-workspace-meta">' +
+                escapeHTML(workspace.shortCode || "workspace") +
+                (workspace.current ? " • current context" : "") +
+                "</div>",
+              "    </div>",
+              '    <div class="ats-status-stack">' + statusChip("Data unavailable", "warn") + "</div>",
+              "  </div>",
+              '<div class="ats-empty">',
+              "Live ATS install details could not be loaded for this workspace. You can still switch into it from here.",
+              "</div>",
+              '<div class="ats-action-row">' +
+                buttonHTML("Switch to workspace", "ats-button ats-button-secondary", {
+                  switchType: "workspace",
+                  workspaceID: workspace.id,
+                  target: "/dashboard"
+                }) +
+              "</div>",
+              "</article>"
+            ].join("");
+          }
+
+          var status = workspaceStatus(workspace);
+          var actions = [];
+
+          if (workspace.hasATS) {
+            actions.push(
+              buttonHTML(workspace.current ? "Stay in ATS" : "Open ATS", "ats-button ats-button-primary", {
+                switchType: workspace.current ? "" : "workspace",
+                workspaceID: workspace.id,
+                target: "/extensions/ats"
+              })
+            );
+            actions.push(
+              buttonHTML("Candidates", "ats-button", {
+                switchType: workspace.current ? "" : "workspace",
+                workspaceID: workspace.id,
+                target: "/cases"
+              })
+            );
+            actions.push(
+              buttonHTML("Form", "ats-button", {
+                switchType: workspace.current ? "" : "workspace",
+                workspaceID: workspace.id,
+                target: workspace.formResourceID ? "/forms/" + workspace.formResourceID : "/forms"
+              })
+            );
+            actions.push(
+              buttonHTML("Rule", "ats-button", {
+                switchType: workspace.current ? "" : "workspace",
+                workspaceID: workspace.id,
+                target: workspace.ruleResourceID ? "/rules/" + workspace.ruleResourceID : "/rules"
+              })
+            );
+          } else if (workspace.accessible) {
+            actions.push(
+              buttonHTML("Switch to workspace", "ats-button ats-button-secondary", {
+                switchType: "workspace",
+                workspaceID: workspace.id,
+                target: "/dashboard"
+              })
+            );
+          }
+
+          return [
+            '<article class="ats-panel ats-workspace-card' + (workspace.current ? " ats-workspace-card-current" : "") + '">',
+            '  <div class="ats-workspace-head">',
+            "    <div>",
+            '      <div class="ats-workspace-name">' + escapeHTML(workspace.name) + "</div>",
+            '      <div class="ats-workspace-meta">' +
+              escapeHTML(workspace.shortCode || "workspace") +
+              (workspace.current ? " • current context" : "") +
+              "</div>",
+            "    </div>",
+            '    <div class="ats-status-stack">' +
+              statusChip(status.label, status.tone) +
+              (workspace.version ? statusChip("v" + workspace.version, "") : "") +
+              "</div>",
+            "  </div>",
+            '<div class="ats-mini-grid">' +
+              miniStat("New", workspace.newCount) +
+              miniStat("Open", workspace.openCount) +
+              miniStat("Pending", workspace.pendingCount) +
+            "</div>",
+            checklistHTML(workspace.checklist),
+            alertsHTML(workspace.attention.slice(0, 2)),
+            casesHTML(workspace.recentCases, workspace.id, "Recent cases"),
+            '<div class="ats-action-row">' + actions.join("") + "</div>",
+            "</article>"
+          ].join("");
+        }
+
+        function workspaceStatus(workspace) {
+          if (!workspace.dataLoaded) {
+            return { label: "Data unavailable", tone: "warn" };
+          }
+          if (!workspace.hasATS) {
+            return { label: "Not installed", tone: "warn" };
+          }
+          if (workspace.active && workspace.healthStatus === "healthy") {
+            return { label: "Live", tone: "good" };
+          }
+          if (!workspace.active) {
+            return { label: "Installed only", tone: "warn" };
+          }
+          return { label: "Needs attention", tone: "danger" };
+        }
+
+        function checklistHTML(checklist) {
+          if (!checklist || !checklist.length) {
+            return "";
+          }
+          return (
+            '<div class="ats-checklist">' +
+            checklist
+              .map(function(item) {
+                return (
+                  '<div class="ats-check">' +
+                  '<span class="ats-check-dot ' +
+                  (item.ok ? "ats-check-dot-good" : "ats-check-dot-warn") +
+                  '"></span>' +
+                  "<span>" +
+                  escapeHTML(item.label) +
+                  "</span>" +
+                  "</div>"
+                );
+              })
+              .join("") +
+            "</div>"
+          );
+        }
+
+        function alertsHTML(alerts) {
+          if (!alerts || !alerts.length) {
+            return "";
+          }
+
+          return (
+            '<div class="ats-alert-list">' +
+            alerts
+              .map(function(alert) {
+                var danger = /health|validation/i.test(alert);
+                return (
+                  '<div class="ats-alert' + (danger ? " ats-alert-danger" : "") + '">' +
+                  escapeHTML(alert) +
+                  "</div>"
+                );
+              })
+              .join("") +
+            "</div>"
+          );
+        }
+
+        function casesHTML(cases, workspaceID, heading) {
+          var items = cases || [];
+          if (!items.length) {
+            return '<div class="ats-empty">No candidate cases are currently visible for this workspace.</div>';
+          }
+
+          return [
+            '<div class="ats-stack">',
+            '  <h3>' + escapeHTML(heading) + "</h3>",
+            '  <div class="ats-case-list">',
+            items
+              .slice(0, 5)
+              .map(function(item) {
+                var target = "/cases/" + item.id;
+                return [
+                  '<article class="ats-case">',
+                  '  <div class="ats-case-title">' +
+                    buttonLinkHTML(
+                      item.caseID ? item.caseID + " • " + item.subject : item.subject,
+                      {
+                        switchType: workspaceID === currentWorkspaceID() ? "" : "workspace",
+                        workspaceID: workspaceID,
+                        target: target
+                      }
+                    ) +
+                  "</div>",
+                  '  <div class="ats-case-meta">',
+                  "    <span>" + escapeHTML(item.status) + "</span>",
+                  "    <span>" + escapeHTML(item.priority) + " priority</span>",
+                  "    <span>" +
+                    escapeHTML(item.queue && item.queue.name ? item.queue.name : "Unqueued") +
+                    "</span>",
+                  "    <span>" + escapeHTML(relativeTime(item.createdAt)) + "</span>",
+                  "  </div>",
+                  "</article>"
+                ].join("");
+              })
+              .join(""),
+            "  </div>",
+            "</div>"
+          ].join("");
+        }
+
+        function miniStat(label, value) {
+          return [
+            '<div class="ats-mini-stat">',
+            '  <div class="ats-mini-label">' + escapeHTML(label) + "</div>",
+            '  <span class="ats-mini-value">' + escapeHTML(String(value)) + "</span>",
+            "</div>"
+          ].join("");
+        }
+
+        function sumBy(items, selector) {
+          return items.reduce(function(total, item) {
+            return total + numberValue(selector(item));
+          }, 0);
+        }
+
+        function buttonHTML(label, className, options) {
+          var attrs = actionAttributes(options || {});
+          return '<button type="button" class="' + escapeHTML(className) + '"' + attrs + ">" + escapeHTML(label) + "</button>";
+        }
+
+        function buttonLinkHTML(label, options) {
+          var attrs = actionAttributes(options || {});
+          var target = options && options.target ? options.target : "#";
+          return '<a href="' + escapeHTML(target) + '" class="ats-inline-link" ' + attrs + ">" + escapeHTML(label) + "</a>";
+        }
+
+        function actionAttributes(options) {
+          var attrs = "";
+          if (options.switchType) {
+            attrs += ' data-switch-type="' + escapeHTML(options.switchType) + '"';
+          }
+          if (options.workspaceID) {
+            attrs += ' data-workspace-id="' + escapeHTML(options.workspaceID) + '"';
+          }
+          if (options.target) {
+            attrs += ' data-target="' + escapeHTML(options.target) + '"';
+          }
+          return attrs;
+        }
+
+        function relativeTime(value) {
+          if (!value) {
+            return "Just now";
+          }
+
+          var then = new Date(value).getTime();
+          var now = Date.now();
+          var diffSeconds = Math.max(0, Math.round((now - then) / 1000));
+
+          if (diffSeconds < 60) {
+            return "Just now";
+          }
+          if (diffSeconds < 3600) {
+            return Math.round(diffSeconds / 60) + "m ago";
+          }
+          if (diffSeconds < 86400) {
+            return Math.round(diffSeconds / 3600) + "h ago";
+          }
+          return Math.round(diffSeconds / 86400) + "d ago";
+        }
+
+        function matchesCurrentContext(type, workspaceID) {
+          if (!type) {
+            return true;
+          }
+          if (!state.currentContext) {
+            return false;
+          }
+          if (state.currentContext.type !== type) {
+            return false;
+          }
+          if (type === "workspace") {
+            return state.currentContext.workspace_id === workspaceID;
+          }
+          return true;
+        }
+
+        function switchContext(type, workspaceID) {
+          if (!type || matchesCurrentContext(type, workspaceID)) {
+            return Promise.resolve();
+          }
+
+          var payload = { type: type };
+          if (type === "workspace" && workspaceID) {
+            payload.workspace_id = workspaceID;
+          }
+
+          return fetchJSON("/auth/switch-context", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          }).then(function(data) {
+            if (data && data.current_context) {
+              state.currentContext = data.current_context;
+            }
+          });
+        }
+
+        document.addEventListener("click", function(event) {
+          var action = event.target.closest("[data-target]");
+          if (!action) {
+            return;
+          }
+
+          event.preventDefault();
+
+          var switchType = action.getAttribute("data-switch-type") || "";
+          var workspaceID = action.getAttribute("data-workspace-id") || "";
+          var target = action.getAttribute("data-target") || "/extensions/ats";
+          var originalText = action.textContent;
+
+          if (action.tagName === "BUTTON") {
+            action.disabled = true;
+            action.textContent = "Opening...";
+          }
+
+          switchContext(switchType, workspaceID)
+            .then(function() {
+              window.location.href = target;
+            })
+            .catch(function(error) {
+              showInlineError(error && error.message ? error.message : "Could not switch context.");
+              if (action.tagName === "BUTTON") {
+                action.disabled = false;
+                action.textContent = originalText;
+              }
+            });
+        });
+
+        function showInlineError(message) {
+          bannerEl.style.display = "block";
+          bannerEl.textContent = message;
+        }
+
+        function loadDashboard() {
+          fetchJSON("/auth/context")
+            .then(function(contextData) {
+              state.currentContext = contextData.current_context || null;
+              state.availableContexts = contextData.available_contexts || [];
+              return fetchGraphQL().catch(function(error) {
+                state.graphError = error && error.message ? error.message : "Failed to load ATS workspace data.";
+                return { workspaces: [] };
+              });
+            })
+            .then(function(graphData) {
+              state.workspaces = graphData && graphData.workspaces ? graphData.workspaces : [];
+              renderDashboard();
+            })
+            .catch(function(error) {
+              showInlineError(error && error.message ? error.message : "Could not load ATS dashboard.");
+              focusEl.innerHTML =
+                '<div class="ats-empty">The ATS dashboard could not load live data. You can still use Workspaces, Cases, Forms, and Rules from the shared shell.</div>';
+              workspaceGridEl.innerHTML = "";
+              metricsEl.innerHTML = metricCard("Status", "Error", "Refresh the page or check your session context.");
+            });
+        }
+
+        loadDashboard();
+      })();
+    </script>
   </body>
 </html>

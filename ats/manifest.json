@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "ats",
   "name": "Applicant Tracking",
-  "version": "0.8.21",
+  "version": "0.8.22",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "workspace",
@@ -226,7 +226,7 @@
     {
       "name": "ats-overview",
       "title": "ATS Workspace",
-      "description": "Open the hiring dashboard and review candidate workflows.",
+      "description": "Open the live hiring dashboard, workspace directory, and candidate operations.",
       "icon": "briefcase-business",
       "endpoint": "ats-admin-dashboard"
     }

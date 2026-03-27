@@ -13,7 +13,7 @@
   "resolvedDashboardWidgets": [
     {
       "title": "ATS Workspace",
-      "description": "Open the hiring dashboard and review candidate workflows.",
+      "description": "Open the live hiring dashboard, workspace directory, and candidate operations.",
       "icon": "briefcase-business",
       "href": "/extensions/ats"
     }

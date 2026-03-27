@@ -87,7 +87,7 @@ mbr extensions install ./ats \
 Or install the published public bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.21 \
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.22 \
   --workspace WORKSPACE_ID
 ```
 
