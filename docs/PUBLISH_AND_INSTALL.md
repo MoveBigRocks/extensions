@@ -34,6 +34,8 @@ Before tagging and publishing, each extension directory should pass:
 ```bash
 mbr extensions lint ./EXTENSION_DIR --json
 mbr extensions verify ./EXTENSION_DIR --workspace WORKSPACE_ID --json
+mbr extensions nav --instance --json
+mbr extensions widgets --instance --json
 ```
 
 If the declared extension surface changed intentionally, refresh the checked-in
@@ -42,6 +44,10 @@ contract file first:
 ```bash
 mbr extensions lint ./EXTENSION_DIR --write-contract --json
 ```
+
+Do not treat the workspace-scoped happy path as sufficient proof on its own.
+For any extension with admin UI, also confirm that an instance admin with no
+active workspace selection can still discover and open the extension cleanly.
 
 ## Prerequisites
 

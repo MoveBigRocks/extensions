@@ -78,6 +78,8 @@ contract-first lifecycle we want custom extension authors to use:
 ```bash
 mbr extensions lint ./EXTENSION_DIR --json
 mbr extensions verify ./EXTENSION_DIR --workspace WORKSPACE_ID --json
+mbr extensions nav --instance --json
+mbr extensions widgets --instance --json
 ```
 
 If a pack intentionally changes its declared extension surface, refresh its
@@ -86,6 +88,11 @@ contract file and review the diff:
 ```bash
 mbr extensions lint ./EXTENSION_DIR --write-contract --json
 ```
+
+For workspace-scoped admin UI, passing validation now also means the pack stays
+discoverable for an instance admin with no active workspace selection. The
+instance-level menu entry should still open a working page, and static admin
+pages that call workspace-bound APIs should preserve the `?workspace=...` hint.
 
 ## First-Party Catalog
 
