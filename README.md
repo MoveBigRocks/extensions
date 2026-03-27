@@ -11,9 +11,11 @@ fragment.
 Examples and scaffolds live in
 [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk).
 
-It is licensed under the MBR Source Code Available License 1.0 with the same
-no-commercialization rule used across the public Move Big Rocks code and
-extension surfaces. See [LICENSE](LICENSE).
+It is licensed under the MBR Source Code Available License 1.0. Teams may use
+and modify it for their own company, use the first-party extensions, and build
+their own extensions, but may not sell the platform, extensions, derivative
+works, or hosted access without separate written permission. See
+[LICENSE](LICENSE).
 
 ## Production Intent
 
