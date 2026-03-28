@@ -2,14 +2,25 @@
   "schemaVersion": 1,
   "slug": "ats",
   "name": "Applicant Tracking",
-  "version": "0.8.22",
+  "version": "0.8.23",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "workspace",
   "risk": "standard",
-  "runtimeClass": "bundle",
-  "storageClass": "shared_primitives_only",
-  "description": "Publish vacancies, run a careers site, intake candidate applications, and manage applicant stages on Move Big Rocks cases, contacts, forms, attachments, tags, and automations.",
+  "runtimeClass": "service_backed",
+  "storageClass": "owned_schema",
+  "schema": {
+    "name": "ext_demandops_ats",
+    "packageKey": "demandops/ats",
+    "targetVersion": "000001",
+    "migrationEngine": "postgres_sql"
+  },
+  "runtime": {
+    "protocol": "unix_socket_http",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-ats-runtime:v0.8.23",
+    "digest": "sha256:pending"
+  },
+  "description": "Publish vacancies, run a careers site, intake candidate applications, and manage applicant stages on Move Big Rocks cases, contacts, queues, forms, attachments, tags, automations, and ATS-owned recruiting state.",
   "workspacePlan": {
     "mode": "provision_dedicated_workspace",
     "name": "Hiring",
@@ -160,6 +171,34 @@
           }
         ]
       }
+    },
+    {
+      "key": "ext.demandops.ats.stage_change_followup",
+      "title": "ATS stage changes",
+      "description": "Tag candidate cases when ATS-owned stage transitions require recruiter follow-up.",
+      "isActive": true,
+      "priority": 55,
+      "maxExecutionsPerHour": 500,
+      "maxExecutionsPerDay": 5000,
+      "conditions": {
+        "operator": "and",
+        "conditions": [
+          {
+            "type": "event",
+            "field": "trigger",
+            "operator": "equals",
+            "value": "ats_application_stage_changed"
+          }
+        ]
+      },
+      "actions": {
+        "actions": [
+          {
+            "type": "add_tag",
+            "value": "ats-stage-review"
+          }
+        ]
+      }
     }
   ],
   "artifactSurfaces": [
@@ -200,6 +239,24 @@
       "artifactPath": "apply.html"
     },
     {
+      "name": "ats-public-application-submit",
+      "class": "public_ingest",
+      "mountPath": "/careers/applications",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "ats.public.submit",
+      "contentTypes": [
+        "application/json",
+        "application/x-www-form-urlencoded",
+        "multipart/form-data"
+      ],
+      "maxBodyBytes": 131072,
+      "rateLimitPerMinute": 60
+    },
+    {
       "name": "ats-admin-dashboard",
       "class": "admin_page",
       "mountPath": "/extensions/ats",
@@ -210,6 +267,107 @@
       "workspaceBinding": "workspace_from_session",
       "artifactSurface": "admin-ui",
       "artifactPath": "dashboard.html"
+    },
+    {
+      "name": "ats-api-jobs",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/jobs",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.jobs"
+    },
+    {
+      "name": "ats-api-job-publish",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/jobs/:id/publish",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.jobs.publish"
+    },
+    {
+      "name": "ats-api-job-close",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/jobs/:id/close",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.jobs.close"
+    },
+    {
+      "name": "ats-api-job-reopen",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/jobs/:id/reopen",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.jobs.reopen"
+    },
+    {
+      "name": "ats-api-job-applications",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/jobs/:id/applications",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.jobs.applications"
+    },
+    {
+      "name": "ats-api-workspace-defaults",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/defaults",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.defaults"
+    },
+    {
+      "name": "ats-api-application-stage",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/applications/:id/stage",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.applications.stage"
+    },
+    {
+      "name": "ats-api-application-notes",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/applications/:id/notes",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.applications.notes"
+    },
+    {
+      "name": "ats-runtime-health",
+      "class": "health",
+      "mountPath": "/extensions/ats/health",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "auth": "internal_only",
+      "workspaceBinding": "instance_scoped",
+      "serviceTarget": "ats.runtime.health"
     }
   ],
   "adminNavigation": [
@@ -252,6 +410,10 @@
   },
   "commands": [
     {
+      "name": "ats.jobs.create",
+      "description": "Create a job, its recruiting queue, and ATS workspace defaults."
+    },
+    {
       "name": "ats.jobs.publish",
       "description": "Publish a job and expose it on the careers site."
     },
@@ -260,8 +422,16 @@
       "description": "Close a published job and hide it from the careers site."
     },
     {
+      "name": "ats.jobs.reopen",
+      "description": "Reopen a closed job and resume intake."
+    },
+    {
       "name": "ats.candidates.stage.set",
       "description": "Move a candidate case through the configured ATS pipeline."
+    },
+    {
+      "name": "ats.candidates.note.add",
+      "description": "Add a recruiter note to an ATS application record."
     }
   ],
   "agentSkills": [

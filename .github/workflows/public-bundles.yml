@@ -92,9 +92,9 @@ jobs:
                 extension="ats"
                 source_dir="ats"
                 image="ghcr.io/movebigrocks/mbr-ext-ats"
-                runtime_image=""
-                runtime_cmd=""
-                needs_runtime="false"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-ats-runtime"
+                runtime_cmd="./cmd/ats-runtime"
+                needs_runtime="true"
                 publish_tag="${ref_name#ats-}"
                 ;;
               community-feature-requests-v*)
@@ -145,9 +145,9 @@ jobs:
               ats)
                 source_dir="ats"
                 image="ghcr.io/movebigrocks/mbr-ext-ats"
-                runtime_image=""
-                runtime_cmd=""
-                needs_runtime="false"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-ats-runtime"
+                runtime_cmd="./cmd/ats-runtime"
+                needs_runtime="true"
                 ;;
               community-feature-requests)
                 source_dir="community-feature-requests"

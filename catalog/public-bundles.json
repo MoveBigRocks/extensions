@@ -11,7 +11,8 @@
       "kind": "product",
       "scope": "workspace",
       "risk": "standard",
-      "runtimeClass": "bundle"
+      "runtimeClass": "service_backed",
+      "releaseChannel": "stable"
     },
     {
       "slug": "error-tracking",
@@ -22,7 +23,8 @@
       "kind": "product",
       "scope": "workspace",
       "risk": "standard",
-      "runtimeClass": "service_backed"
+      "runtimeClass": "service_backed",
+      "releaseChannel": "stable"
     },
     {
       "slug": "sales-pipeline",
@@ -33,7 +35,8 @@
       "kind": "product",
       "scope": "workspace",
       "risk": "standard",
-      "runtimeClass": "service_backed"
+      "runtimeClass": "service_backed",
+      "releaseChannel": "beta"
     },
     {
       "slug": "community-feature-requests",
@@ -44,7 +47,8 @@
       "kind": "product",
       "scope": "workspace",
       "risk": "standard",
-      "runtimeClass": "service_backed"
+      "runtimeClass": "service_backed",
+      "releaseChannel": "beta"
     },
     {
       "slug": "web-analytics",
@@ -55,7 +59,8 @@
       "kind": "product",
       "scope": "workspace",
       "risk": "standard",
-      "runtimeClass": "service_backed"
+      "runtimeClass": "service_backed",
+      "releaseChannel": "stable"
     }
   ]
 }

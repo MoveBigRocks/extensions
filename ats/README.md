@@ -9,13 +9,15 @@ sample or throwaway example.
 It is intentionally built from the same primitives customers will use:
 
 - workspace-scoped installation
+- ATS-owned PostgreSQL schema for recruiting workflow state
 - vacancy lifecycle modeled in Go
 - seeded queues
-- seeded public form that auto-creates candidate cases
+- candidate contacts and cases created on the shared core services
 - seeded `case_created` automation rule for ATS follow-up tagging
+- seeded ATS stage-change automation rule for recruiter follow-up
 - branded public/admin assets
-- ATS-specific Go domain types for vacancies, applicants, applications, and vacancy catalogs
-- declared endpoints, namespaced extension commands, bundled agent-skill assets, and extension events
+- ATS-specific Go domain and runtime types for vacancies, applicants, applications, notes, saved filters, and stage presets
+- declared endpoints, namespaced extension commands, bundled agent-skill assets, extension events, and a service-backed runtime binary
 
 This extension is intended to be part of the free public first-party bundle
 set and is the canonical public bundle source for ATS.
@@ -29,16 +31,24 @@ directory:
   [`manifest.json`](./manifest.json)
 - contract assertions:
   [`extension.contract.json`](./extension.contract.json)
+- owned-schema migrations:
+  [`migrations/`](./migrations)
 - careers and admin templates:
   [`assets/templates/`](./assets/templates)
 - agent skills:
   [`assets/agent-skills/`](./assets/agent-skills)
 - ATS domain model source:
   [`runtime/domain/`](./runtime/domain)
+- ATS service-backed runtime:
+  [`runtime/`](./runtime)
+- ATS runtime entry point:
+  [`cmd/ats-runtime`](../cmd/ats-runtime)
+- ATS scenario proof tool:
+  [`tools/ats-scenario-proof`](../tools/ats-scenario-proof)
 
-It still builds on shared platform primitives like cases, contacts, forms,
-attachments, and automation, but the ATS-specific source is already public
-here.
+It still builds on shared platform primitives like cases, contacts, queues,
+attachments, and automation, but the ATS-specific recruiting state now lives in
+the extension-owned schema and runtime source here.
 
 The current ATS Go model defines explicit ATS concepts that do not exist in the
 shared base by default:
@@ -69,11 +79,10 @@ The current ATS scope is intentionally real and bounded:
 - give operators and agents first-party skills for publishing roles and
   reviewing candidates
 
-Things ATS does not claim yet:
+Things ATS still does not claim:
 
 - a dedicated interview scheduling system
 - a dedicated offer approval workflow
-- a separate ATS-only persistence schema outside the shared-primitives model
 
 Install it with the operator CLI by pointing at the directory directly:
 
@@ -87,8 +96,16 @@ mbr extensions install ./ats \
 Or install the published public bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.22 \
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.23 \
   --workspace WORKSPACE_ID
+```
+
+Build and run the runtime binary locally against a platform database:
+
+```bash
+go test ./ats/runtime -count=1
+go run ./tools/ats-scenario-proof --out /tmp/ats-proof.json
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./cmd/ats-runtime
 ```
 
 The CLI reads `manifest.json` plus every file under `assets/` and uploads the
