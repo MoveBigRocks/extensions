@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,8 +16,11 @@ import (
 	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
 	automationdomain "github.com/movebigrocks/platform/internal/automation/domain"
 	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
+	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
+	serviceapp "github.com/movebigrocks/platform/internal/service/services"
 	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
 	"github.com/movebigrocks/platform/internal/testutil"
+	"github.com/movebigrocks/platform/pkg/logger"
 )
 
 func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
@@ -73,6 +78,8 @@ func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, atsdomain.VacancyStatusOpen, job.Status)
 
+	resumeAttachment := createUploadedAttachment(t, ctx, store, workspace.ID, "ada-lovelace-cv.pdf", []byte("%PDF-1.4 ada lovelace cv"))
+
 	submission, err := runtime.Service.SubmitApplication(ctx, SubmitApplicationInput{
 		WorkspaceID: workspace.ID,
 		VacancySlug: job.Slug,
@@ -84,7 +91,7 @@ func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
 			LinkedInURL:        "https://linkedin.example/ada",
 			PortfolioURL:       "https://portfolio.example/ada",
 			CoverNote:          "I would like to help build the platform.",
-			ResumeAttachmentID: "att_resume_123",
+			ResumeAttachmentID: resumeAttachment.ID,
 			Source:             "careers_runtime_test",
 		},
 	})
@@ -114,6 +121,18 @@ func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
 	candidateCase, err := store.Cases().GetCase(ctx, submission.Application.CaseID)
 	require.NoError(t, err)
 	require.Contains(t, candidateCase.Tags, "ats-stage-review")
+	resumeAttachmentField, ok := candidateCase.CustomFields.GetString("ats_applicant_resume_attachment_id")
+	require.True(t, ok)
+	require.Equal(t, resumeAttachment.ID, resumeAttachmentField)
+	portfolioField, ok := candidateCase.CustomFields.GetString("ats_applicant_portfolio_url")
+	require.True(t, ok)
+	require.Equal(t, "https://portfolio.example/ada", portfolioField)
+
+	caseAttachments, err := store.Cases().ListCaseAttachments(ctx, workspace.ID, submission.Application.CaseID)
+	require.NoError(t, err)
+	require.Len(t, caseAttachments, 1)
+	require.Equal(t, resumeAttachment.ID, caseAttachments[0].ID)
+	require.Equal(t, submission.Application.CaseID, caseAttachments[0].CaseID)
 
 	notes, err := runtime.ATSStore.ListRecruiterNotes(ctx, workspace.ID, submission.Application.ID)
 	require.NoError(t, err)
@@ -186,15 +205,19 @@ func TestATSHandlerRunsLifecycleOverHTTP(t *testing.T) {
 	jobID := created["id"].(string)
 
 	doJSON(http.MethodPost, "/extensions/ats/api/jobs/"+jobID+"/publish", nil)
+	resumeAttachment := createUploadedAttachment(t, ctx, store, workspace.ID, "grace-hopper-cv.pdf", []byte("%PDF-1.4 grace hopper cv"))
 
 	submitted := doJSON(http.MethodPost, "/careers/applications", map[string]any{
-		"vacancySlug": "support-engineer",
-		"fullName":    "Grace Hopper",
-		"email":       "grace@example.com",
-		"coverNote":   "I can help triage customer issues.",
+		"vacancySlug":        "support-engineer",
+		"fullName":           "Grace Hopper",
+		"email":              "grace@example.com",
+		"coverNote":          "I can help triage customer issues.",
+		"portfolioUrl":       "https://portfolio.example/grace",
+		"resumeAttachmentId": resumeAttachment.ID,
 	})
 	application := submitted["application"].(map[string]any)
 	applicationID := application["id"].(string)
+	caseID := application["caseId"].(string)
 
 	doJSON(http.MethodPost, "/extensions/ats/api/applications/"+applicationID+"/notes", map[string]any{
 		"body":       "Invite to recruiter screen.",
@@ -211,7 +234,109 @@ func TestATSHandlerRunsLifecycleOverHTTP(t *testing.T) {
 	defaults := doJSON(http.MethodGet, "/extensions/ats/api/defaults", nil)
 	require.Len(t, defaults["stagePresets"].([]interface{}), 3)
 
+	caseAttachments, err := store.Cases().ListCaseAttachments(ctx, workspace.ID, caseID)
+	require.NoError(t, err)
+	require.Len(t, caseAttachments, 1)
+	require.Equal(t, resumeAttachment.ID, caseAttachments[0].ID)
+	require.Equal(t, caseID, caseAttachments[0].CaseID)
+
 	doJSON(http.MethodPost, "/extensions/ats/api/jobs/"+jobID+"/close", nil)
 	reopened := doJSON(http.MethodPost, "/extensions/ats/api/jobs/"+jobID+"/reopen", nil)
 	require.Equal(t, string(atsdomain.VacancyStatusOpen), reopened["status"])
+}
+
+func TestATSServiceRejectsResumeAttachmentThatIsNotReady(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	runtime, err := NewRuntime(store)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+
+	job, err := runtime.Service.CreateJob(ctx, CreateJobInput{
+		WorkspaceID:    workspace.ID,
+		Slug:           "platform-engineer",
+		Title:          "Platform Engineer",
+		Team:           "Platform",
+		Location:       "Amsterdam",
+		WorkMode:       atsdomain.WorkModeHybrid,
+		EmploymentType: atsdomain.EmploymentTypeFullTime,
+		Summary:        "Build the platform.",
+		Description:    "Own the durable product surface.",
+	})
+	require.NoError(t, err)
+	_, err = runtime.Service.PublishJob(ctx, workspace.ID, job.ID, job.CreatedAt)
+	require.NoError(t, err)
+
+	pendingAttachment := servicedomain.NewAttachment(workspace.ID, "pending-resume.pdf", "application/pdf", int64(len([]byte("%PDF-1.4 pending"))), servicedomain.AttachmentSourceUpload)
+	require.NoError(t, store.Cases().SaveAttachment(ctx, pendingAttachment, nil))
+
+	_, err = runtime.Service.SubmitApplication(ctx, SubmitApplicationInput{
+		WorkspaceID: workspace.ID,
+		VacancySlug: job.Slug,
+		Submission: atsdomain.CandidateSubmission{
+			FullName:           "Ada Lovelace",
+			Email:              "ada@example.com",
+			CoverNote:          "Please review my application.",
+			ResumeAttachmentID: pendingAttachment.ID,
+			Source:             "careers_runtime_test",
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "is not ready for ATS intake")
+}
+
+type testS3Server struct {
+	server *httptest.Server
+	mu     sync.Mutex
+	puts   [][]byte
+}
+
+func createUploadedAttachment(t *testing.T, ctx context.Context, store *platformsql.Store, workspaceID, filename string, payload []byte) *servicedomain.Attachment {
+	t.Helper()
+
+	s3Server := newTestS3Server(t)
+	attachmentService, err := serviceapp.NewAttachmentService(serviceapp.AttachmentServiceConfig{
+		S3Endpoint:  s3Server.URL(),
+		S3Region:    "us-east-1",
+		S3Bucket:    "mbr-test-attachments",
+		S3AccessKey: "test-access-key",
+		S3SecretKey: "test-secret-key",
+		Logger:      logger.NewNop(),
+	})
+	require.NoError(t, err)
+
+	attachment := servicedomain.NewAttachment(workspaceID, filename, "application/pdf", int64(len(payload)), servicedomain.AttachmentSourceUpload)
+	attachment.Description = "ATS resume proof attachment"
+	require.NoError(t, attachmentService.Upload(ctx, attachment, bytes.NewReader(payload)))
+	require.NoError(t, store.Cases().SaveAttachment(ctx, attachment, nil))
+	return attachment
+}
+
+func newTestS3Server(t testing.TB) *testS3Server {
+	t.Helper()
+
+	s3 := &testS3Server{}
+	s3.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		s3.mu.Lock()
+		s3.puts = append(s3.puts, body)
+		s3.mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(s3.server.Close)
+	return s3
+}
+
+func (s *testS3Server) URL() string {
+	return s.server.URL
 }

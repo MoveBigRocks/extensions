@@ -10,6 +10,7 @@ import (
 	automationservices "github.com/movebigrocks/platform/internal/automation/services"
 	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
 	platformservices "github.com/movebigrocks/platform/internal/platform/services"
+	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
 	serviceapp "github.com/movebigrocks/platform/internal/service/services"
 	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
 )
@@ -185,6 +186,9 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		if err != nil {
 			return fmt.Errorf("create candidate case: %w", err)
 		}
+		if err := s.linkSubmissionAttachments(txCtx, vacancy.WorkspaceID, caseObj.ID, applicant); err != nil {
+			return err
+		}
 
 		application.CaseID = caseObj.ID
 		savedApplication, err := s.store.CreateApplication(txCtx, application)
@@ -203,6 +207,32 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *Service) linkSubmissionAttachments(ctx context.Context, workspaceID, caseID string, applicant *Applicant) error {
+	if s == nil || s.platformStore == nil || applicant == nil {
+		return nil
+	}
+
+	resumeAttachmentID := strings.TrimSpace(applicant.ResumeAttachmentID)
+	if resumeAttachmentID == "" {
+		return nil
+	}
+
+	attachment, err := s.platformStore.Cases().GetAttachment(ctx, workspaceID, resumeAttachmentID)
+	if err != nil {
+		return fmt.Errorf("load resume attachment %s: %w", resumeAttachmentID, err)
+	}
+	if attachment.Status != servicedomain.AttachmentStatusClean {
+		return fmt.Errorf("resume attachment %s is not ready for ATS intake", attachment.ID)
+	}
+	if strings.TrimSpace(attachment.CaseID) != "" && strings.TrimSpace(attachment.CaseID) != caseID {
+		return fmt.Errorf("resume attachment %s is already linked to case %s", attachment.ID, attachment.CaseID)
+	}
+	if err := s.platformStore.Cases().LinkAttachmentsToCase(ctx, workspaceID, caseID, []string{attachment.ID}); err != nil {
+		return fmt.Errorf("link resume attachment %s to case %s: %w", attachment.ID, caseID, err)
+	}
+	return nil
 }
 
 func (s *Service) AddRecruiterNote(ctx context.Context, workspaceID, applicationID, body, authorName, authorType string) (*RecruiterNote, error) {

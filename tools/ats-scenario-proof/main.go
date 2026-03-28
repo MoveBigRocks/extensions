@@ -21,8 +21,11 @@ import (
 	automationdomain "github.com/movebigrocks/platform/internal/automation/domain"
 	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
 	platformdomain "github.com/movebigrocks/platform/internal/platform/domain"
+	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
+	serviceapp "github.com/movebigrocks/platform/internal/service/services"
 	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
 	"github.com/movebigrocks/platform/pkg/id"
+	"github.com/movebigrocks/platform/pkg/logger"
 )
 
 type proofResponse struct {
@@ -37,6 +40,7 @@ type proofArtifact struct {
 	Workspace map[string]string        `json:"workspace"`
 	Requests  map[string]proofResponse `json:"requests"`
 	Case      map[string]any           `json:"case"`
+	Attachment map[string]any          `json:"attachment"`
 	Defaults  map[string]any           `json:"defaults"`
 }
 
@@ -125,6 +129,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	resumeAttachment, err := createProofAttachment(ctx, store, workspace.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "create proof attachment: %v\n", err)
+		os.Exit(1)
+	}
+
 	engine := runtimehttp.DefaultEngine()
 	atsruntime.RegisterRoutes(engine, runtime.Handler)
 	server := httptest.NewServer(engine)
@@ -194,7 +204,7 @@ func main() {
 		"linkedinUrl":        "https://linkedin.example/ada",
 		"portfolioUrl":       "https://portfolio.example/ada",
 		"coverNote":          "I want to help build an agentic operations stack.",
-		"resumeAttachmentId": "att_resume_123",
+		"resumeAttachmentId": resumeAttachment.ID,
 		"source":             "milestone-proof",
 	})
 
@@ -228,6 +238,16 @@ func main() {
 		fmt.Fprintf(os.Stderr, "load proof case: %v\n", err)
 		os.Exit(1)
 	}
+	linkedAttachment, err := store.Cases().GetAttachment(ctx, workspace.ID, resumeAttachment.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "load proof attachment: %v\n", err)
+		os.Exit(1)
+	}
+	visibleAttachments, err := store.Cases().ListCaseAttachments(ctx, workspace.ID, caseID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "list proof case attachments: %v\n", err)
+		os.Exit(1)
+	}
 	contact, err := store.Contacts().GetContactByEmail(ctx, workspace.ID, "ada@example.com")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "load proof contact: %v\n", err)
@@ -252,6 +272,14 @@ func main() {
 			"tags":         caseObj.Tags,
 			"subject":      caseObj.Subject,
 			"customFields": caseObj.CustomFields.ToMap(),
+		},
+		Attachment: map[string]any{
+			"id":           linkedAttachment.ID,
+			"filename":     linkedAttachment.Filename,
+			"status":       linkedAttachment.Status,
+			"caseId":       linkedAttachment.CaseID,
+			"storageKey":   linkedAttachment.S3Key,
+			"visibleCount": len(visibleAttachments),
 		},
 		Defaults: defaults,
 	}
@@ -323,4 +351,34 @@ func postgresDSNWithDatabase(adminDSN, databaseName string) (string, error) {
 	}
 	parsed.Path = "/" + databaseName
 	return parsed.String(), nil
+}
+
+func createProofAttachment(ctx context.Context, store *platformsql.Store, workspaceID string) (*servicedomain.Attachment, error) {
+	s3Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer s3Server.Close()
+
+	attachmentService, err := serviceapp.NewAttachmentService(serviceapp.AttachmentServiceConfig{
+		S3Endpoint:  s3Server.URL,
+		S3Region:    "us-east-1",
+		S3Bucket:    "mbr-proof-attachments",
+		S3AccessKey: "proof-access-key",
+		S3SecretKey: "proof-secret-key",
+		Logger:      logger.NewNop(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create attachment service: %w", err)
+	}
+
+	payload := []byte("%PDF-1.4 ats proof resume")
+	attachment := servicedomain.NewAttachment(workspaceID, "ada-lovelace-resume.pdf", "application/pdf", int64(len(payload)), servicedomain.AttachmentSourceUpload)
+	attachment.Description = "ATS scenario proof resume"
+	if err := attachmentService.Upload(ctx, attachment, bytes.NewReader(payload)); err != nil {
+		return nil, fmt.Errorf("upload proof attachment: %w", err)
+	}
+	if err := store.Cases().SaveAttachment(ctx, attachment, nil); err != nil {
+		return nil, fmt.Errorf("persist proof attachment: %w", err)
+	}
+	return attachment, nil
 }
