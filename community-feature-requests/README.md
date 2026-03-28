@@ -1,5 +1,9 @@
 # Community Feature Requests Extension
 
+This pack is currently a first-party public beta. Install pinned version tags
+like `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0` while
+the public board and admin workflow keep iterating.
+
 This is the first-party `community-feature-requests` extension for Move Big Rocks.
 
 It turns the public idea-board spec into a real installable pack with a runtime

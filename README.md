@@ -133,7 +133,7 @@ Good fit:
   black box
 
 - source: [`ats/`](./ats)
-- install ref: `ghcr.io/movebigrocks/mbr-ext-ats:<version>`
+- install ref: `ghcr.io/movebigrocks/mbr-ext-ats:v<version>`
 
 ### Error Tracking
 
@@ -157,7 +157,7 @@ Good fit:
 Compatibility note: Sentry-compatible ingest is the core positioning here.
 
 - source: [`error-tracking/`](./error-tracking)
-- install ref: `ghcr.io/movebigrocks/mbr-ext-error-tracking:<version>`
+- install ref: `ghcr.io/movebigrocks/mbr-ext-error-tracking:v<version>`
 
 ### Web Analytics
 
@@ -182,9 +182,9 @@ Good fit:
 Positioning note: cookie-free, privacy-first analytics out of the box.
 
 - source: [`web-analytics/`](./web-analytics)
-- install ref: `ghcr.io/movebigrocks/mbr-ext-web-analytics:<version>`
+- install ref: `ghcr.io/movebigrocks/mbr-ext-web-analytics:v<version>`
 
-### Sales Pipeline
+### Sales Pipeline (Public Beta)
 
 Lightweight CRM and pipeline tracking for teams that want a practical
 opportunity board inside Move Big Rocks instead of adding a separate deal tool
@@ -205,9 +205,11 @@ Good fit:
   primitives
 
 - source: [`sales-pipeline/`](./sales-pipeline)
-- install ref: `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:<version>`
+- install ref: `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v<version>`
+- beta guidance: pin an explicit version tag and expect iterative contract and
+  UX refinement while the pack stays in public beta
 
-### Community Feature Requests
+### Community Feature Requests (Public Beta)
 
 Public idea collection and voting for teams that want customer feedback and
 internal triage on the same base.
@@ -219,14 +221,16 @@ What it gives you:
 - admin dashboard for status and visibility changes
 - extension-owned request state that stays close to internal workflow
 
+- source: [`community-feature-requests/`](./community-feature-requests)
+- install ref: `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<version>`
+- beta guidance: pin an explicit version tag and expect iterative public-board
+  and admin-surface changes while the pack stays in public beta
+
 Good fit:
 
 - product teams that want a self-hosted feedback board
 - teams that want public roadmap conversation without another SaaS
 - builders who want a service-backed public-page extension example
-
-- source: [`community-feature-requests/`](./community-feature-requests)
-- install ref: `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:<version>`
 
 ## Install The Current Bundle Set
 
@@ -282,11 +286,11 @@ free public signed bundle set installs without a token.
 This repo is the canonical public publication surface for the free public
 first-party bundle set:
 
-- `ghcr.io/movebigrocks/mbr-ext-ats:<version>`
-- `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:<version>`
-- `ghcr.io/movebigrocks/mbr-ext-error-tracking:<version>`
-- `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:<version>`
-- `ghcr.io/movebigrocks/mbr-ext-web-analytics:<version>`
+- `ghcr.io/movebigrocks/mbr-ext-ats:v<version>`
+- `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<version>`
+- `ghcr.io/movebigrocks/mbr-ext-error-tracking:v<version>`
+- `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v<version>`
+- `ghcr.io/movebigrocks/mbr-ext-web-analytics:v<version>`
 
 Release tags are:
 

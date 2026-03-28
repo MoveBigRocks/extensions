@@ -1,5 +1,9 @@
 # Sales Pipeline Extension
 
+This pack is currently a first-party public beta. Install pinned version tags
+like `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0` rather than relying
+on floating tags while the surface continues to tighten.
+
 This is the first-party `sales-pipeline` extension for Move Big Rocks.
 
 It turns the current sales spec into an installable service-backed pack that

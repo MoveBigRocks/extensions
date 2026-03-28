@@ -297,6 +297,31 @@ jobs:
             --tag "${{ steps.target.outputs.publish_tag }}" \
             "${extra_args[@]}"
 
+      - name: Resolve bundle digest
+        id: bundle_publish
+        run: |
+          digest="$(oras manifest fetch "${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }}" --descriptor | jq -r '.digest')"
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Write publication evidence
+        run: |
+          go run ./tools/publication-evidence \
+            --mode release \
+            --source-root "${GITHUB_WORKSPACE}" \
+            --slug "${{ steps.target.outputs.extension }}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --event-name "${GITHUB_EVENT_NAME}" \
+            --git-sha "${GITHUB_SHA}" \
+            --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --published-at "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --publish-tag "${{ steps.target.outputs.publish_tag }}" \
+            --publish-latest="${{ steps.target.outputs.publish_latest }}" \
+            --bundle-ref "${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }}" \
+            --bundle-digest "${{ steps.bundle_publish.outputs.digest }}" \
+            --runtime-ref "${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}" \
+            --runtime-digest "${{ steps.runtime_publish.outputs.digest }}" \
+            --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.publication-evidence.json"
+
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -312,6 +337,7 @@ jobs:
             echo "- Source: \`${{ steps.target.outputs.source_dir }}\`"
             echo "- SDK ref: \`${SDK_REF}\`"
             echo "- OCI Ref: \`${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }}\`"
+            echo "- Bundle Digest: \`${{ steps.bundle_publish.outputs.digest }}\`"
             if [[ "${{ steps.target.outputs.needs_runtime }}" == "true" ]]; then
               echo "- Runtime Ref: \`${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}\`"
               echo "- Runtime Digest: \`${{ steps.runtime_publish.outputs.digest }}\`"
