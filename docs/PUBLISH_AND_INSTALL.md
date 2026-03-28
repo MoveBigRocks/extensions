@@ -94,10 +94,10 @@ From a checkout of this repo:
 ```bash
 git tag ats-v0.8.22
 git tag community-feature-requests-v0.1.0
-git tag error-tracking-v0.8.20
+git tag error-tracking-v0.8.21
 git tag sales-pipeline-v0.1.0
-git tag web-analytics-v0.8.20
-git push origin ats-v0.8.22 community-feature-requests-v0.1.0 error-tracking-v0.8.20 sales-pipeline-v0.1.0 web-analytics-v0.8.20
+git tag web-analytics-v0.8.21
+git push origin ats-v0.8.22 community-feature-requests-v0.1.0 error-tracking-v0.8.21 sales-pipeline-v0.1.0 web-analytics-v0.8.21
 ```
 
 That should trigger five workflow runs and create five GHCR packages.
@@ -117,9 +117,9 @@ ones:
 
 - `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.22`
 - `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0`
-- `ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20`
+- `ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21`
 - `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0`
-- `ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20`
+- `ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.21`
 
 ## Install Into DemandOps
 
@@ -153,13 +153,13 @@ mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.20 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_MARKETING --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.21 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_MARKETING --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.20 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_ENGINEERING --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_ENGINEERING --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
