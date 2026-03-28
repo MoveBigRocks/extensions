@@ -245,7 +245,7 @@ The current free public first-party bundle set is:
 Install them by OCI ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.24 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.25 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0 --workspace WORKSPACE_ID
