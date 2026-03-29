@@ -1,7 +1,7 @@
 # Move Big Rocks First-Party Extensions
 
-This repo is the public home for production-ready first-party Move Big Rocks
-extensions and their release catalog.
+This repo is the home for production-ready first-party Move Big Rocks
+extensions and the release catalog for the public OCI bundle set.
 
 These are the extensions you install when you want the shared Move Big Rocks
 base to go deeper into a specific product area without adding another SaaS
@@ -23,13 +23,13 @@ These are real first-party extensions, intended for self-hosted production use
 on the same bounded Move Big Rocks runtime:
 
 - installable in the standard extension lifecycle
-- versioned and published as signed GHCR bundles
+- versioned and installable as signed extension bundles
 - designed to be useful on their own, not just illustrative samples
 - public enough to inspect and learn from if you want to build your own
 
 ## Where The Source Lives
 
-This repo is the public source of truth for the first-party extension source:
+This repo is the source of truth for the first-party extension source:
 
 - `manifest.json`
 - extension-owned `assets/`
@@ -45,6 +45,8 @@ Current source layout:
 - `ats/` contains the ATS bundle, skills, templates, and ATS-specific domain source
 - `ats/runtime/domain/` defines Go concepts like vacancies, vacancy catalogs,
   applicants, and applications
+- `enterprise-access/` contains the Enterprise Access manifest, admin skill,
+  and owned-schema migrations
 - `web-analytics/runtime/` contains the web analytics runtime source
 - `web-analytics/templates/` contains the analytics admin templates
 - `error-tracking/runtime/` contains the error tracking runtime source
@@ -64,6 +66,7 @@ find it.
 The point of this repo is simple:
 
 - use ATS without paying for a separate recruiting SaaS too early
+- run enterprise SSO from the same first-party extension base
 - run Sentry-compatible error tracking on infrastructure you control
 - get privacy-first website analytics without bolting on another silo
 - keep lightweight sales flow inside the same operating base
@@ -85,14 +88,14 @@ mbr extensions nav --instance --json
 mbr extensions widgets --instance --json
 ```
 
-If a pack intentionally changes its declared extension surface, refresh its
+If an extension intentionally changes its declared extension surface, refresh its
 contract file and review the diff:
 
 ```bash
 mbr extensions lint ./EXTENSION_DIR --write-contract --json
 ```
 
-For workspace-scoped admin UI, passing validation now also means the pack stays
+For workspace-scoped admin UI, passing validation now also means the extension stays
 discoverable for an instance admin with no active workspace selection. The
 instance-level menu entry should still open a working page, and static admin
 pages that call workspace-bound APIs should preserve the `?workspace=...` hint.
@@ -134,6 +137,29 @@ Good fit:
 
 - source: [`ats/`](./ats)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-ats:v<version>`
+
+### Enterprise Access
+
+Enterprise SSO for teams that want Move Big Rocks to authenticate against an
+existing IdP without breaking the shared extension model.
+
+What it gives you:
+
+- OIDC-first provider configuration
+- instance-scoped extension install and activation
+- admin settings and provider persistence in the extension-owned schema
+- OIDC start and callback flows backed by the same runtime model
+- runtime health and a guided setup skill for operators and agents
+
+Good fit:
+
+- teams that want first-party SSO on the same extension base
+- operators who want identity setup to stay inspectable and versioned
+- teams that want Enterprise Access source in the same repo as the other
+  first-party extensions
+
+- source: [`enterprise-access/`](./enterprise-access)
+- install from source during development: `mbr extensions install ./enterprise-access`
 
 ### Error Tracking
 
@@ -207,7 +233,7 @@ Good fit:
 - source: [`sales-pipeline/`](./sales-pipeline)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v<version>`
 - beta guidance: pin an explicit version tag and expect iterative contract and
-  UX refinement while the pack stays in public beta
+  UX refinement while the extension stays in public beta
 
 ### Community Feature Requests (Public Beta)
 
@@ -224,7 +250,7 @@ What it gives you:
 - source: [`community-feature-requests/`](./community-feature-requests)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<version>`
 - beta guidance: pin an explicit version tag and expect iterative public-board
-  and admin-surface changes while the pack stays in public beta
+  and admin-surface changes while the extension stays in public beta
 
 Good fit:
 
@@ -232,7 +258,7 @@ Good fit:
 - teams that want public roadmap conversation without another SaaS
 - builders who want a service-backed public-page extension example
 
-## Install The Current Bundle Set
+## Install The Current Public OCI Set
 
 The current free public first-party bundle set is:
 
@@ -257,6 +283,7 @@ Or install directly from a checked-out source directory during development:
 ```bash
 mbr extensions install ./ats --workspace WORKSPACE_ID
 mbr extensions install ./community-feature-requests --workspace WORKSPACE_ID
+mbr extensions install ./enterprise-access
 mbr extensions install ./error-tracking --workspace WORKSPACE_ID
 mbr extensions install ./sales-pipeline --workspace WORKSPACE_ID
 mbr extensions install ./web-analytics --workspace WORKSPACE_ID
@@ -272,7 +299,7 @@ mbr extensions activate --id EXTENSION_ID
 ## Repo Structure Decision
 
 - keep first-party production extensions out of the core repo
-- keep them together in one public first-party extensions repo for now
+- keep them together in one first-party extensions repo
 - keep templates, examples, and scaffolds in
   [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk)
 - split extensions into separate repos later only if ownership, release
@@ -283,8 +310,9 @@ free public signed bundle set installs without a token.
 
 ## Publication Model
 
-This repo is the canonical public publication surface for the free public
-first-party bundle set:
+This repo is the canonical source for every first-party extension.
+
+The current public OCI publication surface in this repo is:
 
 - `ghcr.io/movebigrocks/mbr-ext-ats:v<version>`
 - `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<version>`
@@ -318,12 +346,11 @@ The end-to-end publish and install runbook lives in
 ## Repo Rules
 
 - keep first-party extensions installable from source checkout
-- keep the public set non-privileged
+- keep every first-party extension source here
 - publish the free public first-party bundle set from this public repo
 - keep examples and scaffolds in
   [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk),
   not here
-- do not use this repo as the source of truth for privileged first-party packs
 
 ## Learn From These
 

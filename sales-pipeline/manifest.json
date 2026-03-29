@@ -235,8 +235,8 @@
   "agentSkills": [
     {
       "name": "operate-sales-pipeline",
-      "description": "Review the board, validate intake hooks, and monitor the pack after activation.",
-      "assetPath": "agent-skills/operate-pack.md"
+      "description": "Review the board, validate intake hooks, and monitor the extension after activation.",
+      "assetPath": "agent-skills/operate-extension.md"
     }
   ],
   "defaultConfig": {

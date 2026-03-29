@@ -165,7 +165,7 @@
     {
       "name": "operate-community-feature-requests",
       "description": "Review the board, triage requests, and verify public voting after activation.",
-      "assetPath": "agent-skills/operate-pack.md"
+      "assetPath": "agent-skills/operate-extension.md"
     }
   ],
   "defaultConfig": {

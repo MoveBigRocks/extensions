@@ -33,7 +33,7 @@ type issueCaseWriter interface {
 	GetCase(ctx context.Context, caseID string) (*servicedomain.Case, error)
 }
 
-// IssueCaseService owns the issue-to-case helper behavior for the error-tracking pack.
+// IssueCaseService owns the issue-to-case helper behavior for the error-tracking extension.
 // It wraps generic case primitives instead of embedding that behavior in the shared support service.
 type IssueCaseService struct {
 	caseStore shared.CaseStore

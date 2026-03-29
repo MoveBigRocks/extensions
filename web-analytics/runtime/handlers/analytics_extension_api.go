@@ -15,7 +15,7 @@ import (
 
 const defaultAnalyticsPeriod = "LAST_28_DAYS"
 
-// AnalyticsExtensionAPIHandler exposes extension-owned JSON APIs for the web analytics pack.
+// AnalyticsExtensionAPIHandler exposes extension-owned JSON APIs for the web analytics extension.
 // These endpoints replace the last core GraphQL dependency for the analytics admin UI.
 type AnalyticsExtensionAPIHandler struct {
 	query      *analyticsservices.QueryService

@@ -203,7 +203,7 @@
   "commands": [
     {
       "name": "error-tracking.issues.list",
-      "description": "List issues for the installed error-tracking pack."
+      "description": "List issues for the installed error-tracking extension."
     }
   ]
 }
