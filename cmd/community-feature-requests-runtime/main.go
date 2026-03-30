@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	communityrequests "github.com/movebigrocks/platform/extensions/community-feature-requests/runtime"
 	communityrequestsui "github.com/movebigrocks/platform/extensions/community-feature-requests/runtimeui"
 	"github.com/movebigrocks/platform/internal/infrastructure/config"

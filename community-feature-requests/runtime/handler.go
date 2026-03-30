@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 )
 
 const voterCookieName = "mbr_feature_request_voter"
