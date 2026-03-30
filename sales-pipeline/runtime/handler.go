@@ -8,20 +8,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
-	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	publicruntime "github.com/movebigrocks/platform/pkg/extensionsruntime"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 )
 
 type Handler struct {
-	store          *Store
-	extensionStore shared.ExtensionStore
+	store *Store
 }
 
-func NewHandler(store *Store, extensionStore shared.ExtensionStore) *Handler {
+func NewHandler(store *Store) *Handler {
 	return &Handler{
-		store:          store,
-		extensionStore: extensionStore,
+		store: store,
 	}
 }
 
@@ -134,24 +130,10 @@ func (h *Handler) Health(c *gin.Context) {
 }
 
 func (h *Handler) extensionMode(c *gin.Context) string {
-	mode := "b2b"
-	extensionID := strings.TrimSpace(c.GetHeader(publicruntime.HeaderExtensionID))
-	if extensionID == "" || h.extensionStore == nil {
-		return mode
-	}
-
-	extension, err := h.extensionStore.GetInstalledExtension(c.Request.Context(), extensionID)
-	if err != nil || extension == nil {
-		return mode
-	}
-
-	if configured, ok := extension.Config.GetString("mode"); ok && configured != "" {
+	if configured, ok := runtimehttp.ExtensionConfigString(c, "mode"); ok {
 		return strings.ToLower(strings.TrimSpace(configured))
 	}
-	if configured, ok := extension.Manifest.DefaultConfig.GetString("mode"); ok && configured != "" {
-		return strings.ToLower(strings.TrimSpace(configured))
-	}
-	return mode
+	return "b2b"
 }
 
 func dollarsToCents(value float64) int64 {

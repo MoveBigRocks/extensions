@@ -13,6 +13,8 @@ type SessionContext = sdkruntimehttp.SessionContext
 
 type Session = sdkruntimehttp.Session
 
+type ExtensionConfig = sdkruntimehttp.ExtensionConfig
+
 func DefaultEngine() *gin.Engine {
 	return sdkruntimehttp.DefaultEngine()
 }
@@ -31,6 +33,26 @@ func RegisterInternalRoutes(
 
 func BuildBasePageData(c *gin.Context, activePage, title, subtitle string) gin.H {
 	return sdkruntimehttp.BuildBasePageData(c, activePage, title, subtitle)
+}
+
+func ExtensionID(c *gin.Context) string {
+	return sdkruntimehttp.ExtensionID(c)
+}
+
+func ExtensionSlug(c *gin.Context) string {
+	return sdkruntimehttp.ExtensionSlug(c)
+}
+
+func ExtensionPackageKey(c *gin.Context) string {
+	return sdkruntimehttp.ExtensionPackageKey(c)
+}
+
+func ExtensionConfigMap(c *gin.Context) ExtensionConfig {
+	return sdkruntimehttp.ExtensionConfigMap(c)
+}
+
+func ExtensionConfigString(c *gin.Context, key string) (string, bool) {
+	return sdkruntimehttp.ExtensionConfigString(c, key)
 }
 
 func ForwardedContextMiddleware() gin.HandlerFunc {

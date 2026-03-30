@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	salespipeline "github.com/movebigrocks/platform/extensions/sales-pipeline/runtime"
 	salespipelineui "github.com/movebigrocks/platform/extensions/sales-pipeline/runtimeui"
 	"github.com/movebigrocks/platform/internal/infrastructure/config"
@@ -82,7 +82,7 @@ func newSalesPipelineRuntime(cfg *config.Config) (*salesPipelineRuntime, error) 
 		return nil, err
 	}
 
-	handler := salespipeline.NewHandler(pipelineStore, store.Extensions())
+	handler := salespipeline.NewHandler(pipelineStore)
 	return &salesPipelineRuntime{
 		store:    store,
 		pipeline: pipelineStore,
