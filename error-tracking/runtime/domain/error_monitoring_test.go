@@ -104,6 +104,24 @@ func TestProjectDefaultsAndQuotaHelpers(t *testing.T) {
 	require.False(t, project.IsActive())
 }
 
+func TestBuildProjectDSNUsesConfiguredAPIBaseURL(t *testing.T) {
+	require.Equal(
+		t,
+		"https://public123@api.mbr.demandops.com/42",
+		BuildProjectDSN("https://api.mbr.demandops.com", "public123", 42),
+	)
+	require.Equal(
+		t,
+		"http://public123@127.0.0.1:8080/42",
+		BuildProjectDSN("http://127.0.0.1:8080", "public123", 42),
+	)
+	require.Equal(
+		t,
+		"https://public123@movebigrocks.com/42",
+		BuildProjectDSN("", "public123", 42),
+	)
+}
+
 func TestErrorMonitoringGeneratorsAndStorageHelpers(t *testing.T) {
 	require.Len(t, generateRandomKey(32), 32)
 	require.NotZero(t, generateProjectNumber())

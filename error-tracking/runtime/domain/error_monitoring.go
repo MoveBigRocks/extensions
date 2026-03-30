@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -303,8 +304,31 @@ func NewProject(workspaceID, teamID, name, slug, platform string) *Project {
 		ProjectNumber:  projectNumber,
 		// DSN format: https://{public_key}@{host}/{project_number}
 		// Note: secret_key is optional in modern Sentry SDKs
-		DSN: fmt.Sprintf("https://%s@movebigrocks.com/%d", publicKey, projectNumber),
+		DSN: BuildProjectDSN("", publicKey, projectNumber),
 	}
+}
+
+// BuildProjectDSN returns a Sentry-compatible DSN for the configured API base URL.
+// When no valid API base URL is available, it falls back to the public default host.
+func BuildProjectDSN(apiBaseURL, publicKey string, projectNumber int64) string {
+	const (
+		defaultScheme = "https"
+		defaultHost   = "movebigrocks.com"
+	)
+
+	scheme := defaultScheme
+	host := defaultHost
+	baseURL := strings.TrimSpace(apiBaseURL)
+	if baseURL != "" {
+		if parsed, err := url.Parse(baseURL); err == nil && strings.TrimSpace(parsed.Host) != "" {
+			host = strings.TrimSpace(parsed.Host)
+			if strings.TrimSpace(parsed.Scheme) != "" {
+				scheme = strings.TrimSpace(parsed.Scheme)
+			}
+		}
+	}
+
+	return fmt.Sprintf("%s://%s@%s/%d", scheme, publicKey, host, projectNumber)
 }
 
 func NewIssue(projectID, title, culprit string, event *ErrorEvent) *Issue {

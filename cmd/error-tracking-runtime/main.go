@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	errortrackingruntime "github.com/movebigrocks/platform/extensions/error-tracking/runtime"
 	observabilityhandlers "github.com/movebigrocks/platform/extensions/error-tracking/runtime/handlers"
 	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"
@@ -64,7 +64,7 @@ func main() {
 	}
 	engine.SetHTMLTemplate(tmpl)
 
-	registerErrorTrackingRoutes(engine, runtime)
+	registerErrorTrackingRoutes(engine, runtime, cfg.Server.APIBaseURL)
 	runtimehttp.RegisterInternalRoutes(engine, map[string]func(context.Context, []byte) error{
 		"error-tracking.consumer.errors":       newErrorConsumer(runtime),
 		"error-tracking.consumer.issue-events": newIssueConsumer(runtime),
@@ -168,13 +168,14 @@ func (r *errorTrackingRuntime) Close() error {
 	return firstErr
 }
 
-func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRuntime) {
+func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRuntime, apiBaseURL string) {
 	adminHandler := errortrackingruntime.NewErrorTrackingAdminHandler(
 		runtime.platform.Workspace,
 		runtime.platform.User,
 		runtime.platform.Extension,
 		runtime.issueService,
 		runtime.projectService,
+		apiBaseURL,
 	)
 
 	sentryIngestHandler := observabilityhandlers.NewSentryIngestHandler(

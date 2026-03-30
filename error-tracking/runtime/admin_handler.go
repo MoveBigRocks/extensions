@@ -28,6 +28,7 @@ type ErrorTrackingAdminHandler struct {
 	extensionService *platformservices.ExtensionService
 	issueService     adminIssueService
 	projectService   adminProjectService
+	apiBaseURL       string
 }
 
 type adminIssueService interface {
@@ -116,6 +117,7 @@ func NewErrorTrackingAdminHandler(
 	extensionService *platformservices.ExtensionService,
 	issueService adminIssueService,
 	projectService adminProjectService,
+	apiBaseURL string,
 ) *ErrorTrackingAdminHandler {
 	return &ErrorTrackingAdminHandler{
 		workspaceService: workspaceService,
@@ -123,6 +125,7 @@ func NewErrorTrackingAdminHandler(
 		extensionService: extensionService,
 		issueService:     issueService,
 		projectService:   projectService,
+		apiBaseURL:       strings.TrimSpace(apiBaseURL),
 	}
 }
 
@@ -287,6 +290,7 @@ func (h *ErrorTrackingAdminHandler) CreateApplication(c *gin.Context) {
 	}
 
 	project := observabilitydomain.NewProject(req.WorkspaceID, "", req.Name, slug.Make(req.Name), req.Platform)
+	project.DSN = observabilitydomain.BuildProjectDSN(h.apiBaseURL, project.PublicKey, project.ProjectNumber)
 	if req.Environment != "" {
 		project.Environment = req.Environment
 	}
@@ -364,6 +368,9 @@ func (h *ErrorTrackingAdminHandler) UpdateApplication(c *gin.Context) {
 	}
 	if req.RetentionDays > 0 {
 		project.RetentionDays = req.RetentionDays
+	}
+	if project.DSN == "" || strings.Contains(project.DSN, "@movebigrocks.com/") {
+		project.DSN = observabilitydomain.BuildProjectDSN(h.apiBaseURL, project.PublicKey, project.ProjectNumber)
 	}
 
 	if err := h.projectService.UpdateProject(ctx, project); err != nil {
