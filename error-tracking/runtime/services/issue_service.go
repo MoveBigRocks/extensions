@@ -6,13 +6,13 @@ import (
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
-	apierrors "github.com/movebigrocks/platform/internal/infrastructure/errors"
-	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	platformdomain "github.com/movebigrocks/platform/internal/platform/domain"
-	"github.com/movebigrocks/platform/internal/shared/authorization"
-	"github.com/movebigrocks/platform/internal/shared/contracts"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
 	"github.com/movebigrocks/platform/pkg/eventbus"
+	apierrors "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/errors"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
+	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
+	"github.com/movebigrocks/platform/pkg/extensionhost/shared/authorization"
+	"github.com/movebigrocks/platform/pkg/extensionhost/shared/contracts"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

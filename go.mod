@@ -10,7 +10,7 @@ require (
 	github.com/graph-gophers/graphql-go v1.8.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.12.0
-	github.com/movebigrocks/platform v0.13.12
+	github.com/movebigrocks/platform v0.14.4-0.20260330114432-a981fc607001
 	github.com/mssola/useragent v1.0.0
 	github.com/stretchr/testify v1.11.1
 )

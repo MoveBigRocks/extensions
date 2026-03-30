@@ -7,12 +7,12 @@ import (
 	"time"
 
 	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
-	automationservices "github.com/movebigrocks/platform/internal/automation/services"
-	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
-	platformservices "github.com/movebigrocks/platform/internal/platform/services"
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
-	serviceapp "github.com/movebigrocks/platform/internal/service/services"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
+	automationservices "github.com/movebigrocks/platform/pkg/extensionhost/automation/services"
+	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
+	platformservices "github.com/movebigrocks/platform/pkg/extensionhost/platform/services"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 )
 
 type Service struct {

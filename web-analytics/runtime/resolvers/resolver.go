@@ -9,7 +9,7 @@ import (
 
 	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
 	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
-	graphshared "github.com/movebigrocks/platform/internal/graph/shared"
+	graphshared "github.com/movebigrocks/platform/pkg/extensionhost/graph/shared"
 )
 
 // Config holds the dependencies for analytics domain resolvers.

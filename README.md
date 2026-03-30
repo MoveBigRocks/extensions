@@ -61,6 +61,15 @@ the service-backed runtime wiring while the final de-duplication work lands,
 but the public extension source is now in this repo where people expect to
 find it.
 
+First-party extension code in this repo should depend only on public extension
+surfaces:
+
+- `MoveBigRocks/extension-sdk` for runtime helpers like `runtimehttp` and `extdb`
+- `github.com/movebigrocks/platform/pkg/extensionhost/...` for host-owned
+  public types and contracts
+
+It should not import `github.com/movebigrocks/platform/internal/...`.
+
 ## Why This Repo Exists
 
 The point of this repo is simple:
@@ -103,6 +112,7 @@ pages that call workspace-bound APIs should preserve the `?workspace=...` hint.
 To re-run the strict first-party catalog proof locally, use:
 
 ```bash
+./scripts/check-public-boundary.sh
 MBR_BIN=/path/to/mbr bash ./scripts/validate-first-party.sh
 ```
 

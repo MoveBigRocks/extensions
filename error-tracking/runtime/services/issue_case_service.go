@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
-	serviceapp "github.com/movebigrocks/platform/internal/service/services"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

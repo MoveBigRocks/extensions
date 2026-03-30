@@ -15,8 +15,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	"github.com/movebigrocks/platform/internal/infrastructure/middleware"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/middleware"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 	"github.com/movebigrocks/platform/pkg/id"
 	"github.com/movebigrocks/platform/pkg/logger"
 )

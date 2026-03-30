@@ -14,12 +14,12 @@ import (
 
 	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
 	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
-	automationdomain "github.com/movebigrocks/platform/internal/automation/domain"
-	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
-	serviceapp "github.com/movebigrocks/platform/internal/service/services"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
-	"github.com/movebigrocks/platform/internal/testutil"
+	automationdomain "github.com/movebigrocks/platform/pkg/extensionhost/automation/domain"
+	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
+	"github.com/movebigrocks/platform/pkg/extensionhost/testutil"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

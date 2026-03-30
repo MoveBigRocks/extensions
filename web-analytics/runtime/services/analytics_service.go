@@ -6,7 +6,7 @@ import (
 	"time"
 
 	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
-	"github.com/movebigrocks/platform/internal/shared/geoip"
+	"github.com/movebigrocks/platform/pkg/extensionhost/shared/geoip"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

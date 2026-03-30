@@ -8,7 +8,7 @@ import (
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
-	shared "github.com/movebigrocks/platform/internal/infrastructure/stores/shared"
+	shared "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
 )
 
 // =============================================================================

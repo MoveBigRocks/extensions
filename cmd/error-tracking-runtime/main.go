@@ -15,11 +15,11 @@ import (
 	observabilityhandlers "github.com/movebigrocks/platform/extensions/error-tracking/runtime/handlers"
 	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"
 	errortrackingui "github.com/movebigrocks/platform/extensions/error-tracking/runtimeui"
-	"github.com/movebigrocks/platform/internal/infrastructure/config"
-	"github.com/movebigrocks/platform/internal/infrastructure/container"
-	"github.com/movebigrocks/platform/internal/infrastructure/outbox"
-	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
 	"github.com/movebigrocks/platform/pkg/eventbus"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/container"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/outbox"
+	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

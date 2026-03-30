@@ -12,9 +12,9 @@ import (
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
-	"github.com/movebigrocks/platform/internal/infrastructure/middleware"
-	platformhandlers "github.com/movebigrocks/platform/internal/platform/handlers"
-	platformservices "github.com/movebigrocks/platform/internal/platform/services"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/middleware"
+	platformhandlers "github.com/movebigrocks/platform/pkg/extensionhost/platform/handlers"
+	platformservices "github.com/movebigrocks/platform/pkg/extensionhost/platform/services"
 )
 
 const (

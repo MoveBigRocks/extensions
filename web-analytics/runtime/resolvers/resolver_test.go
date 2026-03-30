@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	graphshared "github.com/movebigrocks/platform/internal/graph/shared"
-	platformdomain "github.com/movebigrocks/platform/internal/platform/domain"
+	graphshared "github.com/movebigrocks/platform/pkg/extensionhost/graph/shared"
+	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
 )
 
 type testExtensionChecker struct {

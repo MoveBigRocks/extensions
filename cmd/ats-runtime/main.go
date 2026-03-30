@@ -7,7 +7,7 @@ import (
 
 	"github.com/movebigrocks/platform/extensions/ats/runtime"
 	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
-	"github.com/movebigrocks/platform/internal/infrastructure/config"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

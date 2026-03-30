@@ -7,8 +7,8 @@ import (
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
-	coremodels "github.com/movebigrocks/platform/internal/infrastructure/stores/sql/models"
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
+	coremodels "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql/models"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
 )
 
 func (s *ErrorMonitoringStore) GetErrorEventsByEmail(ctx context.Context, email string, since time.Time) ([]*observabilitydomain.ErrorEvent, error) {

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
-	"github.com/movebigrocks/platform/internal/shared/contracts"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
+	"github.com/movebigrocks/platform/pkg/extensionhost/shared/contracts"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 	"github.com/movebigrocks/platform/pkg/logger"
 
 	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"

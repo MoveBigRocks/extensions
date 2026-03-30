@@ -3,9 +3,9 @@ package sql
 import (
 	"encoding/json"
 
-	coremodels "github.com/movebigrocks/platform/internal/infrastructure/stores/sql/models"
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
+	coremodels "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql/models"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 )
 
 func mapStoredCaseToDomain(c *coremodels.Case) *servicedomain.Case {

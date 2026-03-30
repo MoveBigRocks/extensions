@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	shared "github.com/movebigrocks/platform/internal/shared/domain"
+	shared "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 	"github.com/movebigrocks/platform/pkg/id"
 )
 

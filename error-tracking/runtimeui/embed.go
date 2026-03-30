@@ -4,7 +4,7 @@ import (
 	"embed"
 	"html/template"
 
-	platformhandlers "github.com/movebigrocks/platform/internal/platform/handlers"
+	platformhandlers "github.com/movebigrocks/platform/pkg/extensionhost/platform/handlers"
 )
 
 //go:embed templates/*.html templates/partials/*.html

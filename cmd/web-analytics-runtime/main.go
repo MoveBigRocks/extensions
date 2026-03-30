@@ -15,8 +15,8 @@ import (
 	analyticshandlers "github.com/movebigrocks/platform/extensions/web-analytics/runtime/handlers"
 	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
 	webanalyticsui "github.com/movebigrocks/platform/extensions/web-analytics/runtimeui"
-	"github.com/movebigrocks/platform/internal/infrastructure/config"
-	"github.com/movebigrocks/platform/internal/shared/geoip"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/platform/pkg/extensionhost/shared/geoip"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

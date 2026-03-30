@@ -5,7 +5,7 @@ import (
 	"time"
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
 )
 
 type ProjectStore interface {

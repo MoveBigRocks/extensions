@@ -5,13 +5,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	automationservices "github.com/movebigrocks/platform/internal/automation/services"
-	"github.com/movebigrocks/platform/internal/infrastructure/config"
-	"github.com/movebigrocks/platform/internal/infrastructure/outbox"
-	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
-	platformservices "github.com/movebigrocks/platform/internal/platform/services"
-	serviceapp "github.com/movebigrocks/platform/internal/service/services"
 	"github.com/movebigrocks/platform/pkg/eventbus"
+	automationservices "github.com/movebigrocks/platform/pkg/extensionhost/automation/services"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/outbox"
+	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
+	platformservices "github.com/movebigrocks/platform/pkg/extensionhost/platform/services"
+	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 

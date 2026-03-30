@@ -18,12 +18,12 @@ import (
 	_ "github.com/lib/pq"
 	atsruntime "github.com/movebigrocks/platform/extensions/ats/runtime"
 	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
-	automationdomain "github.com/movebigrocks/platform/internal/automation/domain"
-	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
-	platformdomain "github.com/movebigrocks/platform/internal/platform/domain"
-	servicedomain "github.com/movebigrocks/platform/internal/service/domain"
-	serviceapp "github.com/movebigrocks/platform/internal/service/services"
-	shareddomain "github.com/movebigrocks/platform/internal/shared/domain"
+	automationdomain "github.com/movebigrocks/platform/pkg/extensionhost/automation/domain"
+	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
+	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
+	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 	"github.com/movebigrocks/platform/pkg/id"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
@@ -34,14 +34,14 @@ type proofResponse struct {
 }
 
 type proofArtifact struct {
-	Version   string                   `json:"version"`
-	GitSHA    string                   `json:"gitSha"`
-	BuildDate string                   `json:"buildDate"`
-	Workspace map[string]string        `json:"workspace"`
-	Requests  map[string]proofResponse `json:"requests"`
-	Case      map[string]any           `json:"case"`
-	Attachment map[string]any          `json:"attachment"`
-	Defaults  map[string]any           `json:"defaults"`
+	Version    string                   `json:"version"`
+	GitSHA     string                   `json:"gitSha"`
+	BuildDate  string                   `json:"buildDate"`
+	Workspace  map[string]string        `json:"workspace"`
+	Requests   map[string]proofResponse `json:"requests"`
+	Case       map[string]any           `json:"case"`
+	Attachment map[string]any           `json:"attachment"`
+	Defaults   map[string]any           `json:"defaults"`
 }
 
 func main() {

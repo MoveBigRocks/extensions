@@ -41,6 +41,9 @@ jobs:
           go work init .
           go work use ./platform
 
+      - name: Check public extension boundary
+        run: bash ./scripts/check-public-boundary.sh
+
       - name: Run extension Go tests
         run: go test ./...
 
