@@ -10,14 +10,14 @@ import (
 	"github.com/google/uuid"
 	slugger "github.com/gosimple/slug"
 
-	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
+	"github.com/movebigrocks/extension-sdk/extdb"
 )
 
 type Store struct {
-	db *platformsql.SqlxDB
+	db *extdb.DB
 }
 
-func NewStore(db *platformsql.SqlxDB) (*Store, error) {
+func NewStore(db *extdb.DB) (*Store, error) {
 	store := &Store{db: db}
 	if err := store.ensureSchemaAvailable(context.Background()); err != nil {
 		return nil, err

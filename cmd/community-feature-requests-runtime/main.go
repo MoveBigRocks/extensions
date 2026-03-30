@@ -7,30 +7,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/movebigrocks/extension-sdk/extdb"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	communityrequests "github.com/movebigrocks/platform/extensions/community-feature-requests/runtime"
 	communityrequestsui "github.com/movebigrocks/platform/extensions/community-feature-requests/runtimeui"
-	"github.com/movebigrocks/platform/internal/infrastructure/config"
-	platformsql "github.com/movebigrocks/platform/internal/infrastructure/stores/sql"
 	"github.com/movebigrocks/platform/pkg/logger"
 )
 
 const packageKey = "demandops/community-feature-requests"
 
 type communityRuntime struct {
-	store   *platformsql.Store
+	db      *extdb.DB
 	handler *communityrequests.Handler
 }
 
 func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "load config: %v\n", err)
-		os.Exit(1)
-	}
-
 	log := logger.New().WithField("service", "community-feature-requests-runtime")
-	runtime, err := newCommunityRuntime(cfg)
+	runtime, err := newCommunityRuntime()
 	if err != nil {
 		log.Error("Failed to initialize community feature requests runtime", "error", err)
 		os.Exit(1)
@@ -57,41 +50,29 @@ func main() {
 	}
 }
 
-func newCommunityRuntime(cfg *config.Config) (*communityRuntime, error) {
-	db, err := platformsql.NewDBWithConfig(platformsql.DBConfig{
-		DSN:             cfg.Database.EffectiveDSN(),
-		MaxOpenConns:    cfg.DatabasePool.MaxOpenConns,
-		MaxIdleConns:    cfg.DatabasePool.MaxIdleConns,
-		ConnMaxLifetime: cfg.DatabasePool.ConnMaxLifetime,
-		ConnMaxIdleTime: cfg.DatabasePool.ConnMaxIdleTime,
-	})
+func newCommunityRuntime() (*communityRuntime, error) {
+	db, err := extdb.OpenFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("create database: %w", err)
 	}
 
-	store, err := platformsql.NewStore(db)
+	requestStore, err := communityrequests.NewStore(db)
 	if err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("create platform store: %w", err)
-	}
-
-	requestStore, err := communityrequests.NewStore(store.SqlxDB())
-	if err != nil {
-		_ = store.Close()
 		return nil, err
 	}
 
 	return &communityRuntime{
-		store:   store,
+		db:      db,
 		handler: communityrequests.NewHandler(requestStore),
 	}, nil
 }
 
 func (r *communityRuntime) Close() error {
-	if r == nil || r.store == nil {
+	if r == nil || r.db == nil {
 		return nil
 	}
-	return r.store.Close()
+	return r.db.Close()
 }
 
 func registerRoutes(engine *gin.Engine, handler *communityrequests.Handler) {
