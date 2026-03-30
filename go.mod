@@ -9,7 +9,7 @@ require (
 	github.com/gosimple/slug v1.15.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.12.0
-	github.com/movebigrocks/platform v0.15.2-0.20260330123359-12298274ec3f
+	github.com/movebigrocks/platform v0.15.2-0.20260330123756-df9385b8e488
 	github.com/mssola/useragent v1.0.0
 	github.com/stretchr/testify v1.11.1
 )
