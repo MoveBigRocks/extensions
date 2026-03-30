@@ -56,10 +56,9 @@ Current source layout:
 - `sales-pipeline/runtime/` contains the sales board runtime and deal storage
 - `community-feature-requests/runtime/` contains the public idea-board runtime
 
-The core platform still contains temporary host-integrated copies of some of
-the service-backed runtime wiring while the final de-duplication work lands,
-but the public extension source is now in this repo where people expect to
-find it.
+The service-backed runtime source that first-party and external authors should
+inspect now lives in this repo, with platform-owned host contracts exposed
+through public packages instead of hidden `platform/internal/...` imports.
 
 First-party extension code in this repo should depend only on public extension
 surfaces:

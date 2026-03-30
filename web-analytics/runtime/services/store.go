@@ -12,7 +12,7 @@ type QueryStore interface {
 	GetProperty(ctx context.Context, propertyID string) (*analyticsdomain.Property, error)
 	ListPropertiesByWorkspace(ctx context.Context, workspaceID string) ([]*analyticsdomain.Property, error)
 	ListAllProperties(ctx context.Context) ([]*analyticsdomain.Property, error)
-	CreateProperty(ctx context.Context, p *analyticsdomain.Property) error
+	CreateProperty(ctx context.Context, extensionInstallID string, p *analyticsdomain.Property) error
 	UpdateProperty(ctx context.Context, p *analyticsdomain.Property) error
 	DeleteProperty(ctx context.Context, propertyID string) error
 	ResetPropertyStats(ctx context.Context, propertyID string) error

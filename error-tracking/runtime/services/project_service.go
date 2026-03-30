@@ -106,7 +106,10 @@ func (s *ProjectService) ListAllProjects(ctx context.Context) ([]*observabilityd
 }
 
 // CreateProject creates a new project
-func (s *ProjectService) CreateProject(ctx context.Context, project *observabilitydomain.Project) error {
+func (s *ProjectService) CreateProject(ctx context.Context, extensionInstallID string, project *observabilitydomain.Project) error {
+	if extensionInstallID == "" {
+		return apierrors.NewValidationErrors(apierrors.NewValidationError("extension_install_id", "required"))
+	}
 	if project.WorkspaceID == "" {
 		return apierrors.NewValidationErrors(apierrors.NewValidationError("workspace_id", "required"))
 	}
@@ -114,7 +117,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, project *observabili
 		return apierrors.NewValidationErrors(apierrors.NewValidationError("name", "required"))
 	}
 
-	if err := s.projectStore.CreateProject(ctx, project); err != nil {
+	if err := s.projectStore.CreateProject(ctx, extensionInstallID, project); err != nil {
 		return apierrors.DatabaseError("create project", err)
 	}
 	return nil

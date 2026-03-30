@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	sqlstore "github.com/movebigrocks/platform/extensions/web-analytics/runtime"
 	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
 	analyticshandlers "github.com/movebigrocks/platform/extensions/web-analytics/runtime/handlers"

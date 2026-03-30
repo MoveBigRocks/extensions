@@ -14,8 +14,6 @@ import (
 	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
 )
 
-const webAnalyticsExtensionSlug = "web-analytics"
-
 // AnalyticsStore implements analytics CRUD operations against the
 // ext_demandops_web_analytics schema in PostgreSQL.
 type AnalyticsStore struct {
@@ -47,24 +45,6 @@ func (s *AnalyticsStore) queryRowxContext(ctx context.Context, query string, arg
 
 func (s *AnalyticsStore) begin(ctx context.Context) (*sqlx.Tx, error) {
 	return s.db.BeginTxx(ctx, nil)
-}
-
-func (s *AnalyticsStore) lookupInstallIDForWorkspace(ctx context.Context, workspaceID string) (string, error) {
-	var installID string
-	err := s.queryRowxContext(ctx,
-		`SELECT id
-		 FROM core_platform.installed_extensions
-		 WHERE workspace_id = ? AND slug = ? AND deleted_at IS NULL
-		 ORDER BY activated_at DESC NULLS LAST, installed_at DESC
-		 LIMIT 1`,
-		workspaceID, webAnalyticsExtensionSlug).Scan(&installID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("web analytics extension is not installed for workspace %s", workspaceID)
-		}
-		return "", err
-	}
-	return installID, nil
 }
 
 // --- Internal row types for DB scanning ---
@@ -172,18 +152,17 @@ func boolToInt(value bool) int {
 
 // --- Properties ---
 
-func (s *AnalyticsStore) CreateProperty(ctx context.Context, p *analyticsdomain.Property) error {
-	installID, err := s.lookupInstallIDForWorkspace(ctx, p.WorkspaceID)
-	if err != nil {
-		return err
+func (s *AnalyticsStore) CreateProperty(ctx context.Context, extensionInstallID string, p *analyticsdomain.Property) error {
+	if strings.TrimSpace(extensionInstallID) == "" {
+		return fmt.Errorf("extension install id is required")
 	}
 	normalizePersistedUUID(&p.ID)
-	err = s.queryRowxContext(ctx,
+	err := s.queryRowxContext(ctx,
 		`INSERT INTO ${SCHEMA_NAME}.properties (
 			id, workspace_id, extension_install_id, domain, timezone, status, verified_at, created_at, updated_at
 		) VALUES (COALESCE(NULLIF(?, '')::uuid, uuidv7()), ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING id`,
-		p.ID, p.WorkspaceID, installID, p.Domain, p.Timezone, p.Status, p.VerifiedAt, p.CreatedAt, p.UpdatedAt).Scan(&p.ID)
+		p.ID, p.WorkspaceID, strings.TrimSpace(extensionInstallID), p.Domain, p.Timezone, p.Status, p.VerifiedAt, p.CreatedAt, p.UpdatedAt).Scan(&p.ID)
 	return err
 }
 

@@ -16,8 +16,8 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	atsruntime "github.com/movebigrocks/platform/extensions/ats/runtime"
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
 	automationdomain "github.com/movebigrocks/platform/pkg/extensionhost/automation/domain"
 	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
 	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"

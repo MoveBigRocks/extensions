@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
-	"github.com/movebigrocks/platform/extensions/common/runtimehttp"
 	automationdomain "github.com/movebigrocks/platform/pkg/extensionhost/automation/domain"
 	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
 	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 
 	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
 	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
@@ -70,7 +71,12 @@ func (h *AnalyticsExtensionAPIHandler) CreateProperty(c *gin.Context) {
 		analyticsError(c, http.StatusBadRequest, err)
 		return
 	}
-	property, err := h.query.CreateProperty(c.Request.Context(), workspaceID, strings.TrimSpace(req.Domain), strings.TrimSpace(req.Timezone))
+	extensionInstallID := runtimehttp.ExtensionID(c)
+	if strings.TrimSpace(extensionInstallID) == "" {
+		analyticsError(c, http.StatusInternalServerError, errors.New("missing extension identity in runtime context"))
+		return
+	}
+	property, err := h.query.CreateProperty(c.Request.Context(), extensionInstallID, workspaceID, strings.TrimSpace(req.Domain), strings.TrimSpace(req.Timezone))
 	if err != nil {
 		analyticsError(c, http.StatusBadRequest, err)
 		return

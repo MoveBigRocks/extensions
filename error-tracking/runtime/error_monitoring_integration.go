@@ -7,8 +7,6 @@ import (
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
-	coremodels "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql/models"
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
 )
 
 func (s *ErrorMonitoringStore) GetErrorEventsByEmail(ctx context.Context, email string, since time.Time) ([]*observabilitydomain.ErrorEvent, error) {
@@ -27,16 +25,6 @@ func (s *ErrorMonitoringStore) GetErrorEventsByEmail(ctx context.Context, email 
 		result[i] = domainEvent
 	}
 	return result, nil
-}
-
-func (s *ErrorMonitoringStore) FindCaseForContactAndIssue(ctx context.Context, contactID, issueID string) (*servicedomain.Case, error) {
-	var dbCase coremodels.Case
-	query := `SELECT * FROM core_service.cases WHERE contact_id = ? AND root_cause_issue_id = ? AND deleted_at IS NULL LIMIT 1`
-	if err := s.db.Get(ctx).GetContext(ctx, &dbCase, query, contactID, issueID); err != nil {
-		return nil, TranslateSqlxError(err, "cases")
-	}
-
-	return mapStoredCaseToDomain(&dbCase), nil
 }
 
 func (s *ErrorMonitoringStore) GetUnresolvedIssuesWithCases(ctx context.Context, workspaceID string) ([]*observabilitydomain.Issue, error) {

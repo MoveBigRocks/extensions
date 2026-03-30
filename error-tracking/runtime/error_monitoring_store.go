@@ -13,13 +13,9 @@ import (
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
 	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
-	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
 )
 
-const (
-	errorTrackingExtensionSlug = "error-tracking"
-	errorTrackingSchemaName    = "ext_demandops_error_tracking"
-)
+const errorTrackingSchemaName = "ext_demandops_error_tracking"
 
 type ErrorMonitoringStore struct {
 	db     *SqlxDB
@@ -50,24 +46,6 @@ func (s *ErrorMonitoringStore) queryRowxContext(ctx context.Context, query strin
 	return s.db.Get(ctx).QueryRowxContext(ctx, s.query(query), args...)
 }
 
-func (s *ErrorMonitoringStore) lookupInstallIDForWorkspace(ctx context.Context, workspaceID string) (string, error) {
-	var installID string
-	err := s.queryRowxContext(ctx,
-		`SELECT id
-		 FROM core_platform.installed_extensions
-		 WHERE workspace_id = ? AND slug = ? AND status = ? AND deleted_at IS NULL
-		 ORDER BY activated_at DESC NULLS LAST, installed_at DESC
-		 LIMIT 1`,
-		workspaceID, errorTrackingExtensionSlug, platformdomain.ExtensionStatusActive).Scan(&installID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("error-tracking extension is not installed for workspace %s", workspaceID)
-		}
-		return "", err
-	}
-	return installID, nil
-}
-
 func (s *ErrorMonitoringStore) lookupProjectScope(ctx context.Context, projectID string) (workspaceID string, installID string, err error) {
 	err = s.queryRowxContext(ctx,
 		`SELECT workspace_id, extension_install_id
@@ -87,10 +65,9 @@ func (s *ErrorMonitoringStore) lookupProjectScope(ctx context.Context, projectID
 // Project Operations
 // =============================================================================
 
-func (s *ErrorMonitoringStore) CreateProject(ctx context.Context, project *observabilitydomain.Project) error {
-	installID, err := s.lookupInstallIDForWorkspace(ctx, project.WorkspaceID)
-	if err != nil {
-		return err
+func (s *ErrorMonitoringStore) CreateProject(ctx context.Context, extensionInstallID string, project *observabilitydomain.Project) error {
+	if strings.TrimSpace(extensionInstallID) == "" {
+		return fmt.Errorf("extension install id is required")
 	}
 	normalizePersistedUUID(&project.ID)
 
@@ -108,8 +85,8 @@ func (s *ErrorMonitoringStore) CreateProject(ctx context.Context, project *obser
 		)
 		RETURNING id`
 
-	err = s.queryRowxContext(ctx, query,
-		project.ID, project.WorkspaceID, installID, nullableUUIDValue(project.TeamID), project.Name, project.Slug, project.Repository, project.Platform, project.Environment,
+	err := s.queryRowxContext(ctx, query,
+		project.ID, project.WorkspaceID, strings.TrimSpace(extensionInstallID), nullableUUIDValue(project.TeamID), project.Name, project.Slug, project.Repository, project.Platform, project.Environment,
 		project.DSN, project.PublicKey, project.SecretKey, project.AppKey, project.ProjectNumber, project.EventsPerHour,
 		project.StorageQuotaMB, project.RetentionDays, project.Status, project.LastEventAt, project.EventCount, nil,
 		project.CreatedAt, project.UpdatedAt,

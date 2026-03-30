@@ -5,11 +5,10 @@ import (
 	"time"
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
 )
 
 type ProjectStore interface {
-	CreateProject(ctx context.Context, project *observabilitydomain.Project) error
+	CreateProject(ctx context.Context, extensionInstallID string, project *observabilitydomain.Project) error
 	GetProject(ctx context.Context, projectID string) (*observabilitydomain.Project, error)
 	GetProjectInWorkspace(ctx context.Context, workspaceID, projectID string) (*observabilitydomain.Project, error)
 	GetProjectByKey(ctx context.Context, projectKey string) (*observabilitydomain.Project, error)
@@ -48,7 +47,6 @@ type ErrorEventStore interface {
 
 type IssueCaseIntegrationStore interface {
 	GetErrorEventsByEmail(ctx context.Context, email string, since time.Time) ([]*observabilitydomain.ErrorEvent, error)
-	FindCaseForContactAndIssue(ctx context.Context, contactID, issueID string) (*servicedomain.Case, error)
 	GetUnresolvedIssuesWithCases(ctx context.Context, workspaceID string) ([]*observabilitydomain.Issue, error)
 }
 

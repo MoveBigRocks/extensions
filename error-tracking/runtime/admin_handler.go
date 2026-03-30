@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gosimple/slug"
+	"github.com/movebigrocks/extension-sdk/runtimehttp"
 
 	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
@@ -44,7 +45,7 @@ type adminProjectService interface {
 	ListAllProjects(ctx context.Context) ([]*observabilitydomain.Project, error)
 	GetProjectsByIDs(ctx context.Context, projectIDs []string) ([]*observabilitydomain.Project, error)
 	GetProject(ctx context.Context, projectID string) (*observabilitydomain.Project, error)
-	CreateProject(ctx context.Context, project *observabilitydomain.Project) error
+	CreateProject(ctx context.Context, extensionInstallID string, project *observabilitydomain.Project) error
 	UpdateProject(ctx context.Context, project *observabilitydomain.Project) error
 	DeleteProject(ctx context.Context, workspaceID, projectID string) error
 }
@@ -295,7 +296,13 @@ func (h *ErrorTrackingAdminHandler) CreateApplication(c *gin.Context) {
 		project.Environment = req.Environment
 	}
 
-	if err := h.projectService.CreateProject(c.Request.Context(), project); err != nil {
+	extensionInstallID := runtimehttp.ExtensionID(c)
+	if strings.TrimSpace(extensionInstallID) == "" {
+		middleware.RespondWithError(c, http.StatusInternalServerError, "Missing extension identity in runtime context")
+		return
+	}
+
+	if err := h.projectService.CreateProject(c.Request.Context(), extensionInstallID, project); err != nil {
 		middleware.RespondWithError(c, http.StatusInternalServerError, "Failed to create application")
 		return
 	}

@@ -108,11 +108,11 @@ func TestIssueService_ResolveIssuePublishesCasesBulkResolvedEvent(t *testing.T) 
 
 	baseCtx := context.Background()
 	wsID := testutil.CreateTestWorkspace(t, store, "issue-service")
-	refext.InstallAndActivateReferenceExtension(t, baseCtx, store, wsID, "error-tracking")
+	installed := refext.InstallAndActivateReferenceExtension(t, baseCtx, store, wsID, "error-tracking")
 	errorStore := newTestErrorStore(t, store)
 
 	project := newTestProject(wsID)
-	require.NoError(t, errorStore.CreateProject(baseCtx, project))
+	require.NoError(t, errorStore.CreateProject(baseCtx, installed.ID, project))
 
 	systemCase := testutil.NewIsolatedCase(t, wsID)
 	systemCase.Source = sharedomain.SourceTypeSystem
@@ -195,11 +195,11 @@ func TestIssueService_ResolveIssuePublishFailure_BestEffort(t *testing.T) {
 	ctx := context.Background()
 	workspace := testutil.NewIsolatedWorkspace(t)
 	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
-	refext.InstallAndActivateReferenceExtension(t, ctx, store, workspace.ID, "error-tracking")
+	installed := refext.InstallAndActivateReferenceExtension(t, ctx, store, workspace.ID, "error-tracking")
 	errorStore := newTestErrorStore(t, store)
 
 	project := newTestProject(workspace.ID)
-	require.NoError(t, errorStore.CreateProject(ctx, project))
+	require.NoError(t, errorStore.CreateProject(ctx, installed.ID, project))
 
 	issueID := "issue-fail-transaction"
 	issue := &obsdomain.Issue{

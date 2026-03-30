@@ -16,14 +16,14 @@ The public runtime source for `web-analytics` now lives in this directory:
 
 - contract assertions:
   [`extension.contract.json`](./extension.contract.json)
-- runtime domain, handlers, resolvers, services, and SQL-backed store code:
+- runtime domain, handlers, services, and SQL-backed store code:
   [`runtime/`](./runtime)
 - admin templates:
   [`templates/`](./templates)
 
-The host platform still carries temporary integration copies of some of this
-runtime while the final de-duplication work lands, but the source that people
-should inspect and learn from is now public here.
+This directory is the runtime source that people should inspect and learn from.
+Platform-owned host contracts it depends on are exposed through public packages,
+not through `platform/internal/...`.
 
 Current package scope:
 

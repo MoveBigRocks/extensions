@@ -32,12 +32,15 @@ func (s *QueryService) ListAllProperties(ctx context.Context) ([]*analyticsdomai
 	return s.store.ListAllProperties(ctx)
 }
 
-func (s *QueryService) CreateProperty(ctx context.Context, workspaceID, domain, timezone string) (*analyticsdomain.Property, error) {
+func (s *QueryService) CreateProperty(ctx context.Context, extensionInstallID, workspaceID, domain, timezone string) (*analyticsdomain.Property, error) {
+	if extensionInstallID == "" {
+		return nil, fmt.Errorf("extension install id is required")
+	}
 	prop, err := analyticsdomain.NewProperty(workspaceID, domain, timezone)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.store.CreateProperty(ctx, prop); err != nil {
+	if err := s.store.CreateProperty(ctx, extensionInstallID, prop); err != nil {
 		return nil, err
 	}
 	return prop, nil
