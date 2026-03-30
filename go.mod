@@ -7,13 +7,14 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/gosimple/slug v1.15.0
-	github.com/graph-gophers/graphql-go v1.8.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.12.0
-	github.com/movebigrocks/platform v0.14.4-0.20260330114432-a981fc607001
+	github.com/movebigrocks/platform v0.15.2-0.20260330123359-12298274ec3f
 	github.com/mssola/useragent v1.0.0
 	github.com/stretchr/testify v1.11.1
 )
+
+require github.com/graph-gophers/graphql-go v1.8.0 // indirect
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.40.1 // indirect
@@ -62,7 +63,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/movebigrocks/extension-sdk v0.8.24-0.20260330111518-c11abecd0fe0
+	github.com/movebigrocks/extension-sdk v0.8.24-0.20260330122540-01f8f3de213d
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.1 // indirect

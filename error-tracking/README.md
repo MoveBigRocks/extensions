@@ -30,7 +30,7 @@ not through `platform/internal/...`.
 Current package scope:
 
 - Sentry-compatible public ingest routes
-- compatibility paths:
+- public ingest paths:
   - `/api/envelope`
   - `/api/:projectNumber/envelope`
   - `/1/envelope`

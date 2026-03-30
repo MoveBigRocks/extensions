@@ -126,12 +126,10 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
-github.com/movebigrocks/extension-sdk v0.8.24-0.20260330111518-c11abecd0fe0 h1:A8CJErGRy//rp8KOOVXFswckeBTpPi2mg/ppQFiOmL8=
-github.com/movebigrocks/extension-sdk v0.8.24-0.20260330111518-c11abecd0fe0/go.mod h1:xaXznYw8drQt/SaWbR8LOJDLTE2W6Dw1WAFg3xhCDnQ=
-github.com/movebigrocks/platform v0.13.12 h1:n2UEFEE62sDyFPrVj/tKmiQ3zSZBkDgc/KAj6A4Pr2M=
-github.com/movebigrocks/platform v0.13.12/go.mod h1:DWDIVx7oODfmlGX3eBqZKSy2vUv2Jpc/wUV6bL4veFs=
-github.com/movebigrocks/platform v0.14.4-0.20260330114432-a981fc607001 h1:/k+Q3q4WbpAao+Jm4akzsDZoyF5+Nv4xlIgBmHEWRcM=
-github.com/movebigrocks/platform v0.14.4-0.20260330114432-a981fc607001/go.mod h1:DWDIVx7oODfmlGX3eBqZKSy2vUv2Jpc/wUV6bL4veFs=
+github.com/movebigrocks/extension-sdk v0.8.24-0.20260330122540-01f8f3de213d h1:zyiU7AU0PMaylJVEXDFWwaB6ENOnw1hsuOuCRCTF9F4=
+github.com/movebigrocks/extension-sdk v0.8.24-0.20260330122540-01f8f3de213d/go.mod h1:xaXznYw8drQt/SaWbR8LOJDLTE2W6Dw1WAFg3xhCDnQ=
+github.com/movebigrocks/platform v0.15.2-0.20260330123359-12298274ec3f h1:iVvrABVOADcbuNzIjwcF+DZfSV+tYIq3cOrfgr5uaYA=
+github.com/movebigrocks/platform v0.15.2-0.20260330123359-12298274ec3f/go.mod h1:n5/W2JkUvbC1aSYZHaRM7qYrVCc0deczs6dCbUxPiic=
 github.com/mr-tron/base58 v1.2.0 h1:T/HDJBh4ZCPbU39/+c3rRvE0uKBQlU27+QI8LJ4t64o=
 github.com/mr-tron/base58 v1.2.0/go.mod h1:BinMc/sQntlIE1frQmRFPUoPA1Zkr8VRgBdjWI2mNwc=
 github.com/mssola/useragent v1.0.0 h1:WRlDpXyxHDNfvZaPEut5Biveq86Ze4o4EMffyMxmH5o=

@@ -296,7 +296,7 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 			changes := automationservices.NewFieldChanges()
 			changes.SetString("ats_application_previous_stage", string(previousStage))
 			changes.SetString("ats_application_stage", string(saved.Stage))
-			if err := s.rules.EvaluateRulesForCaseTyped(txCtx, caseObj, "ats_application_stage_changed", changes); err != nil {
+			if err := s.rules.EvaluateRulesForCase(txCtx, caseObj, "ats_application_stage_changed", changes); err != nil {
 				return fmt.Errorf("evaluate ats stage-change rules: %w", err)
 			}
 		}
