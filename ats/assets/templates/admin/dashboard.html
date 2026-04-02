@@ -558,14 +558,14 @@
               <h1>Applicant Tracking</h1>
               <p class="ats-lede">
                 Live hiring overview for instance admins and workspace operators. Switch into the
-                right workspace, open forms and rules, and review candidate cases without losing
+                right workspace, open the careers builder and rules, and review candidate cases without losing
                 the shared admin shell.
               </p>
             </div>
             <div class="ats-link-grid">
               <a class="ats-button ats-button-primary" href="/workspaces">Workspaces</a>
               <a class="ats-button" href="/cases">Cases</a>
-              <a class="ats-button" href="/forms">Forms</a>
+              <a class="ats-button" href="/careers">Careers</a>
               <a class="ats-button" href="/rules">Rules</a>
             </div>
           </div>
@@ -614,11 +614,11 @@
               <article class="ats-playbook">
                 <h3>Publish a role</h3>
                 <p>
-                  Confirm the workspace, job wording, and public timing, then validate the related
-                  form and careers assets before publishing.
+                  Confirm the workspace, job wording, and public timing, then validate the ATS
+                  careers builder and related public site assets before publishing.
                 </p>
                 <div class="ats-action-row">
-                  <a class="ats-button ats-button-secondary" href="/forms">Open forms</a>
+                  <a class="ats-button ats-button-secondary" href="/extensions/ats">Open ATS</a>
                   <a class="ats-button" href="/rules">Open rules</a>
                 </div>
               </article>
@@ -635,8 +635,8 @@
               <article class="ats-playbook">
                 <h3>Audit the install</h3>
                 <p>
-                  Check that the public application form, ATS automation rule, and seeded queues
-                  still match the bundle contract in every hiring workspace.
+                  Check that the ATS careers builder, ATS automation rule, and seeded queues still
+                  match the bundle contract in every hiring workspace.
                 </p>
                 <div class="ats-action-row">
                   <a class="ats-button" href="/workspaces">Review workspaces</a>
@@ -652,7 +652,7 @@
               <h2>Workspace directory</h2>
               <p class="ats-section-copy">
                 Every accessible workspace at a glance, with direct context switches into ATS,
-                cases, forms, and automation.
+                cases, the public careers site, and automation.
               </p>
             </div>
           </div>
@@ -667,7 +667,7 @@
           <section class="ats-panel ats-section">
             <div class="ats-empty">
               JavaScript is required for live ATS counts and context switches. The shared shell is
-              still available, and you can use Workspaces, Cases, Forms, and Rules from the buttons
+              still available, and you can use Workspaces, Cases, Careers, and Rules from the buttons
               above.
             </div>
           </section>
@@ -901,7 +901,6 @@
               recentCases: [],
               checklist: [],
               attention: [],
-              formResourceID: "",
               ruleResourceID: ""
             };
           });
@@ -928,7 +927,6 @@
               recentCases: [],
               checklist: [],
               attention: [],
-              formResourceID: "",
               ruleResourceID: ""
             };
 
@@ -946,7 +944,6 @@
 
             if (extension) {
               var seeded = extension.seededResources || {};
-              var formState = findByKey(seeded.forms, "slug", "job-application");
               var automationState = findByKey(
                 seeded.automationRules,
                 "key",
@@ -967,12 +964,11 @@
               model.openCount = numberValue(workspace.openCases && workspace.openCases.totalCount);
               model.pendingCount = numberValue(workspace.pendingCases && workspace.pendingCases.totalCount);
               model.recentCases = extractCases(workspace.recentCases);
-              model.formResourceID = formState && formState.resourceID ? formState.resourceID : "";
               model.ruleResourceID = automationState && automationState.resourceID ? automationState.resourceID : "";
               model.checklist = [
                 checkItem(
-                  "Public application form",
-                  !!(formState && formState.exists && formState.matchesSeed)
+                  "ATS careers builder",
+                  !!extension.exists
                 ),
                 checkItem(
                   "General applications queue",
@@ -1107,7 +1103,7 @@
             message =
               "<strong>Current context:</strong> " +
               escapeHTML(currentLabel) +
-              ". Use the actions below to open candidates, forms, and automation for this workspace, or switch back to instance admin.";
+              ". Use the actions below to open candidates, the careers site, and automation for this workspace, or switch back to instance admin.";
           } else {
             message =
               "<strong>Current context:</strong> " +
@@ -1257,8 +1253,8 @@
             })
           );
           actions.push(
-            buttonHTML("Application form", "ats-button", {
-              target: workspace.formResourceID ? "/forms/" + workspace.formResourceID : "/forms",
+            buttonHTML("Careers site", "ats-button", {
+              target: "/careers",
               switchType: isCurrent ? "" : "workspace",
               workspaceID: workspace.id
             })
@@ -1283,7 +1279,7 @@
             '<div class="ats-section-head">',
             "  <div>",
             "    <h2>" + escapeHTML(workspace.name) + "</h2>",
-            '    <p class="ats-section-copy">Current ATS workspace with direct links into candidate review, forms, and automation.</p>',
+            '    <p class="ats-section-copy">Current ATS workspace with direct links into candidate review, the careers builder, the public careers site, and automation.</p>',
             "  </div>",
             "  <div class=\"ats-status-stack\">",
             statusChip("ATS " + (workspace.active ? "active" : "installed"), workspace.active ? "good" : "warn"),
@@ -1362,10 +1358,10 @@
                   workspaceID: targetWorkspace.id,
                   target: "/extensions/ats"
                 }),
-                buttonHTML("Open form", "ats-button", {
+                buttonHTML("Open careers site", "ats-button", {
                   switchType: targetWorkspace.current ? "" : "workspace",
                   workspaceID: targetWorkspace.id,
-                  target: targetWorkspace.formResourceID ? "/forms/" + targetWorkspace.formResourceID : "/forms"
+                  target: "/careers"
                 })
               ]
             : ['<a class="ats-button ats-button-secondary" href="/workspaces">Open workspaces</a>'];
@@ -1394,7 +1390,7 @@
           playbooksEl.innerHTML = [
             playbookHTML(
               "Publish a role",
-              "Confirm the workspace, job wording, and public timing before you update the ATS surface and application intake path.",
+              "Confirm the workspace, job wording, and public timing before you update the ATS careers builder and publish the public site.",
               publishActions.join("")
             ),
             playbookHTML(
@@ -1404,7 +1400,7 @@
             ),
             playbookHTML(
               "Audit the install",
-              "Check that the public application form, ATS automation rule, and seeded queues still match the extension contract in the target workspace.",
+              "Check that the ATS automation rule, careers builder, and seeded queues still match the extension contract in the target workspace.",
               auditActions.join("")
             )
           ].join("");
@@ -1480,10 +1476,10 @@
               })
             );
             actions.push(
-              buttonHTML("Form", "ats-button", {
+              buttonHTML("Careers", "ats-button", {
                 switchType: workspace.current ? "" : "workspace",
                 workspaceID: workspace.id,
-                target: workspace.formResourceID ? "/forms/" + workspace.formResourceID : "/forms"
+                target: "/careers"
               })
             );
             actions.push(
@@ -1785,7 +1781,7 @@
             .catch(function(error) {
               showInlineError(error && error.message ? error.message : "Could not load ATS dashboard.");
               focusEl.innerHTML =
-                '<div class="ats-empty">The ATS dashboard could not load live data. You can still use Workspaces, Cases, Forms, and Rules from the shared shell.</div>';
+                '<div class="ats-empty">The ATS dashboard could not load live data. You can still use Workspaces, Cases, Careers, and Rules from the shared shell.</div>';
               workspaceGridEl.innerHTML = "";
               metricsEl.innerHTML = metricCard("Status", "Error", "Refresh the page or check your session context.");
             });

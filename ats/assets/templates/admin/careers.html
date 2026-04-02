@@ -1,0 +1,1236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ATS Careers Builder</title>
+    <style>
+      :root {
+        --bg: #f7f4ec;
+        --surface: rgba(255, 255, 255, 0.84);
+        --border: rgba(18, 33, 27, 0.12);
+        --text: #12211b;
+        --muted: #5f6b65;
+        --primary: #0f766e;
+        --accent: #f59e0b;
+        --danger: #b91c1c;
+        --shadow: 0 18px 50px rgba(18, 33, 27, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 24%),
+          linear-gradient(180deg, #fffefa 0%, var(--bg) 100%);
+      }
+      a { color: inherit; }
+      button, input, textarea, select { font: inherit; }
+      input, textarea, select {
+        width: 100%;
+        padding: 0.82rem 0.95rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: white;
+        color: var(--text);
+      }
+      textarea { min-height: 112px; resize: vertical; }
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 0.82rem 1.1rem;
+        cursor: pointer;
+      }
+      .page {
+        width: min(1320px, calc(100vw - 2rem));
+        margin: 0 auto;
+        padding: 1.2rem 0 3rem;
+      }
+      .hero, .panel {
+        background: var(--surface);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow);
+        border-radius: 28px;
+      }
+      .hero {
+        padding: 1.4rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1.2rem;
+        align-items: center;
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.74rem;
+        color: var(--primary);
+        font-weight: 700;
+        margin-bottom: 0.6rem;
+      }
+      h1 {
+        margin: 0 0 0.4rem;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+      p { margin: 0; color: var(--muted); line-height: 1.6; }
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: flex-end;
+      }
+      .button-primary { background: var(--text); color: white; }
+      .button-secondary { background: white; color: var(--text); border: 1px solid var(--border); }
+      .button-danger { background: rgba(185, 28, 28, 0.1); color: var(--danger); }
+      .banner {
+        display: none;
+        margin: 1rem 0 0;
+        padding: 0.95rem 1rem;
+        border-radius: 18px;
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--primary);
+      }
+      .banner[data-tone="error"] {
+        background: rgba(185, 28, 28, 0.1);
+        color: var(--danger);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .stack { display: grid; gap: 1rem; }
+      .panel { padding: 1.2rem; }
+      .panel h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.25rem;
+        letter-spacing: -0.03em;
+      }
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      .section-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.9rem;
+      }
+      .section-grid .full { grid-column: 1 / -1; }
+      label {
+        display: grid;
+        gap: 0.4rem;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .section-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.7rem;
+        margin-top: 1rem;
+      }
+      .inline-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.7rem;
+      }
+      .input-action {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.55rem;
+        align-items: center;
+      }
+      .input-action button {
+        padding: 0.72rem 0.95rem;
+        white-space: nowrap;
+      }
+      .team-list, .gallery-list, .job-list {
+        display: grid;
+        gap: 0.8rem;
+      }
+      .setup-list, .candidate-list, .asset-list {
+        display: grid;
+        gap: 0.8rem;
+      }
+      .repeater-item, .job-card {
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.8);
+      }
+      .setup-step, .candidate-card {
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.8);
+      }
+      .setup-step {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: center;
+      }
+      .setup-step[data-complete="true"] {
+        border-color: rgba(15, 118, 110, 0.24);
+      }
+      .setup-status {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.35rem 0.65rem;
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--primary);
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+      }
+      .setup-step p,
+      .candidate-card p {
+        margin-top: 0.25rem;
+      }
+      .candidate-header, .candidate-meta, .candidate-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+      }
+      .candidate-header {
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 0.7rem;
+      }
+      .candidate-meta {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-bottom: 0.8rem;
+      }
+      .candidate-actions {
+        align-items: center;
+      }
+      .candidate-actions select,
+      .candidate-actions textarea {
+        min-width: 0;
+      }
+      .candidate-actions textarea {
+        min-height: 84px;
+      }
+      .candidate-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+        gap: 0.7rem;
+        margin-top: 0.75rem;
+      }
+      .asset-card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 0.9rem 1rem;
+        background: rgba(255, 255, 255, 0.8);
+      }
+      .asset-card strong {
+        display: block;
+        margin-bottom: 0.2rem;
+      }
+      .checkbox-line {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+      }
+      .checkbox-line input {
+        width: auto;
+        margin: 0;
+      }
+      .job-card-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: start;
+        margin-bottom: 0.7rem;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.45rem 0.7rem;
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--primary);
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+      .job-meta, .job-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+      }
+      .job-meta {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-bottom: 0.8rem;
+      }
+      .job-actions button {
+        padding: 0.55rem 0.8rem;
+        font-size: 0.88rem;
+      }
+      .muted-note { font-size: 0.9rem; color: var(--muted); }
+      .empty { padding: 1rem; border: 1px dashed var(--border); border-radius: 18px; color: var(--muted); }
+      .preview-link {
+        display: inline-flex;
+        gap: 0.4rem;
+        align-items: center;
+        color: var(--primary);
+        font-weight: 700;
+      }
+
+      @media (max-width: 1080px) {
+        .layout { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 720px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .hero-actions {
+          justify-content: flex-start;
+        }
+        .section-grid, .inline-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <div>
+          <div class="eyebrow">ATS Careers Builder</div>
+          <h1>Design the jobs site, then publish it.</h1>
+          <p>Edit the brand, company story, team, gallery, and vacancies in one place. The public careers site is regenerated from this structured data.</p>
+        </div>
+        <div class="hero-actions">
+          <a class="button-secondary preview-link" href="/careers" target="_blank" rel="noreferrer">Preview careers</a>
+          <button class="button-primary" id="publish-site-button" type="button">Publish site</button>
+        </div>
+      </section>
+
+      <div class="banner" id="banner"></div>
+
+      <section class="layout">
+        <div class="stack">
+          <section class="panel" id="setup-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Setup</h2>
+                <p>Move through the ATS launch checklist so the careers site and candidate workflow are ready for a real hiring run.</p>
+              </div>
+            </div>
+            <div class="setup-list" id="setup-list"></div>
+          </section>
+
+          <form class="panel" id="site-form">
+            <div class="panel-head">
+              <div>
+                <h2>Site profile</h2>
+                <p>Shape the branding, company story, contact details, and metadata for the public careers site.</p>
+              </div>
+              <a class="preview-link" href="/careers" target="_blank" rel="noreferrer">Open preview</a>
+            </div>
+            <div class="section-grid">
+              <label><span>Company name</span><input name="companyName" required></label>
+              <label><span>Site title</span><input name="siteTitle" required></label>
+              <label class="full"><span>Tagline</span><input name="tagline"></label>
+              <label class="full"><span>Meta description</span><textarea name="metaDescription"></textarea></label>
+              <label><span>Hero eyebrow</span><input name="heroEyebrow"></label>
+              <label><span>Hero title</span><input name="heroTitle"></label>
+              <label class="full"><span>Hero body</span><textarea name="heroBody"></textarea></label>
+              <label><span>Primary CTA label</span><input name="heroPrimaryLabel"></label>
+              <label><span>Primary CTA href</span><input name="heroPrimaryHref"></label>
+              <label><span>Secondary CTA label</span><input name="heroSecondaryLabel"></label>
+              <label><span>Secondary CTA href</span><input name="heroSecondaryHref"></label>
+              <label><span>Story heading</span><input name="storyHeading"></label>
+              <label><span>Jobs heading</span><input name="jobsHeading"></label>
+              <label class="full"><span>Story body</span><textarea name="storyBody"></textarea></label>
+              <label class="full"><span>Jobs intro</span><textarea name="jobsIntro"></textarea></label>
+              <label><span>Team heading</span><input name="teamHeading"></label>
+              <label><span>Gallery heading</span><input name="galleryHeading"></label>
+              <label class="full"><span>Team intro</span><textarea name="teamIntro"></textarea></label>
+              <label class="full"><span>Gallery intro</span><textarea name="galleryIntro"></textarea></label>
+              <label><span>Contact email</span><input name="contactEmail" type="email"></label>
+              <label><span>Website URL</span><input name="websiteUrl" type="url"></label>
+              <label><span>LinkedIn URL</span><input name="linkedinUrl" type="url"></label>
+              <label><span>Instagram URL</span><input name="instagramUrl" type="url"></label>
+              <label><span>X URL</span><input name="xUrl" type="url"></label>
+              <label><span>Logo URL</span><div class="input-action"><input name="logoUrl" type="url"><button class="button-secondary" data-upload-target="logoUrl" data-upload-purpose="logo" type="button">Upload</button><input data-upload-file="logoUrl" hidden type="file" accept="image/*"></div></label>
+              <label><span>Hero image URL</span><div class="input-action"><input name="heroImageUrl" type="url"><button class="button-secondary" data-upload-target="heroImageUrl" data-upload-purpose="hero" type="button">Upload</button><input data-upload-file="heroImageUrl" hidden type="file" accept="image/*"></div></label>
+              <label><span>OG image URL</span><div class="input-action"><input name="ogImageUrl" type="url"><button class="button-secondary" data-upload-target="ogImageUrl" data-upload-purpose="og" type="button">Upload</button><input data-upload-file="ogImageUrl" hidden type="file" accept="image/*"></div></label>
+              <label><span>Primary color</span><input name="primaryColor" type="color"></label>
+              <label><span>Accent color</span><input name="accentColor" type="color"></label>
+              <label><span>Surface color</span><input name="surfaceColor" type="color"></label>
+              <label><span>Background color</span><input name="backgroundColor" type="color"></label>
+              <label><span>Text color</span><input name="textColor" type="color"></label>
+              <label><span>Muted color</span><input name="mutedColor" type="color"></label>
+              <label><span>Street address</span><input name="streetAddress"></label>
+              <label><span>City</span><input name="addressLocality"></label>
+              <label><span>Region</span><input name="addressRegion"></label>
+              <label><span>Postal code</span><input name="postalCode"></label>
+              <label><span>Country</span><input name="addressCountry"></label>
+              <label><span>Privacy policy URL</span><input name="privacyPolicyUrl" type="url"></label>
+              <label class="full checkbox-line"><input name="customCssEnabled" type="checkbox"><span>Enable custom CSS override</span></label>
+              <label class="full"><span>Custom CSS</span><textarea name="customCss" placeholder=":root { --primary: #14532d; }"></textarea></label>
+            </div>
+            <div class="section-actions">
+              <button class="button-primary" type="submit">Save site profile</button>
+            </div>
+          </form>
+
+          <section class="panel" id="assets-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Media library</h2>
+                <p>Upload managed brand and careers imagery, then reuse the generated public URLs across the site, team, and gallery.</p>
+              </div>
+            </div>
+            <div class="inline-grid">
+              <label>
+                <span>Purpose</span>
+                <select id="asset-purpose">
+                  <option value="brand">Brand</option>
+                  <option value="logo">Logo</option>
+                  <option value="hero">Hero</option>
+                  <option value="og">Social / OG</option>
+                  <option value="team">Team</option>
+                  <option value="gallery">Gallery</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label class="full">
+                <span>Upload image</span>
+                <input id="asset-file" type="file" accept="image/*">
+              </label>
+            </div>
+            <div class="section-actions">
+              <button class="button-primary" id="upload-asset-button" type="button">Upload media</button>
+            </div>
+            <div class="asset-list" id="asset-list"></div>
+          </section>
+
+          <section class="panel" id="team-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Team</h2>
+                <p>These people appear on the public site and on role pages.</p>
+              </div>
+            </div>
+            <div class="team-list" id="team-list"></div>
+            <div class="section-actions">
+              <button class="button-secondary" id="add-team-button" type="button">Add team member</button>
+              <button class="button-primary" id="save-team-button" type="button">Save team</button>
+            </div>
+          </section>
+
+          <section class="panel" id="gallery-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Gallery</h2>
+                <p>Add visual moments for the homepage and job pages. Leave image URLs blank and the site will render placeholders.</p>
+              </div>
+            </div>
+            <div class="gallery-list" id="gallery-list"></div>
+            <div class="section-actions">
+              <button class="button-secondary" id="add-gallery-button" type="button">Add gallery item</button>
+              <button class="button-primary" id="save-gallery-button" type="button">Save gallery</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="panel" id="applications-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Candidates</h2>
+                <p>Review ATS-native applications, move stages, and add recruiter notes without leaving the builder.</p>
+              </div>
+              <label style="min-width: 220px;">
+                <span>Filter by job</span>
+                <select id="application-job-filter"></select>
+              </label>
+            </div>
+            <div class="candidate-list" id="candidate-list"></div>
+          </section>
+
+          <section class="panel" id="jobs-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Jobs</h2>
+                <p>Draft roles, edit their public content, and publish them to the generated site.</p>
+              </div>
+            </div>
+            <div class="job-list" id="job-list"></div>
+          </section>
+
+          <form class="panel" id="job-form">
+            <div class="panel-head">
+              <div>
+                <h2 id="job-form-title">Create job</h2>
+                <p>Keep job content structured so the generator can produce strong role pages and `JobPosting` markup.</p>
+              </div>
+              <button class="button-secondary" id="reset-job-button" type="button">Reset</button>
+            </div>
+            <input name="id" type="hidden">
+            <div class="section-grid">
+              <label><span>Slug</span><input name="slug" required></label>
+              <label><span>Title</span><input name="title" required></label>
+              <label><span>Team</span><input name="team"></label>
+              <label><span>Location</span><input name="location"></label>
+              <label><span>Work mode</span>
+                <select name="workMode">
+                  <option value="remote">Remote</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="onsite">On-site</option>
+                </select>
+              </label>
+              <label><span>Employment type</span>
+                <select name="employmentType">
+                  <option value="full_time">Full-time</option>
+                  <option value="part_time">Part-time</option>
+                  <option value="contract">Contract</option>
+                  <option value="internship">Internship</option>
+                </select>
+              </label>
+              <label><span>Language</span><input name="language" placeholder="en"></label>
+              <label class="full"><span>Summary</span><textarea name="summary"></textarea></label>
+              <label class="full"><span>Description</span><textarea name="description"></textarea></label>
+              <label class="full"><span>About the job</span><textarea name="aboutTheJob"></textarea></label>
+              <label><span>Responsibilities heading</span><input name="responsibilitiesHeading"></label>
+              <label><span>About you heading</span><input name="aboutYouHeading"></label>
+              <label class="full"><span>Responsibilities (one per line)</span><textarea name="responsibilities"></textarea></label>
+              <label class="full"><span>About you</span><textarea name="aboutYou"></textarea></label>
+              <label class="full"><span>Profile bullets (one per line)</span><textarea name="profile"></textarea></label>
+              <label><span>Offers heading</span><input name="offersHeading"></label>
+              <label class="full"><span>Offers intro</span><textarea name="offersIntro"></textarea></label>
+              <label class="full"><span>Offers bullets (one per line)</span><textarea name="offers"></textarea></label>
+              <label class="full"><span>Quote</span><textarea name="quote"></textarea></label>
+            </div>
+            <div class="section-actions">
+              <button class="button-primary" type="submit">Save job</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <template id="team-item-template">
+      <article class="repeater-item team-item">
+        <div class="inline-grid">
+          <label><span>Name</span><input data-field="name"></label>
+          <label><span>Role</span><input data-field="role"></label>
+          <label><span>Image URL</span><div class="input-action"><input data-field="imageUrl" type="url"><button class="button-secondary" data-upload-target="imageUrl" data-upload-purpose="team" type="button">Upload</button><input data-upload-file="imageUrl" hidden type="file" accept="image/*"></div></label>
+          <label><span>LinkedIn URL</span><input data-field="linkedinUrl" type="url"></label>
+        </div>
+        <label style="margin-top: 0.7rem;"><span>Bio</span><textarea data-field="bio"></textarea></label>
+        <div class="section-actions">
+          <button class="button-danger" data-remove type="button">Remove</button>
+        </div>
+      </article>
+    </template>
+
+    <template id="gallery-item-template">
+      <article class="repeater-item gallery-item">
+        <div class="inline-grid">
+          <label>
+            <span>Section</span>
+            <select data-field="section">
+              <option value="homepage">Homepage</option>
+              <option value="jobs">Jobs</option>
+              <option value="all">All</option>
+            </select>
+          </label>
+          <label><span>Alt text</span><input data-field="altText"></label>
+          <label><span>Caption</span><input data-field="caption"></label>
+          <label><span>Image URL</span><div class="input-action"><input data-field="imageUrl" type="url"><button class="button-secondary" data-upload-target="imageUrl" data-upload-purpose="gallery" type="button">Upload</button><input data-upload-file="imageUrl" hidden type="file" accept="image/*"></div></label>
+        </div>
+        <div class="section-actions">
+          <button class="button-danger" data-remove type="button">Remove</button>
+        </div>
+      </article>
+    </template>
+
+    <script>
+      (function() {
+        var state = { bundle: null, applications: [], editingJobId: "" };
+        var bannerEl = document.getElementById("banner");
+        var setupListEl = document.getElementById("setup-list");
+        var siteForm = document.getElementById("site-form");
+        var assetListEl = document.getElementById("asset-list");
+        var teamListEl = document.getElementById("team-list");
+        var galleryListEl = document.getElementById("gallery-list");
+        var candidateListEl = document.getElementById("candidate-list");
+        var applicationJobFilterEl = document.getElementById("application-job-filter");
+        var jobListEl = document.getElementById("job-list");
+        var jobForm = document.getElementById("job-form");
+        var jobFormTitle = document.getElementById("job-form-title");
+
+        function showBanner(message, tone) {
+          bannerEl.style.display = "block";
+          bannerEl.textContent = message;
+          if (tone) {
+            bannerEl.setAttribute("data-tone", tone);
+          } else {
+            bannerEl.removeAttribute("data-tone");
+          }
+        }
+
+        function clearBanner() {
+          bannerEl.style.display = "none";
+          bannerEl.textContent = "";
+          bannerEl.removeAttribute("data-tone");
+        }
+
+        function fetchJSON(url, options) {
+          var init = Object.assign({ credentials: "same-origin" }, options || {});
+          init.headers = Object.assign({ "Content-Type": "application/json" }, init.headers || {});
+          return fetch(url, init).then(function(response) {
+            return response.json().catch(function() { return {}; }).then(function(data) {
+              if (!response.ok) {
+                throw new Error(data.error || "Request failed.");
+              }
+              return data;
+            });
+          });
+        }
+
+        function splitLines(value) {
+          return String(value || "")
+            .split("\n")
+            .map(function(item) { return item.trim(); })
+            .filter(Boolean);
+        }
+
+        function fillSiteForm(site) {
+          Array.from(siteForm.elements).forEach(function(field) {
+            if (!field.name) return;
+            if (field.type === "checkbox") {
+              field.checked = Boolean(site && site[field.name]);
+              return;
+            }
+            field.value = site && site[field.name] != null ? site[field.name] : "";
+          });
+        }
+
+        function sectionForSetupStep(step) {
+          if (step === "brand" || step === "company") return document.getElementById("site-form");
+          if (step === "team") return document.getElementById("team-panel");
+          if (step === "jobs") return document.getElementById("jobs-panel");
+          return document.querySelector(".hero");
+        }
+
+        function renderSetup(setup) {
+          if (!setup || !Array.isArray(setup.steps) || !setup.steps.length) {
+            setupListEl.innerHTML = '<div class="empty">Setup status will appear once the ATS bundle loads.</div>';
+            return;
+          }
+          setupListEl.innerHTML = setup.steps.map(function(step) {
+            var status = step.completed ? "Complete" : (setup.currentStep === step.key ? "Current step" : "Pending");
+            return [
+              '<article class="setup-step" data-complete="' + String(step.completed) + '">',
+              '  <div>',
+              '    <div class="setup-status">' + escapeHTML(status) + "</div>",
+              '    <strong>' + escapeHTML(step.title) + "</strong>",
+              '    <p>' + escapeHTML(step.description) + "</p>",
+              "  </div>",
+              '  <button class="' + (step.key === "publish" ? "button-primary" : "button-secondary") + '" type="button" data-setup-step="' + escapeAttr(step.key) + '">' + escapeHTML(step.actionLabel || "Open") + "</button>",
+              "</article>"
+            ].join("");
+          }).join("");
+        }
+
+        function jobTitleByVacancyID(vacancyID) {
+          if (!state.bundle || !Array.isArray(state.bundle.jobs)) return "Unassigned job";
+          var match = state.bundle.jobs.find(function(job) { return job.id === vacancyID; });
+          return match && match.title ? match.title : "Unassigned job";
+        }
+
+        function renderApplicationFilterOptions(jobs) {
+          var currentValue = applicationJobFilterEl.value || "all";
+          var options = [
+            '<option value="all">All candidates</option>',
+            '<option value="general">General applications</option>',
+            '<option value="talent_pool">Talent pool</option>'
+          ];
+          (jobs || []).filter(function(job) {
+            return job.kind === "job";
+          }).forEach(function(job) {
+            options.push('<option value="job:' + escapeAttr(job.id) + '">' + escapeHTML(job.title) + "</option>");
+          });
+          applicationJobFilterEl.innerHTML = options.join("");
+          applicationJobFilterEl.value = currentValue;
+          if (applicationJobFilterEl.value !== currentValue) {
+            applicationJobFilterEl.value = "all";
+          }
+        }
+
+        function stageOptions(selected) {
+          return [
+            "received",
+            "screening",
+            "interview",
+            "offer",
+            "hired",
+            "rejected",
+            "withdrawn"
+          ].map(function(stage) {
+            var label = stage.replace(/_/g, " ");
+            label = label.charAt(0).toUpperCase() + label.slice(1);
+            return '<option value="' + stage + '"' + (stage === selected ? " selected" : "") + ">" + label + "</option>";
+          }).join("");
+        }
+
+        function renderAssets(assets) {
+          if (!assets || !assets.length) {
+            assetListEl.innerHTML = '<div class="empty">No uploaded media yet. Upload logos, hero images, or gallery shots here.</div>';
+            return;
+          }
+          assetListEl.innerHTML = assets.map(function(asset) {
+            return [
+              '<article class="asset-card">',
+              '  <strong>' + escapeHTML(asset.filename || "Asset") + '</strong>',
+              '  <p>' + escapeHTML(asset.purpose || "other") + ' · ' + escapeHTML(asset.publicUrl || "") + "</p>",
+              '  <div class="section-actions">',
+              '    <button class="button-secondary" type="button" data-copy-url="' + escapeAttr(asset.publicUrl || "") + '">Copy URL</button>',
+              '    <a class="button-secondary" href="' + escapeAttr(asset.publicUrl || "#") + '" target="_blank" rel="noreferrer">Open</a>',
+              "  </div>",
+              "</article>"
+            ].join("");
+          }).join("");
+        }
+
+        function renderApplications(applications) {
+          if (!applications || !applications.length) {
+            candidateListEl.innerHTML = '<div class="empty">No applications yet. Published jobs will start filling this inbox.</div>';
+            return;
+          }
+          candidateListEl.innerHTML = applications.map(function(profile) {
+            var applicant = profile.applicant || {};
+            var application = profile.application || {};
+            var notes = profile.notes || [];
+            var latestNote = notes.length ? notes[notes.length - 1].body : "No recruiter notes yet.";
+            var routeButtonLabel = profile.isTalentPool ? "Return to job queue" : "Move to talent pool";
+            var routeDestination = profile.isTalentPool ? "job_queue" : "talent_pool";
+            return [
+              '<article class="candidate-card" data-application-id="' + escapeAttr(application.id || "") + '">',
+              '  <div class="candidate-header">',
+              '    <div><strong>' + escapeHTML(applicant.fullName || "Candidate") + '</strong><p>' + escapeHTML(jobTitleByVacancyID(application.vacancyId)) + "</p></div>",
+              '    <span class="status-pill">' + escapeHTML(application.stage || "received") + "</span>",
+              "  </div>",
+              '  <div class="candidate-meta">',
+              '    <span>' + escapeHTML(applicant.email || "No email") + "</span>",
+              '    <span>' + escapeHTML(applicant.location || "No location") + "</span>",
+              '    <span>' + escapeHTML(application.sourceKind || application.source || "ats_public") + "</span>",
+              '    <span>' + escapeHTML(profile.caseQueueName || profile.caseQueueSlug || "No queue") + "</span>",
+              "  </div>",
+              '  <p>' + escapeHTML(applicant.coverNote || "No cover note provided.") + "</p>",
+              '  <div class="candidate-grid">',
+              '    <label><span>Stage</span><select data-candidate-stage>' + stageOptions(application.stage || "received") + "</select></label>",
+              '    <label><span>Add note</span><textarea data-candidate-note placeholder="Add recruiter context, decisions, or follow-up details."></textarea></label>',
+              "  </div>",
+              '  <div class="candidate-actions">',
+              '    <button class="button-secondary" type="button" data-candidate-action="save-stage">Save stage</button>',
+              '    <button class="button-secondary" type="button" data-candidate-action="route" data-route-destination="' + escapeAttr(routeDestination) + '">' + routeButtonLabel + "</button>",
+              '    <button class="button-primary" type="button" data-candidate-action="add-note">Add note</button>',
+              "  </div>",
+              '  <p class="muted-note">Latest note: ' + escapeHTML(latestNote) + "</p>",
+              "</article>"
+            ].join("");
+          }).join("");
+        }
+
+        function loadApplications() {
+          var selection = applicationJobFilterEl.value || "all";
+          var query = "";
+          if (selection === "general") {
+            query = "?scope=general";
+          } else if (selection === "talent_pool") {
+            query = "?scope=talent_pool";
+          } else if (selection.indexOf("job:") === 0) {
+            query = "?jobId=" + encodeURIComponent(selection.slice(4));
+          }
+          return fetchJSON("/extensions/ats/api/applications" + query)
+            .then(function(payload) {
+              state.applications = payload.applications || [];
+              renderApplications(state.applications);
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not load ATS applications.", "error");
+            });
+        }
+
+        function renderRepeater(listEl, templateId, items, defaults) {
+          listEl.innerHTML = "";
+          if (!items || !items.length) {
+            listEl.innerHTML = '<div class="empty">No items yet. Add one to shape the public site.</div>';
+            return;
+          }
+
+          items.forEach(function(item) {
+            var fragment = document.getElementById(templateId).content.cloneNode(true);
+            var root = fragment.firstElementChild;
+            root.dataset.id = item.id || "";
+            root.querySelectorAll("[data-field]").forEach(function(field) {
+              var key = field.getAttribute("data-field");
+              field.value = item[key] != null ? item[key] : defaults[key] || "";
+            });
+            root.querySelector("[data-remove]").addEventListener("click", function() {
+              root.remove();
+            });
+            listEl.appendChild(fragment);
+          });
+        }
+
+        function readRepeater(listEl) {
+          return Array.from(listEl.children)
+            .filter(function(node) { return node.classList.contains("repeater-item"); })
+            .map(function(node) {
+              var item = { id: node.dataset.id || "" };
+              node.querySelectorAll("[data-field]").forEach(function(field) {
+                item[field.getAttribute("data-field")] = field.value;
+              });
+              return item;
+            });
+        }
+
+        function renderJobs(jobs) {
+          jobs = (jobs || []).filter(function(job) { return job.kind === "job"; });
+          if (!jobs.length) {
+            jobListEl.innerHTML = '<div class="empty">No jobs yet. Create one and publish when it is ready.</div>';
+            return;
+          }
+
+          jobListEl.innerHTML = jobs.map(function(job) {
+            var actions = [
+              '<button class="button-secondary" data-action="edit" data-id="' + escapeAttr(job.id) + '">Edit</button>'
+            ];
+            if (job.status === "draft" || job.status === "paused" || job.status === "closed") {
+              actions.push('<button class="button-primary" data-action="publish" data-id="' + escapeAttr(job.id) + '">Publish</button>');
+            }
+            if (job.status === "open") {
+              actions.push('<button class="button-secondary" data-action="close" data-id="' + escapeAttr(job.id) + '">Close</button>');
+            }
+            if (job.status === "closed") {
+              actions.push('<button class="button-secondary" data-action="reopen" data-id="' + escapeAttr(job.id) + '">Reopen</button>');
+            }
+            return [
+              '<article class="job-card">',
+              '  <div class="job-card-head">',
+              '    <div><strong>' + escapeHTML(job.title) + '</strong><div class="muted-note">' + escapeHTML(job.summary || "No summary yet") + '</div></div>',
+              '    <span class="status-pill">' + escapeHTML(job.status) + '</span>',
+              "  </div>",
+              '  <div class="job-meta">',
+              '    <span>' + escapeHTML(job.team || "No team") + "</span>",
+              '    <span>' + escapeHTML(job.location || "No location") + "</span>",
+              '    <span>' + escapeHTML(job.workMode || "work mode") + "</span>",
+              "  </div>",
+              '  <div class="job-actions">' + actions.join("") + "</div>",
+              "</article>"
+            ].join("");
+          }).join("");
+        }
+
+        function fillJobForm(job) {
+          state.editingJobId = job && job.id ? job.id : "";
+          jobFormTitle.textContent = state.editingJobId ? "Edit job" : "Create job";
+          jobForm.reset();
+          Array.from(jobForm.elements).forEach(function(field) {
+            if (!field.name) return;
+            if (!job) {
+              if (field.name === "workMode") field.value = "remote";
+              if (field.name === "employmentType") field.value = "full_time";
+              if (field.name === "language") field.value = "en";
+              return;
+            }
+            if (field.name === "responsibilities" || field.name === "profile" || field.name === "offers") {
+              field.value = Array.isArray(job[field.name]) ? job[field.name].join("\n") : "";
+              return;
+            }
+            field.value = job[field.name] != null ? job[field.name] : "";
+          });
+          jobForm.elements.slug.disabled = Boolean(state.editingJobId);
+        }
+
+        function normalizedJob(job) {
+          return {
+            id: job.id || "",
+            slug: job.slug || "",
+            kind: job.kind || "job",
+            title: job.title || "",
+            team: job.team || "",
+            location: job.location || "",
+            workMode: job.workMode || "remote",
+            employmentType: job.employmentType || "full_time",
+            language: job.language || "",
+            summary: job.summary || "",
+            description: job.description || "",
+            aboutTheJob: job.aboutTheJob || "",
+            responsibilitiesHeading: job.responsibilitiesHeading || "",
+            responsibilities: job.responsibilities || [],
+            aboutYouHeading: job.aboutYouHeading || "",
+            aboutYou: job.aboutYou || "",
+            profile: job.profile || [],
+            offersHeading: job.offersHeading || "",
+            offersIntro: job.offersIntro || "",
+            offers: job.offers || [],
+            quote: job.quote || "",
+            status: job.status || "draft"
+          };
+        }
+
+        function loadBundle() {
+          clearBanner();
+          return fetchJSON("/extensions/ats/api/careers")
+            .then(function(bundle) {
+              state.bundle = bundle;
+              fillSiteForm(bundle.site || {});
+              renderSetup(bundle.setup || {});
+              renderAssets(bundle.assets || []);
+              renderRepeater(teamListEl, "team-item-template", bundle.team || [], {});
+              renderRepeater(galleryListEl, "gallery-item-template", bundle.gallery || [], { section: "homepage" });
+              var jobs = (bundle.jobs || []).map(normalizedJob);
+              renderJobs(jobs);
+              renderApplicationFilterOptions(jobs);
+              if (!state.editingJobId) {
+                fillJobForm(null);
+              }
+              return loadApplications();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not load the ATS careers builder.", "error");
+            });
+        }
+
+        function escapeHTML(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+
+        function escapeAttr(value) {
+          return escapeHTML(value).replace(/"/g, "&quot;");
+        }
+
+        function uploadAsset(file, purpose) {
+          var payload = new FormData();
+          payload.append("file", file);
+          payload.append("purpose", purpose || "other");
+          return fetch("/extensions/ats/api/careers/assets", {
+            method: "POST",
+            body: payload,
+            credentials: "same-origin"
+          }).then(function(response) {
+            return response.json().catch(function() { return {}; }).then(function(data) {
+              if (!response.ok) {
+                throw new Error(data.error || "Asset upload failed.");
+              }
+              return data;
+            });
+          });
+        }
+
+        document.getElementById("publish-site-button").addEventListener("click", function() {
+          fetchJSON("/extensions/ats/api/careers/publish", { method: "POST", body: "{}" })
+            .then(function() {
+              showBanner("Careers site published.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not publish careers site.", "error");
+            });
+        });
+
+        siteForm.addEventListener("submit", function(event) {
+          event.preventDefault();
+          var payload = {};
+          Array.from(siteForm.elements).forEach(function(field) {
+            if (field.name) {
+              if (field.type === "checkbox") {
+                payload[field.name] = field.checked;
+                return;
+              }
+              payload[field.name] = field.value;
+            }
+          });
+          fetchJSON("/extensions/ats/api/careers/site", { method: "PUT", body: JSON.stringify(payload) })
+            .then(function() {
+              showBanner("Site profile saved and published.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not save site profile.", "error");
+            });
+        });
+
+        setupListEl.addEventListener("click", function(event) {
+          var step = event.target.getAttribute("data-setup-step");
+          if (!step) return;
+          if (step === "publish") {
+            document.getElementById("publish-site-button").click();
+            return;
+          }
+          fetchJSON("/extensions/ats/api/setup", {
+            method: "PUT",
+            body: JSON.stringify({ currentStep: step })
+          })
+            .then(function() {
+              var target = sectionForSetupStep(step);
+              if (target && typeof target.scrollIntoView === "function") {
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not update setup state.", "error");
+            });
+        });
+
+        document.getElementById("add-team-button").addEventListener("click", function() {
+          renderRepeater(teamListEl, "team-item-template", readRepeater(teamListEl).concat([{}]), {});
+        });
+        document.getElementById("save-team-button").addEventListener("click", function() {
+          fetchJSON("/extensions/ats/api/careers/team", {
+            method: "PUT",
+            body: JSON.stringify({ team: readRepeater(teamListEl) })
+          })
+            .then(function() {
+              showBanner("Team updated and published.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not save team.", "error");
+            });
+        });
+
+        document.getElementById("add-gallery-button").addEventListener("click", function() {
+          renderRepeater(galleryListEl, "gallery-item-template", readRepeater(galleryListEl).concat([{ section: "homepage" }]), { section: "homepage" });
+        });
+        document.getElementById("save-gallery-button").addEventListener("click", function() {
+          fetchJSON("/extensions/ats/api/careers/gallery", {
+            method: "PUT",
+            body: JSON.stringify({ gallery: readRepeater(galleryListEl) })
+          })
+            .then(function() {
+              showBanner("Gallery updated and published.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not save gallery.", "error");
+            });
+        });
+
+        applicationJobFilterEl.addEventListener("change", function() {
+          loadApplications();
+        });
+
+        document.getElementById("upload-asset-button").addEventListener("click", function() {
+          var fileInput = document.getElementById("asset-file");
+          var purpose = document.getElementById("asset-purpose").value;
+          if (!fileInput.files || !fileInput.files[0]) {
+            showBanner("Choose an image before uploading.", "error");
+            return;
+          }
+          uploadAsset(fileInput.files[0], purpose)
+            .then(function(asset) {
+              fileInput.value = "";
+              showBanner("Media uploaded. Use " + asset.publicUrl + " anywhere on the careers site.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not upload the media asset.", "error");
+            });
+        });
+
+        document.body.addEventListener("click", function(event) {
+          var uploadTarget = event.target.getAttribute("data-upload-target");
+          if (uploadTarget) {
+            event.preventDefault();
+            var uploadInput = event.target.parentNode.querySelector('[data-upload-file="' + uploadTarget + '"]');
+            if (uploadInput) uploadInput.click();
+            return;
+          }
+          var copyURL = event.target.getAttribute("data-copy-url");
+          if (!copyURL) return;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(copyURL).then(function() {
+              showBanner("Copied media URL to the clipboard.");
+            }).catch(function() {
+              showBanner(copyURL);
+            });
+          } else {
+            showBanner(copyURL);
+          }
+        });
+
+        document.body.addEventListener("change", function(event) {
+          var uploadField = event.target.getAttribute("data-upload-file");
+          if (!uploadField || !event.target.files || !event.target.files[0]) return;
+          var button = event.target.parentNode.querySelector('[data-upload-target="' + uploadField + '"]');
+          var purpose = button ? button.getAttribute("data-upload-purpose") : "other";
+          var targetInput = event.target.parentNode.querySelector('[name="' + uploadField + '"], [data-field="' + uploadField + '"]');
+          uploadAsset(event.target.files[0], purpose)
+            .then(function(asset) {
+              if (targetInput) targetInput.value = asset.publicUrl || "";
+              event.target.value = "";
+              showBanner("Uploaded image and filled the field with its public URL.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              event.target.value = "";
+              showBanner(error.message || "Could not upload the media asset.", "error");
+            });
+        });
+
+        candidateListEl.addEventListener("click", function(event) {
+          var action = event.target.getAttribute("data-candidate-action");
+          if (!action) return;
+          var card = event.target.closest(".candidate-card");
+          if (!card) return;
+          var applicationID = card.getAttribute("data-application-id");
+          if (!applicationID) return;
+          var stage = card.querySelector("[data-candidate-stage]").value;
+          var note = card.querySelector("[data-candidate-note]").value.trim();
+
+          if (action === "save-stage") {
+            fetchJSON("/extensions/ats/api/applications/" + applicationID + "/stage", {
+              method: "POST",
+              body: JSON.stringify({
+                stage: stage,
+                actorName: "ATS Admin",
+                note: note
+              })
+            })
+              .then(function() {
+                card.querySelector("[data-candidate-note]").value = "";
+                showBanner("Candidate stage updated.");
+                return loadApplications();
+              })
+              .catch(function(error) {
+                showBanner(error.message || "Could not update candidate stage.", "error");
+              });
+            return;
+          }
+
+          if (action === "route") {
+            fetchJSON("/extensions/ats/api/applications/" + applicationID + "/route", {
+              method: "POST",
+              body: JSON.stringify({
+                destination: event.target.getAttribute("data-route-destination") || "talent_pool",
+                actorName: "ATS Admin",
+                note: note
+              })
+            })
+              .then(function() {
+                card.querySelector("[data-candidate-note]").value = "";
+                showBanner("Candidate routing updated.");
+                return loadApplications();
+              })
+              .catch(function(error) {
+                showBanner(error.message || "Could not reroute the candidate.", "error");
+              });
+            return;
+          }
+
+          if (action === "add-note") {
+            if (!note) {
+              showBanner("Add a note before saving.", "error");
+              return;
+            }
+            fetchJSON("/extensions/ats/api/applications/" + applicationID + "/notes", {
+              method: "POST",
+              body: JSON.stringify({
+                body: note,
+                authorName: "ATS Admin",
+                authorType: "recruiter"
+              })
+            })
+              .then(function() {
+                card.querySelector("[data-candidate-note]").value = "";
+                showBanner("Recruiter note added.");
+                return loadApplications();
+              })
+              .catch(function(error) {
+                showBanner(error.message || "Could not add recruiter note.", "error");
+              });
+          }
+        });
+
+        jobListEl.addEventListener("click", function(event) {
+          var action = event.target.getAttribute("data-action");
+          var id = event.target.getAttribute("data-id");
+          if (!action || !id || !state.bundle || !Array.isArray(state.bundle.jobs)) {
+            return;
+          }
+          if (action === "edit") {
+            var selected = state.bundle.jobs.find(function(job) { return job.id === id; });
+            fillJobForm(normalizedJob(selected || {}));
+            return;
+          }
+
+          var endpoint = "";
+          if (action === "publish") endpoint = "/extensions/ats/api/jobs/" + id + "/publish";
+          if (action === "close") endpoint = "/extensions/ats/api/jobs/" + id + "/close";
+          if (action === "reopen") endpoint = "/extensions/ats/api/jobs/" + id + "/reopen";
+          if (!endpoint) return;
+
+          fetchJSON(endpoint, { method: "POST", body: "{}" })
+            .then(function() {
+              showBanner("Job updated and careers site regenerated.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not update the job.", "error");
+            });
+        });
+
+        document.getElementById("reset-job-button").addEventListener("click", function() {
+          fillJobForm(null);
+        });
+
+        jobForm.addEventListener("submit", function(event) {
+          event.preventDefault();
+          var payload = {};
+          Array.from(jobForm.elements).forEach(function(field) {
+            if (!field.name) return;
+            if (field.name === "responsibilities" || field.name === "profile" || field.name === "offers") {
+              payload[field.name] = splitLines(field.value);
+              return;
+            }
+            payload[field.name] = field.value;
+          });
+
+          var id = payload.id;
+          delete payload.id;
+
+          var request = id
+            ? fetchJSON("/extensions/ats/api/jobs/" + id, { method: "PUT", body: JSON.stringify(payload) })
+            : fetchJSON("/extensions/ats/api/jobs", { method: "POST", body: JSON.stringify(payload) });
+
+          request
+            .then(function() {
+              showBanner(id ? "Job updated and careers site regenerated." : "Job created.");
+              fillJobForm(null);
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not save the job.", "error");
+            });
+        });
+
+        loadBundle();
+      })();
+    </script>
+  </body>
+</html>

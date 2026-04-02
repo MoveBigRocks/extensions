@@ -7,15 +7,21 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	goruntime "runtime"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
 	automationdomain "github.com/movebigrocks/platform/pkg/extensionhost/automation/domain"
 	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
+	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
 	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
 	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
 	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
@@ -65,9 +71,34 @@ func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
 		EmploymentType: atsdomain.EmploymentTypeFullTime,
 		Summary:        "Own the API and data plane.",
 		Description:    "Build and operate the recruiting runtime proof path.",
+		Language:       "en",
+		AboutTheJob:    "Build the product surface and the systems behind it.",
+		Responsibilities: []string{
+			"Own platform APIs",
+			"Ship operator-facing product slices",
+		},
+		ResponsibilitiesHeading: "What you'll do",
+		AboutYou:                "You care about product depth and reliable execution.",
+		AboutYouHeading:         "Who you are",
+		Profile: []string{
+			"Strong backend engineering experience",
+			"Comfort with product ambiguity",
+		},
+		OffersIntro: "You will work close to the product surface and operating model.",
+		Offers: []string{
+			"Small high-agency team",
+			"Meaningful ownership",
+		},
+		OffersHeading: "Why join",
+		Quote:         "Build useful things with calm people.",
 	})
 	require.NoError(t, err)
+	require.NotEmpty(t, job.CaseQueueID)
 	require.Equal(t, "backend-engineer-candidates", job.CaseQueueSlug)
+	require.Equal(t, "en", job.PublicLanguage)
+	require.Equal(t, "What you'll do", job.ResponsibilitiesHeading)
+	require.Equal(t, []string{"Own platform APIs", "Ship operator-facing product slices"}, []string(job.Responsibilities))
+	require.Equal(t, []string{"Small high-agency team", "Meaningful ownership"}, []string(job.Offers))
 
 	defaults, err := runtime.Service.WorkspaceDefaults(ctx, workspace.ID)
 	require.NoError(t, err)
@@ -98,6 +129,7 @@ func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, submission.Application.CaseID)
 	require.NotEmpty(t, submission.Applicant.ContactID)
+	require.Equal(t, atsdomain.ApplicationSourceKindATSPublic, submission.Application.SourceKind)
 
 	_, err = runtime.Service.AddRecruiterNote(ctx, workspace.ID, submission.Application.ID, "Strong profile, move to screening.", "Hiring Manager", "recruiter")
 	require.NoError(t, err)
@@ -121,12 +153,16 @@ func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
 	candidateCase, err := store.Cases().GetCase(ctx, submission.Application.CaseID)
 	require.NoError(t, err)
 	require.Contains(t, candidateCase.Tags, "ats-stage-review")
+	require.Contains(t, candidateCase.Tags, "job:"+job.Slug)
 	resumeAttachmentField, ok := candidateCase.CustomFields.GetString("ats_applicant_resume_attachment_id")
 	require.True(t, ok)
 	require.Equal(t, resumeAttachment.ID, resumeAttachmentField)
 	portfolioField, ok := candidateCase.CustomFields.GetString("ats_applicant_portfolio_url")
 	require.True(t, ok)
 	require.Equal(t, "https://portfolio.example/ada", portfolioField)
+	sourceKindField, ok := candidateCase.CustomFields.GetString("ats_application_source_kind")
+	require.True(t, ok)
+	require.Equal(t, string(atsdomain.ApplicationSourceKindATSPublic), sourceKindField)
 
 	caseAttachments, err := store.Cases().ListCaseAttachments(ctx, workspace.ID, submission.Application.CaseID)
 	require.NoError(t, err)
@@ -201,8 +237,21 @@ func TestATSHandlerRunsLifecycleOverHTTP(t *testing.T) {
 		"employmentType": "full_time",
 		"summary":        "Help customers win.",
 		"description":    "Operate a high-signal inbox.",
+		"language":       "nl",
+		"aboutTheJob":    "Help shape the support operation and customer journey.",
+		"responsibilities": []string{
+			"Guide customers through issues",
+			"Improve support workflows",
+		},
+		"responsibilitiesHeading": "De rol",
+		"aboutYouHeading":         "Jouw profiel",
+		"offersHeading":           "Wat bieden wij?",
+		"quote":                   "Calm systems, fast help.",
 	})
 	jobID := created["id"].(string)
+	require.Equal(t, "nl", created["language"])
+	require.Equal(t, "De rol", created["responsibilitiesHeading"])
+	require.Equal(t, "Calm systems, fast help.", created["quote"])
 
 	doJSON(http.MethodPost, "/extensions/ats/api/jobs/"+jobID+"/publish", nil)
 	resumeAttachment := createUploadedAttachment(t, ctx, store, workspace.ID, "grace-hopper-cv.pdf", []byte("%PDF-1.4 grace hopper cv"))
@@ -230,6 +279,8 @@ func TestATSHandlerRunsLifecycleOverHTTP(t *testing.T) {
 
 	listing := doJSON(http.MethodGet, "/extensions/ats/api/jobs/"+jobID+"/applications", nil)
 	require.Len(t, listing["applications"].([]interface{}), 1)
+	inbox := doJSON(http.MethodGet, "/extensions/ats/api/applications", nil)
+	require.Len(t, inbox["applications"].([]interface{}), 1)
 
 	defaults := doJSON(http.MethodGet, "/extensions/ats/api/defaults", nil)
 	require.Len(t, defaults["stagePresets"].([]interface{}), 3)
@@ -243,6 +294,187 @@ func TestATSHandlerRunsLifecycleOverHTTP(t *testing.T) {
 	doJSON(http.MethodPost, "/extensions/ats/api/jobs/"+jobID+"/close", nil)
 	reopened := doJSON(http.MethodPost, "/extensions/ats/api/jobs/"+jobID+"/reopen", nil)
 	require.Equal(t, string(atsdomain.VacancyStatusOpen), reopened["status"])
+}
+
+func TestATSCareersBundleAndUpdateEndpoints(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	runtime, err := NewRuntime(store)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+
+	engine := runtimehttp.DefaultEngine()
+	RegisterRoutes(engine, runtime.Handler)
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	doJSON := func(method, path string, body any) map[string]any {
+		t.Helper()
+		var payload []byte
+		if body != nil {
+			var err error
+			payload, err = json.Marshal(body)
+			require.NoError(t, err)
+		}
+		req, err := http.NewRequest(method, server.URL+path, bytes.NewReader(payload))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-MBR-Workspace-ID", workspace.ID)
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		var decoded map[string]any
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&decoded))
+		require.Less(t, resp.StatusCode, 400, "unexpected response: %#v", decoded)
+		return decoded
+	}
+
+	bundle := doJSON(http.MethodGet, "/extensions/ats/api/careers", nil)
+	require.Equal(t, "/careers", bundle["previewUrl"])
+	require.NotEmpty(t, bundle["site"])
+	require.Len(t, bundle["team"].([]interface{}), 3)
+	require.Len(t, bundle["gallery"].([]interface{}), 4)
+	require.NotEmpty(t, bundle["setup"])
+
+	updatedSite := doJSON(http.MethodPut, "/extensions/ats/api/careers/site", map[string]any{
+		"companyName":      "Move Big Rocks",
+		"siteTitle":        "Careers at Move Big Rocks",
+		"heroTitle":        "Build products with real leverage.",
+		"primaryColor":     "#14532d",
+		"backgroundColor":  "#f8faf7",
+		"privacyPolicyUrl": "https://movebigrocks.com/privacy",
+		"customCssEnabled": true,
+		"customCss":        ".hero { outline: 1px solid transparent; }",
+	})
+	require.Equal(t, "Move Big Rocks", updatedSite["companyName"])
+	require.Equal(t, "#14532d", updatedSite["primaryColor"])
+	require.Equal(t, "https://movebigrocks.com/privacy", updatedSite["privacyPolicyUrl"])
+	require.Equal(t, true, updatedSite["customCssEnabled"])
+
+	team := doJSON(http.MethodPut, "/extensions/ats/api/careers/team", map[string]any{
+		"team": []map[string]any{
+			{
+				"name":     "Ari Patel",
+				"role":     "Product Engineer",
+				"bio":      "Bridges product intent and backend execution.",
+				"imageUrl": "",
+			},
+		},
+	})
+	require.Len(t, team["team"].([]interface{}), 1)
+
+	gallery := doJSON(http.MethodPut, "/extensions/ats/api/careers/gallery", map[string]any{
+		"gallery": []map[string]any{
+			{
+				"section":  "homepage",
+				"altText":  "Design wall",
+				"caption":  "Work in progress stays visible.",
+				"imageUrl": "",
+			},
+		},
+	})
+	require.Len(t, gallery["gallery"].([]interface{}), 1)
+
+	created := doJSON(http.MethodPost, "/extensions/ats/api/jobs", map[string]any{
+		"slug":           "staff-engineer",
+		"title":          "Staff Engineer",
+		"team":           "Platform",
+		"location":       "Amsterdam",
+		"workMode":       "hybrid",
+		"employmentType": "full_time",
+		"summary":        "Own critical systems.",
+		"description":    "Lead deep product and platform work.",
+	})
+	updatedJob := doJSON(http.MethodPut, "/extensions/ats/api/jobs/"+created["id"].(string), map[string]any{
+		"title":                   "Principal Engineer",
+		"team":                    "Platform",
+		"location":                "Amsterdam",
+		"workMode":                "hybrid",
+		"employmentType":          "full_time",
+		"language":                "en",
+		"summary":                 "Own the hardest technical decisions.",
+		"description":             "Lead architecture and delivery.",
+		"aboutTheJob":             "You will shape the technical direction of the product.",
+		"responsibilitiesHeading": "What you will own",
+		"responsibilities":        []string{"System architecture", "Execution quality"},
+		"aboutYouHeading":         "About you",
+		"aboutYou":                "You combine technical depth with product judgment.",
+		"profile":                 []string{"Strong backend engineering background"},
+		"offersHeading":           "What we offer",
+		"offersIntro":             "A role with leverage and trust.",
+		"offers":                  []string{"Meaningful ownership"},
+		"quote":                   "Make the whole system sharper.",
+	})
+	require.Equal(t, "Principal Engineer", updatedJob["title"])
+	require.Equal(t, "/careers/jobs/staff-engineer", updatedJob["careersPath"])
+}
+
+func TestRenderCareersSiteProducesHomepageAndJobPage(t *testing.T) {
+	bundle := &CareersSiteBundle{
+		Site: CareersSiteProfile{
+			CompanyName:      "Move Big Rocks",
+			SiteTitle:        "Careers at Move Big Rocks",
+			HeroTitle:        "Build products with leverage.",
+			HeroBody:         "Thoughtful teams, real ownership.",
+			JobsHeading:      "Open roles",
+			TeamHeading:      "The team",
+			GalleryHeading:   "How we work",
+			PrimaryColor:     "#14532d",
+			AccentColor:      "#f59e0b",
+			SurfaceColor:     "#f5f7f0",
+			BackgroundColor:  "#fbfcf8",
+			TextColor:        "#12211b",
+			MutedColor:       "#5f6b65",
+			ContactEmail:     "careers@example.com",
+			AddressCountry:   "NL",
+			AddressLocality:  "Amsterdam",
+			StreetAddress:    "101 Market Street",
+			WebsiteURL:       "https://example.com",
+			PrivacyPolicyURL: "https://example.com/privacy",
+			CustomCSSEnabled: true,
+			CustomCSS:        ".quote-block { color: red; }",
+		},
+		Jobs: []Vacancy{
+			{
+				Slug:        "principal-engineer",
+				Title:       "Principal Engineer",
+				Summary:     "Own the hardest systems.",
+				AboutTheJob: "Lead architecture and product delivery.",
+				Responsibilities: pq.StringArray{
+					"Technical direction",
+					"Cross-functional leadership",
+				},
+				Offers:         pq.StringArray{"Meaningful ownership"},
+				Status:         atsdomain.VacancyStatusOpen,
+				EmploymentType: atsdomain.EmploymentTypeFullTime,
+				WorkMode:       atsdomain.WorkModeHybrid,
+				CreatedAt:      time.Now().UTC(),
+			},
+		},
+		ResumeUploadsEnabled: true,
+	}
+
+	files, err := renderCareersSite(bundle)
+	require.NoError(t, err)
+	require.Contains(t, string(files["site/index.html"]), "Principal Engineer")
+	require.Contains(t, string(files["site/jobs/principal-engineer"]), "\"@type\":\"JobPosting\"")
+	require.Contains(t, string(files["site/jobs/principal-engineer"]), "/careers/applications")
+	require.Contains(t, string(files["site/index.html"]), "https://example.com/careers")
+	require.Contains(t, string(files["site/jobs/principal-engineer"]), "https://example.com/careers/jobs/principal-engineer")
+	require.Contains(t, string(files["site/index.html"]), "/careers/assets/custom.css")
+	require.Contains(t, string(files["site/index.html"]), "Privacy")
+	require.Equal(t, ".quote-block { color: red; }", string(files["site/assets/custom.css"]))
+	require.Contains(t, string(files["site/assets/site.css"]), "--primary: #14532d;")
 }
 
 func TestATSServiceRejectsResumeAttachmentThatIsNotReady(t *testing.T) {
@@ -295,6 +527,105 @@ func TestATSServiceRejectsResumeAttachmentThatIsNotReady(t *testing.T) {
 	require.Contains(t, err.Error(), "is not ready for ATS intake")
 }
 
+func TestATSGeneralApplicationsAndTalentPoolRouting(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	runtime, err := NewRuntime(store)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+
+	submission, err := runtime.Service.SubmitApplication(ctx, SubmitApplicationInput{
+		WorkspaceID: workspace.ID,
+		VacancySlug: generalApplicationVacancySlug,
+		Submission: atsdomain.CandidateSubmission{
+			FullName:  "Taylor Generalist",
+			Email:     "taylor@example.com",
+			CoverNote: "I can add leverage across product and operations.",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, generalApplicationVacancySlug, submission.Vacancy.Slug)
+	require.Equal(t, atsdomain.VacancyKindGeneralApplication, submission.Vacancy.Kind)
+
+	generalProfiles, err := runtime.Service.ListCandidates(ctx, workspace.ID, CandidateListOptions{Scope: CandidateListScopeGeneral})
+	require.NoError(t, err)
+	require.Len(t, generalProfiles, 1)
+	require.Equal(t, generalApplicationsQueueSlug, generalProfiles[0].CaseQueueSlug)
+	require.False(t, generalProfiles[0].IsTalentPool)
+
+	_, err = runtime.Service.RouteCandidate(ctx, workspace.ID, submission.Application.ID, CandidateRouteInput{
+		Destination: string(CandidateListScopeTalentPool),
+		ActorName:   "ATS Admin",
+		Note:        "Strong profile for future openings.",
+	})
+	require.NoError(t, err)
+
+	talentPoolProfiles, err := runtime.Service.ListCandidates(ctx, workspace.ID, CandidateListOptions{Scope: CandidateListScopeTalentPool})
+	require.NoError(t, err)
+	require.Len(t, talentPoolProfiles, 1)
+	require.True(t, talentPoolProfiles[0].IsTalentPool)
+	require.Equal(t, talentPoolQueueSlug, talentPoolProfiles[0].CaseQueueSlug)
+
+	caseObj, err := store.Cases().GetCase(ctx, submission.Application.CaseID)
+	require.NoError(t, err)
+	require.Contains(t, caseObj.Tags, talentPoolCaseTag)
+
+	_, err = runtime.Service.RouteCandidate(ctx, workspace.ID, submission.Application.ID, CandidateRouteInput{
+		Destination: "job_queue",
+		ActorName:   "ATS Admin",
+	})
+	require.NoError(t, err)
+
+	generalProfiles, err = runtime.Service.ListCandidates(ctx, workspace.ID, CandidateListOptions{Scope: CandidateListScopeGeneral})
+	require.NoError(t, err)
+	require.Len(t, generalProfiles, 1)
+	require.Equal(t, generalApplicationsQueueSlug, generalProfiles[0].CaseQueueSlug)
+	require.False(t, generalProfiles[0].IsTalentPool)
+}
+
+func TestATSCareersMediaUploadPublishesManagedAsset(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	artifactRoot := t.TempDir()
+	runtime, err := NewRuntime(store, WithManagedArtifactPath(artifactRoot))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+	installATSExtensionForTest(t, ctx, store, workspace.ID)
+
+	asset, err := runtime.Service.UploadCareersMediaAsset(ctx, workspace.ID, "logo", "brand-mark.png", "image/png", int64(len([]byte("pngdata"))), bytes.NewReader([]byte("pngdata")))
+	require.NoError(t, err)
+	require.Equal(t, "logo", asset.Purpose)
+	require.Contains(t, asset.PublicURL, "/careers/assets/uploads/")
+
+	assets, err := runtime.ATSStore.ListCareersMediaAssets(ctx, workspace.ID)
+	require.NoError(t, err)
+	require.Len(t, assets, 1)
+
+	files, err := filepath.Glob(filepath.Join(artifactRoot, "workspaces", workspace.ID, "extensions", "ats", "surfaces", "website", "site", "assets", "uploads", "*-brand-mark.png"))
+	require.NoError(t, err)
+	require.NotEmpty(t, files)
+}
+
 type testS3Server struct {
 	server *httptest.Server
 	mu     sync.Mutex
@@ -339,4 +670,20 @@ func newTestS3Server(t testing.TB) *testS3Server {
 
 func (s *testS3Server) URL() string {
 	return s.server.URL
+}
+
+func installATSExtensionForTest(t testing.TB, ctx context.Context, store *platformsql.Store, workspaceID string) {
+	t.Helper()
+	_, filename, _, ok := goruntime.Caller(0)
+	require.True(t, ok)
+	manifestPath := filepath.Join(filepath.Dir(filename), "..", "manifest.json")
+	body, err := os.ReadFile(manifestPath)
+	require.NoError(t, err)
+
+	var manifest platformdomain.ExtensionManifest
+	require.NoError(t, json.Unmarshal(body, &manifest))
+
+	installed, err := platformdomain.NewInstalledExtension(workspaceID, "test-admin", "license-test", manifest, []byte("bundle"))
+	require.NoError(t, err)
+	require.NoError(t, store.Extensions().CreateInstalledExtension(ctx, installed))
 }

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "ats",
   "name": "Applicant Tracking",
-  "version": "0.8.25",
+  "version": "0.8.29",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "workspace",
@@ -12,15 +12,15 @@
   "schema": {
     "name": "ext_demandops_ats",
     "packageKey": "demandops/ats",
-    "targetVersion": "000001",
+    "targetVersion": "000005",
     "migrationEngine": "postgres_sql"
   },
   "runtime": {
     "protocol": "unix_socket_http",
-    "ociReference": "ghcr.io/movebigrocks/mbr-ext-ats-runtime:v0.8.25",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-ats-runtime:v0.8.29",
     "digest": "sha256:pending"
   },
-  "description": "Publish vacancies, run a careers site, intake candidate applications, and manage applicant stages on Move Big Rocks cases, contacts, queues, forms, attachments, tags, automations, and ATS-owned recruiting state.",
+  "description": "Set up a branded careers site, publish jobs, intake candidate applications, and manage applicant stages on Move Big Rocks cases, contacts, queues, attachments, tags, automations, and ATS-owned recruiting state.",
   "workspacePlan": {
     "mode": "provision_dedicated_workspace",
     "name": "Hiring",
@@ -34,7 +34,6 @@
     "contact:write",
     "attachment:read",
     "attachment:write",
-    "form:write",
     "automation:write"
   ],
   "queues": [
@@ -49,99 +48,11 @@
       "description": "Reusable pool for promising candidates who are not tied to one role."
     }
   ],
-  "forms": [
-    {
-      "slug": "job-application",
-      "name": "Job Application",
-      "description": "Public form used by the careers site to create candidate cases.",
-      "status": "active",
-      "isPublic": true,
-      "requiresAuth": false,
-      "allowMultiple": true,
-      "collectEmail": true,
-      "autoCreateCase": true,
-      "autoCasePriority": "normal",
-      "autoCaseType": "web",
-      "autoTags": [
-        "ats",
-        "candidate",
-        "applied"
-      ],
-      "submissionMessage": "Thanks for applying. We have your application and will follow up by email.",
-      "theme": "ats-careers",
-      "schema": {
-        "type": "object",
-        "required": [
-          "full_name",
-          "email",
-          "role_slug"
-        ],
-        "properties": {
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
-          },
-          "email": {
-            "type": "string",
-            "title": "Email",
-            "format": "email"
-          },
-          "phone": {
-            "type": "string",
-            "title": "Phone"
-          },
-          "location": {
-            "type": "string",
-            "title": "Location"
-          },
-          "role_slug": {
-            "type": "string",
-            "title": "Role"
-          },
-          "linkedin_url": {
-            "type": "string",
-            "title": "LinkedIn URL"
-          },
-          "portfolio_url": {
-            "type": "string",
-            "title": "Portfolio URL"
-          },
-          "resume_attachment_id": {
-            "type": "string",
-            "title": "Resume Attachment ID",
-            "description": "Optional shared attachment ID for the candidate resume or CV."
-          },
-          "cover_note": {
-            "type": "string",
-            "title": "Why are you interested?"
-          }
-        }
-      },
-      "uiSchema": {
-        "order": [
-          "full_name",
-          "email",
-          "phone",
-          "location",
-          "role_slug",
-          "linkedin_url",
-          "portfolio_url",
-          "resume_attachment_id",
-          "cover_note"
-        ]
-      },
-      "validationRules": {
-        "maxLength": {
-          "cover_note": 4000
-        }
-      }
-    }
-  ],
   "automationRules": [
     {
       "key": "ext.demandops.ats.application_received_tag",
-      "title": "ATS application form",
-      "description": "Add a review tag to new ATS cases created through the application form.",
+      "title": "ATS application intake",
+      "description": "Add a review tag to new ATS candidate cases created through the ATS-native intake flow.",
       "isActive": true,
       "priority": 50,
       "maxExecutionsPerHour": 500,
@@ -157,9 +68,9 @@
           },
           {
             "type": "field",
-            "field": "form_slug",
+            "field": "ats_application_source_kind",
             "operator": "equals",
-            "value": "job-application"
+            "value": "ats_public"
           }
         ]
       },
@@ -213,31 +124,14 @@
       "seedAssetPath": "templates/admin"
     }
   ],
+  "publicRoutes": [
+    {
+      "pathPrefix": "/careers",
+      "artifactSurface": "website",
+      "artifactPath": "site"
+    }
+  ],
   "endpoints": [
-    {
-      "name": "careers-home",
-      "class": "public_page",
-      "mountPath": "/careers",
-      "methods": [
-        "GET"
-      ],
-      "auth": "public",
-      "workspaceBinding": "none",
-      "artifactSurface": "website",
-      "artifactPath": "index.html"
-    },
-    {
-      "name": "careers-apply",
-      "class": "public_page",
-      "mountPath": "/careers/apply",
-      "methods": [
-        "GET"
-      ],
-      "auth": "public",
-      "workspaceBinding": "none",
-      "artifactSurface": "website",
-      "artifactPath": "apply.html"
-    },
     {
       "name": "ats-public-application-submit",
       "class": "public_ingest",
@@ -257,6 +151,22 @@
       "rateLimitPerMinute": 60
     },
     {
+      "name": "ats-public-attachment-upload",
+      "class": "public_ingest",
+      "mountPath": "/careers/attachments",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "ats.public.attachments",
+      "contentTypes": [
+        "multipart/form-data"
+      ],
+      "maxBodyBytes": 26214400,
+      "rateLimitPerMinute": 20
+    },
+    {
       "name": "ats-admin-dashboard",
       "class": "admin_page",
       "mountPath": "/extensions/ats",
@@ -266,7 +176,7 @@
       "auth": "session",
       "workspaceBinding": "workspace_from_session",
       "artifactSurface": "admin-ui",
-      "artifactPath": "dashboard.html"
+      "artifactPath": "careers.html"
     },
     {
       "name": "ats-api-jobs",
@@ -279,6 +189,20 @@
       "auth": "session",
       "workspaceBinding": "workspace_from_session",
       "serviceTarget": "ats.api.jobs"
+    },
+    {
+      "name": "ats-api-job-update",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/jobs/:id",
+      "methods": [
+        "PUT"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.jobs.update",
+      "contentTypes": [
+        "application/json"
+      ]
     },
     {
       "name": "ats-api-job-publish",
@@ -325,6 +249,17 @@
       "serviceTarget": "ats.api.jobs.applications"
     },
     {
+      "name": "ats-api-applications",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/applications",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.applications"
+    },
+    {
       "name": "ats-api-workspace-defaults",
       "class": "extension_api",
       "mountPath": "/extensions/ats/api/defaults",
@@ -334,6 +269,100 @@
       "auth": "session",
       "workspaceBinding": "workspace_from_session",
       "serviceTarget": "ats.api.defaults"
+    },
+    {
+      "name": "ats-api-careers-bundle",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/careers",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.careers.bundle"
+    },
+    {
+      "name": "ats-api-careers-site",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/careers/site",
+      "methods": [
+        "PUT"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.careers.site",
+      "contentTypes": [
+        "application/json"
+      ]
+    },
+    {
+      "name": "ats-api-careers-team",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/careers/team",
+      "methods": [
+        "PUT"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.careers.team",
+      "contentTypes": [
+        "application/json"
+      ]
+    },
+    {
+      "name": "ats-api-careers-gallery",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/careers/gallery",
+      "methods": [
+        "PUT"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.careers.gallery",
+      "contentTypes": [
+        "application/json"
+      ]
+    },
+    {
+      "name": "ats-api-careers-assets",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/careers/assets",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.careers.assets",
+      "contentTypes": [
+        "multipart/form-data"
+      ],
+      "maxBodyBytes": 10485760
+    },
+    {
+      "name": "ats-api-careers-publish",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/careers/publish",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.careers.publish"
+    },
+    {
+      "name": "ats-api-setup",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/setup",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.setup",
+      "contentTypes": [
+        "application/json"
+      ]
     },
     {
       "name": "ats-api-application-stage",
@@ -356,6 +385,20 @@
       "auth": "session",
       "workspaceBinding": "workspace_from_session",
       "serviceTarget": "ats.api.applications.notes"
+    },
+    {
+      "name": "ats-api-application-route",
+      "class": "admin_action",
+      "mountPath": "/extensions/ats/api/applications/:id/route",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.applications.route",
+      "contentTypes": [
+        "application/json"
+      ]
     },
     {
       "name": "ats-runtime-health",
@@ -398,12 +441,11 @@
       },
       {
         "type": "ext.demandops.ats.application_received",
-        "description": "A candidate application was accepted by the ATS form flow.",
+        "description": "A candidate application was accepted by the ATS-native public intake flow.",
         "schemaVersion": 1
       }
     ],
     "subscribes": [
-      "form.submitted",
       "case.created",
       "case.status_changed"
     ]
@@ -432,6 +474,10 @@
     {
       "name": "ats.candidates.note.add",
       "description": "Add a recruiter note to an ATS application record."
+    },
+    {
+      "name": "ats.candidates.route",
+      "description": "Move a candidate between the owning job queue and the shared talent-pool queue."
     }
   ],
   "agentSkills": [
@@ -446,11 +492,7 @@
       "assetPath": "agent-skills/review-candidates.md"
     }
   ],
-  "customizableAssets": [
-    "templates/careers/index.html",
-    "templates/careers/apply.html",
-    "templates/admin/dashboard.html"
-  ],
+  "customizableAssets": [],
   "defaultConfig": {
     "brand": "Acme",
     "siteTitle": "Careers at Acme",

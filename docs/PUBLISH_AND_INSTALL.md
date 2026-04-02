@@ -89,15 +89,16 @@ Then:
 
 ## First Publish
 
-From a checkout of this repo:
+From a checkout of this repo, cut tags that match the manifest versions in the
+extension directories. For the current ATS source that means `ats-v0.8.29`:
 
 ```bash
-git tag ats-v0.8.25
+git tag ats-v0.8.29
 git tag community-feature-requests-v0.1.0
 git tag error-tracking-v0.8.21
 git tag sales-pipeline-v0.1.0
 git tag web-analytics-v0.8.21
-git push origin ats-v0.8.25 community-feature-requests-v0.1.0 error-tracking-v0.8.21 sales-pipeline-v0.1.0 web-analytics-v0.8.21
+git push origin ats-v0.8.29 community-feature-requests-v0.1.0 error-tracking-v0.8.21 sales-pipeline-v0.1.0 web-analytics-v0.8.21
 ```
 
 That should trigger five workflow runs and create five GHCR packages.
@@ -115,7 +116,7 @@ For each package, open GitHub Packages and set visibility to `Public`:
 Then verify that the install refs you expect to use are the real published
 ones:
 
-- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.25`
+- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.29`
 - `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0`
 - `ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21`
 - `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0`
@@ -147,7 +148,7 @@ The current DemandOps desired-state mapping is:
 Install, validate, and activate with the real workspace IDs:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.25 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_PEOPLE --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.29 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_PEOPLE --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```

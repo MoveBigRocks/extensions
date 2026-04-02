@@ -2,8 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta http-equiv="refresh" content="0; url=/careers">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Apply | {{ siteTitle }}</title>
+    <title>Careers | {{ siteTitle }}</title>
     <style>
       body {
         margin: 0;
@@ -42,21 +43,20 @@
   <body>
     <main>
       <div class="card">
-        <h1>Apply</h1>
+        <h1>Careers</h1>
         <p>
-          The ATS extension owns the hiring experience for this role. The public application form runs on the
-          shared Move Big Rocks form flow so candidate intake, contact records, cases, and follow-up automation
-          stay on the same operational base.
+          The ATS extension now owns the full public application flow. Applications live on each job page under
+          the generated careers site, and candidate intake projects into shared Move Big Rocks cases, contacts,
+          attachments, queues, and automation from there.
         </p>
         <div class="embed">
-          <strong>Application handoff</strong>
+          <strong>Current path</strong>
           <code>
-            GET /forms/{job-application-crypto-id}
+            /careers/jobs/{job-slug}
           </code>
           <p>
-            In production, this page is branded by the operator, wired to the ATS application form,
-            and can carry a `role_slug` plus shared `resume_attachment_id` so the submission lands as
-            a structured application instead of a generic contact form.
+            This legacy file remains only as a redirect-safe placeholder. The canonical ATS public experience is
+            the generated careers site under `/careers`, not the shared forms surface.
           </p>
         </div>
       </div>

@@ -10,13 +10,16 @@ It is intentionally built from the same primitives customers will use:
 
 - workspace-scoped installation
 - ATS-owned PostgreSQL schema for recruiting workflow state
-- vacancy lifecycle modeled in Go
+- job lifecycle modeled in Go
+- ATS-owned careers-site profile, team, and gallery data
+- ATS-owned managed careers media assets published into the website artifact surface
 - seeded queues
 - candidate contacts and cases created on the shared core services
 - seeded `case_created` automation rule for ATS follow-up tagging
 - seeded ATS stage-change automation rule for recruiter follow-up
-- branded public/admin assets
-- ATS-specific Go domain and runtime types for vacancies, applicants, applications, notes, saved filters, and stage presets
+- generated public careers site assets under `/careers`
+- branded careers builder admin surface under `/extensions/ats`
+- ATS-specific Go domain and runtime types for jobs, applicants, applications, setup state, notes, saved filters, and stage presets
 - declared endpoints, namespaced extension commands, bundled agent-skill assets, extension events, and a service-backed runtime binary
 
 This extension is intended to be part of the free public first-party bundle
@@ -54,34 +57,63 @@ The current ATS Go model defines explicit ATS concepts that do not exist in the
 shared base by default:
 
 - `Vacancy` with lifecycle methods like publish, pause, close, and reopen
+- `Vacancy` public-content sections for careers-site generation, including
+  structured responsibilities, profile, offers, and quote fields
+- `Vacancy.Kind` so ATS can distinguish publicly listed jobs from hidden system
+  intake like general applications
+- `CareersSiteProfile`, `CareersTeamMember`, and `CareersGalleryItem` for the
+  company-level public site content and branding
+- `CareersMediaAsset` for managed uploaded branding and careers imagery
+- `CareersSetupState` for guided ATS onboarding progress
 - `Applicant` with resume attachment linkage and profile/contact fields
 - `Application` with explicit stages like `received`, `screening`,
   `interview`, `offer`, `hired`, `rejected`, and `withdrawn`
 - `VacancyCatalog` for published-role lookup and application intake against the
   active vacancy set
-- `CandidateSubmissionFromFields` to translate generic form payloads into ATS
-  applicant/application input
+- `CandidateSubmissionFromFields` to translate compatibility payloads into ATS
+  applicant/application input when ATS is acting as an adapter
 
 That means ATS no longer only relies on generic forms/cases language in public
 source; the extension now carries its own product vocabulary in Go as well.
+
+See [`docs/careers-site-target.md`](./docs/careers-site-target.md) for the
+target careers-site model and the gap analysis against the inspiration site in
+the sibling `careers/` folder.
+
+See [`docs/ats-v1-requirements-and-roadmap.md`](./docs/ats-v1-requirements-and-roadmap.md)
+for the detailed product requirements and delivery plan needed to make ATS
+coherent, complete, and competitive.
+
+See [`docs/ats-gap-closure-implementation-plan.md`](./docs/ats-gap-closure-implementation-plan.md)
+for the detailed implementation sequencing, migrations, workstreams, and
+milestones needed to close the gap between the current extension and the target
+state. Those docs now include explicit status notes so the implemented ATS
+baseline and the remaining parity roadmap are separated cleanly.
 
 ## Defensible Scope
 
 The current ATS scope is intentionally real and bounded:
 
 - define vacancies with open, paused, closed, and archived lifecycle states
-- publish a branded careers site from the extension bundle
-- intake applications into Move Big Rocks using forms, contacts, cases, and
-  ATS tags
+- generate and publish a branded careers site from ATS-owned structured data
+- manage careers-site brand media through ATS-owned uploaded assets and public
+  artifact-backed URLs
+- intake applications into Move Big Rocks using the ATS-native public endpoint
+  plus contacts, cases, attachments, queues, tags, and automation
 - track applicants and applications with ATS-owned fields and explicit stages
-- link resumes and CVs through the shared attachment primitives by attachment
-  ID
+- upload and link resumes and CVs through the shared attachment primitives
+- support both role-specific applications and a first-class general-application
+  intake path
+- let recruiters route candidate cases between the owning job queue and the
+  shared talent pool while keeping ATS and MBR state aligned
 - give operators and agents first-party skills for publishing roles and
   reviewing candidates
 
 Things ATS still does not claim:
 
 - a dedicated interview scheduling system
+- scorecards or structured interview kits
+- reporting and analytics parity with mature recruiting suites
 - a dedicated offer approval workflow
 
 Install it with the operator CLI by pointing at the directory directly:
@@ -93,7 +125,9 @@ mbr extensions install ./ats \
   --workspace WORKSPACE_ID
 ```
 
-Or install the published public bundle ref:
+Or install the latest published public bundle ref. The newest published ATS tag
+is currently `v0.8.25`; this branch is versioned for the next ATS release cut
+and should be installed from source until that OCI tag is published:
 
 ```bash
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.25 \

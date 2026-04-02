@@ -8,6 +8,6 @@ Checklist:
 2. Confirm the job title, slug, location, team, and employment type.
 3. Confirm whether the job should be public immediately or saved for review.
 4. Update extension-managed content and branded careers assets if the posting needs a custom landing page.
-5. Validate that the related queue, form routing, and published careers pages remain consistent.
+5. Validate that the related queue, ATS-native public intake, and published careers pages remain consistent.
 
 Do not publish until the operator has confirmed the final public wording.

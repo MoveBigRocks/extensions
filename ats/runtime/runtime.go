@@ -2,9 +2,11 @@ package atsruntime
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	artifactservices "github.com/movebigrocks/platform/internal/artifacts/services"
 	"github.com/movebigrocks/platform/pkg/eventbus"
 	automationservices "github.com/movebigrocks/platform/pkg/extensionhost/automation/services"
 	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
@@ -23,6 +25,34 @@ type Runtime struct {
 	RulesEngine *automationservices.RulesEngine
 }
 
+type RuntimeOption func(*runtimeOptions)
+
+type runtimeOptions struct {
+	extensionOptions []platformservices.ExtensionServiceOption
+	attachment       attachmentUploader
+}
+
+func WithManagedArtifactPath(path string) RuntimeOption {
+	return func(options *runtimeOptions) {
+		if options == nil || strings.TrimSpace(path) == "" {
+			return
+		}
+		options.extensionOptions = append(
+			options.extensionOptions,
+			platformservices.WithExtensionArtifactService(artifactservices.NewGitService(strings.TrimSpace(path))),
+		)
+	}
+}
+
+func WithAttachmentService(service attachmentUploader) RuntimeOption {
+	return func(options *runtimeOptions) {
+		if options == nil || service == nil {
+			return
+		}
+		options.attachment = service
+	}
+}
+
 func NewRuntimeFromConfig(cfg *config.Config) (*Runtime, error) {
 	db, err := platformsql.NewDBWithConfig(platformsql.DBConfig{
 		DSN:             cfg.Database.EffectiveDSN(),
@@ -39,13 +69,41 @@ func NewRuntimeFromConfig(cfg *config.Config) (*Runtime, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("create platform store: %w", err)
 	}
-	return NewRuntime(store)
+
+	options := make([]RuntimeOption, 0, 2)
+	if strings.TrimSpace(cfg.Storage.Artifacts.Path) != "" {
+		options = append(options, WithManagedArtifactPath(cfg.Storage.Artifacts.Path))
+	}
+	if strings.TrimSpace(cfg.Storage.Attachments.Bucket) != "" {
+		attachmentService, err := serviceapp.NewAttachmentService(serviceapp.AttachmentServiceConfig{
+			S3Endpoint:    cfg.Storage.Operational.Endpoint,
+			S3Region:      cfg.Storage.Operational.Region,
+			S3Bucket:      cfg.Storage.Attachments.Bucket,
+			S3AccessKey:   cfg.Storage.Operational.AccessKey,
+			S3SecretKey:   cfg.Storage.Operational.SecretKey,
+			ClamAVAddr:    cfg.Integrations.ClamAVAddr,
+			ClamAVTimeout: cfg.Integrations.ClamAVTimeout,
+			Logger:        logger.NewNop(),
+		})
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("create attachment service: %w", err)
+		}
+		options = append(options, WithAttachmentService(attachmentService))
+	}
+	return NewRuntime(store, options...)
 }
 
-func NewRuntime(store *platformsql.Store) (*Runtime, error) {
+func NewRuntime(store *platformsql.Store, opts ...RuntimeOption) (*Runtime, error) {
 	atsStore, err := NewStore(store.SqlxDB())
 	if err != nil {
 		return nil, err
+	}
+	options := &runtimeOptions{}
+	for _, option := range opts {
+		if option != nil {
+			option(options)
+		}
 	}
 
 	outboxSvc := outbox.NewService(store, eventbus.NewInMemoryBus(), logger.NewNop())
@@ -59,13 +117,14 @@ func NewRuntime(store *platformsql.Store) (*Runtime, error) {
 		serviceapp.WithQueueItemStore(store.QueueItems()),
 		serviceapp.WithTransactionRunner(store),
 	)
-	extensionService := platformservices.NewExtensionService(
+	extensionService := platformservices.NewExtensionServiceWithOptions(
 		store.Extensions(),
 		store.Workspaces(),
 		store.Queues(),
 		store.Forms(),
 		store.Rules(),
 		store,
+		options.extensionOptions...,
 	)
 	rulesEngine := automationservices.NewRulesEngine(
 		automationservices.NewRuleService(store.Rules()),
@@ -76,7 +135,7 @@ func NewRuntime(store *platformsql.Store) (*Runtime, error) {
 	)
 	rulesEngine.SetExtensionChecker(extensionService)
 
-	service := NewService(store, atsStore, queueService, contactService, caseService, rulesEngine)
+	service := NewService(store, atsStore, queueService, contactService, caseService, rulesEngine, extensionService, options.attachment)
 	return &Runtime{
 		Store:       store,
 		ATSStore:    atsStore,

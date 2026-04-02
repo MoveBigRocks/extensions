@@ -92,6 +92,9 @@ func TestBuildCandidateRecord(t *testing.T) {
 	if application.FormSubmissionID != "sub_123" {
 		t.Fatalf("expected form submission id, got %q", application.FormSubmissionID)
 	}
+	if application.SourceKind != ApplicationSourceKindFormSubmission {
+		t.Fatalf("expected form submission source kind, got %q", application.SourceKind)
+	}
 }
 
 func TestBuildCandidateRecordRejectsClosedVacancy(t *testing.T) {
@@ -117,7 +120,7 @@ func TestBuildCandidateRecordRejectsClosedVacancy(t *testing.T) {
 func TestApplicationStageTransitions(t *testing.T) {
 	t.Parallel()
 
-	application, err := NewApplication("ws_hiring", "vac_123", "applicant_123", "careers_form")
+	application, err := NewApplication("ws_hiring", "vac_123", "applicant_123", ApplicationSourceKindATSPublic, "careers_form", "")
 	if err != nil {
 		t.Fatalf("new application: %v", err)
 	}

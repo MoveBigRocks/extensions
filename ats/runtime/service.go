@@ -2,18 +2,28 @@ package atsruntime
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"path"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
 	automationservices "github.com/movebigrocks/platform/pkg/extensionhost/automation/services"
+	sharedstore "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
 	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
 	platformservices "github.com/movebigrocks/platform/pkg/extensionhost/platform/services"
 	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
 	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
 	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
 )
+
+type attachmentUploader interface {
+	Upload(ctx context.Context, attachment *servicedomain.Attachment, reader io.Reader) error
+}
 
 type Service struct {
 	platformStore *platformsql.Store
@@ -22,7 +32,16 @@ type Service struct {
 	contact       *platformservices.ContactService
 	cases         *serviceapp.CaseService
 	rules         *automationservices.RulesEngine
+	extension     *platformservices.ExtensionService
+	attachments   attachmentUploader
 }
+
+const (
+	generalApplicationsQueueSlug  = "general-applications"
+	talentPoolQueueSlug           = "talent-pool"
+	generalApplicationVacancySlug = "general-application"
+	talentPoolCaseTag             = "ats-talent-pool"
+)
 
 func NewService(
 	platformStore *platformsql.Store,
@@ -31,6 +50,8 @@ func NewService(
 	contact *platformservices.ContactService,
 	caseService *serviceapp.CaseService,
 	rules *automationservices.RulesEngine,
+	extensionService *platformservices.ExtensionService,
+	attachments attachmentUploader,
 ) *Service {
 	return &Service{
 		platformStore: platformStore,
@@ -39,7 +60,122 @@ func NewService(
 		contact:       contact,
 		cases:         caseService,
 		rules:         rules,
+		extension:     extensionService,
+		attachments:   attachments,
 	}
+}
+
+func (s *Service) ensureWorkspaceProvisioned(ctx context.Context, workspaceID string) (*WorkspaceDefaults, error) {
+	if s == nil || s.store == nil {
+		return nil, fmt.Errorf("ats service is not configured")
+	}
+	defaults, err := s.store.EnsureWorkspaceDefaults(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.ensureRoutingQueue(ctx, workspaceID, generalApplicationsQueueSlug, "General Applications", "Default queue for incoming general applications."); err != nil {
+		return nil, err
+	}
+	if _, err := s.ensureRoutingQueue(ctx, workspaceID, talentPoolQueueSlug, "Talent Pool", "Reusable queue for strong candidates who should stay warm."); err != nil {
+		return nil, err
+	}
+	if _, err := s.ensureGeneralApplicationVacancy(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	return defaults, nil
+}
+
+func (s *Service) ensureRoutingQueue(ctx context.Context, workspaceID, slug, name, description string) (*servicedomain.Queue, error) {
+	if s == nil || s.queueService == nil || s.platformStore == nil {
+		return nil, fmt.Errorf("queue service is not configured")
+	}
+	if queue, err := s.platformStore.Queues().GetQueueBySlug(ctx, workspaceID, slug); err == nil {
+		return queue, nil
+	} else if err != nil && !strings.Contains(strings.ToLower(err.Error()), "not found") {
+		return nil, fmt.Errorf("load queue %s: %w", slug, err)
+	}
+	queue, err := s.queueService.CreateQueue(ctx, serviceapp.CreateQueueParams{
+		WorkspaceID: strings.TrimSpace(workspaceID),
+		Name:        strings.TrimSpace(name),
+		Slug:        strings.TrimSpace(slug),
+		Description: strings.TrimSpace(description),
+	})
+	if err == nil {
+		return queue, nil
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+		return nil, fmt.Errorf("create queue %s: %w", slug, err)
+	}
+	queue, err = s.platformStore.Queues().GetQueueBySlug(ctx, workspaceID, slug)
+	if err != nil {
+		return nil, fmt.Errorf("load queue %s: %w", slug, err)
+	}
+	return queue, nil
+}
+
+func (s *Service) ensureGeneralApplicationVacancy(ctx context.Context, workspaceID string) (*Vacancy, error) {
+	queue, err := s.ensureRoutingQueue(ctx, workspaceID, generalApplicationsQueueSlug, "General Applications", "Default queue for incoming general applications.")
+	if err != nil {
+		return nil, err
+	}
+	existing, err := s.store.GetVacancyBySlug(ctx, workspaceID, generalApplicationVacancySlug)
+	if err == nil {
+		domainVacancy := existing.toDomain()
+		changed := false
+		if domainVacancy.Kind != atsdomain.VacancyKindGeneralApplication {
+			domainVacancy.Kind = atsdomain.VacancyKindGeneralApplication
+			changed = true
+		}
+		if domainVacancy.CaseQueueID != queue.ID {
+			domainVacancy.CaseQueueID = queue.ID
+			changed = true
+		}
+		if domainVacancy.CaseQueueSlug != generalApplicationsQueueSlug {
+			domainVacancy.CaseQueueSlug = generalApplicationsQueueSlug
+			changed = true
+		}
+		if domainVacancy.CareersPath != "/careers#general-application" {
+			domainVacancy.CareersPath = "/careers#general-application"
+			changed = true
+		}
+		if domainVacancy.Status != atsdomain.VacancyStatusOpen {
+			if publishErr := domainVacancy.Publish(time.Now().UTC()); publishErr == nil {
+				changed = true
+			}
+		}
+		if strings.TrimSpace(domainVacancy.Summary) == "" {
+			domainVacancy.Summary = "Send a thoughtful general application if the right role is not live yet."
+			changed = true
+		}
+		if strings.TrimSpace(domainVacancy.Description) == "" {
+			domainVacancy.Description = "We review general applications and route strong candidates into the right conversations as roles open."
+			changed = true
+		}
+		if changed {
+			return s.store.SaveVacancy(ctx, vacancyFromDomain(domainVacancy))
+		}
+		return existing, nil
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "not found") {
+		return nil, err
+	}
+	vacancy, err := atsdomain.NewVacancy(workspaceID, generalApplicationVacancySlug, "General Application")
+	if err != nil {
+		return nil, err
+	}
+	vacancy.Kind = atsdomain.VacancyKindGeneralApplication
+	vacancy.Team = "Hiring"
+	vacancy.Summary = "Send a thoughtful general application if the right role is not live yet."
+	vacancy.Description = "We review general applications and route strong candidates into the right conversations as roles open."
+	vacancy.AboutTheJob = "Use this route when there is not an exact job match yet, but you believe you can add leverage."
+	vacancy.PublicLanguage = "en"
+	vacancy.CaseQueueID = queue.ID
+	vacancy.CaseQueueSlug = generalApplicationsQueueSlug
+	vacancy.CareersPath = "/careers#general-application"
+	if err := vacancy.Publish(time.Now().UTC()); err != nil {
+		return nil, err
+	}
+	return s.store.InsertVacancy(ctx, vacancyFromDomain(vacancy))
 }
 
 func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*Vacancy, error) {
@@ -49,20 +185,32 @@ func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*Vacancy
 
 	var created *Vacancy
 	err := s.platformStore.WithTransaction(ctx, func(txCtx context.Context) error {
-		if _, err := s.store.EnsureWorkspaceDefaults(txCtx, input.WorkspaceID); err != nil {
+		if _, err := s.ensureWorkspaceProvisioned(txCtx, input.WorkspaceID); err != nil {
 			return err
 		}
 		vacancy, err := s.store.CreateVacancy(txCtx, input)
 		if err != nil {
 			return err
 		}
-		if _, err := s.queueService.CreateQueue(txCtx, serviceapp.CreateQueueParams{
+		queue, err := s.queueService.CreateQueue(txCtx, serviceapp.CreateQueueParams{
 			WorkspaceID: vacancy.WorkspaceID,
 			Name:        vacancy.Title + " Candidates",
 			Slug:        vacancy.CaseQueueSlug,
 			Description: "Candidate review queue for " + vacancy.Title,
-		}); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate") {
-			return fmt.Errorf("create vacancy queue: %w", err)
+		})
+		if err != nil {
+			if !strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+				return fmt.Errorf("create vacancy queue: %w", err)
+			}
+			queue, err = s.platformStore.Queues().GetQueueBySlug(txCtx, vacancy.WorkspaceID, vacancy.CaseQueueSlug)
+			if err != nil {
+				return fmt.Errorf("load existing vacancy queue: %w", err)
+			}
+		}
+		vacancy.CaseQueueID = queue.ID
+		vacancy, err = s.store.SaveVacancy(txCtx, vacancy)
+		if err != nil {
+			return err
 		}
 		created = vacancy
 		return nil
@@ -70,14 +218,38 @@ func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*Vacancy
 	if err != nil {
 		return nil, err
 	}
+	if err := s.publishCareersSiteIfInstalled(ctx, input.WorkspaceID); err != nil {
+		return nil, err
+	}
 	return created, nil
 }
 
 func (s *Service) ListJobs(ctx context.Context, workspaceID string) ([]Vacancy, error) {
-	if _, err := s.store.EnsureWorkspaceDefaults(ctx, workspaceID); err != nil {
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
 		return nil, err
 	}
-	return s.store.ListVacancies(ctx, workspaceID)
+	jobs, err := s.store.ListVacancies(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return filterPrimaryJobs(jobs), nil
+}
+
+func (s *Service) UpdateJob(ctx context.Context, workspaceID, vacancyID string, input UpdateJobInput) (*Vacancy, error) {
+	if s == nil || s.store == nil {
+		return nil, fmt.Errorf("ats service is not configured")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	vacancy, err := s.store.UpdateVacancy(ctx, workspaceID, vacancyID, input)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.publishCareersSiteIfInstalled(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	return vacancy, nil
 }
 
 func (s *Service) PublishJob(ctx context.Context, workspaceID, vacancyID string, at time.Time) (*Vacancy, error) {
@@ -98,12 +270,162 @@ func (s *Service) ReopenJob(ctx context.Context, workspaceID, vacancyID string, 
 	})
 }
 
-func (s *Service) ListCandidates(ctx context.Context, workspaceID, vacancyID string) ([]CandidateProfile, error) {
-	return s.store.ListCandidateProfiles(ctx, workspaceID, vacancyID)
+func (s *Service) ListCandidates(ctx context.Context, workspaceID string, options CandidateListOptions) ([]CandidateProfile, error) {
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	profiles, err := s.store.ListCandidateProfiles(ctx, workspaceID, options.VacancyID)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrichAndFilterCandidateProfiles(ctx, workspaceID, profiles, options)
 }
 
 func (s *Service) WorkspaceDefaults(ctx context.Context, workspaceID string) (*WorkspaceDefaults, error) {
-	return s.store.EnsureWorkspaceDefaults(ctx, workspaceID)
+	return s.ensureWorkspaceProvisioned(ctx, workspaceID)
+}
+
+func (s *Service) SetupStatus(ctx context.Context, workspaceID string) (*SetupStatus, error) {
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	site, err := s.store.GetCareersSiteProfile(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	team, err := s.store.ListCareersTeamMembers(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	jobs, err := s.store.ListVacancies(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return s.syncSetupStatus(ctx, workspaceID, site, team, jobs)
+}
+
+func (s *Service) SaveSetupState(ctx context.Context, workspaceID, currentStep string) (*SetupStatus, error) {
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	state, err := s.store.SaveCareersSetupState(ctx, CareersSetupState{
+		WorkspaceID: workspaceID,
+		CurrentStep: currentStep,
+	})
+	if err != nil {
+		return nil, err
+	}
+	site, err := s.store.GetCareersSiteProfile(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	team, err := s.store.ListCareersTeamMembers(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	jobs, err := s.store.ListVacancies(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return s.syncSetupStatusWithState(ctx, state, site, team, jobs)
+}
+
+func (s *Service) CareersSiteBundle(ctx context.Context, workspaceID string) (*CareersSiteBundle, error) {
+	if s == nil || s.store == nil {
+		return nil, fmt.Errorf("ats service is not configured")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	site, err := s.store.GetCareersSiteProfile(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	team, err := s.store.ListCareersTeamMembers(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	gallery, err := s.store.ListCareersGalleryItems(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	assets, err := s.store.ListCareersMediaAssets(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	jobs, err := s.store.ListVacancies(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	setup, err := s.syncSetupStatus(ctx, workspaceID, site, team, jobs)
+	if err != nil {
+		return nil, err
+	}
+	return &CareersSiteBundle{
+		Site:                 *site,
+		Team:                 team,
+		Gallery:              gallery,
+		Assets:               assets,
+		Jobs:                 jobs,
+		Setup:                *setup,
+		PreviewURL:           "/careers",
+		ResumeUploadsEnabled: s.attachments != nil,
+	}, nil
+}
+
+func (s *Service) SaveCareersSiteProfile(ctx context.Context, input UpsertCareersSiteInput) (*CareersSiteProfile, error) {
+	if s == nil || s.store == nil {
+		return nil, fmt.Errorf("ats service is not configured")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, input.WorkspaceID); err != nil {
+		return nil, err
+	}
+	profile, err := s.store.SaveCareersSiteProfile(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.publishCareersSiteIfInstalled(ctx, input.WorkspaceID); err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
+
+func (s *Service) ReplaceCareersTeamMembers(ctx context.Context, workspaceID string, members []CareersTeamMember) ([]CareersTeamMember, error) {
+	if s == nil || s.store == nil {
+		return nil, fmt.Errorf("ats service is not configured")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	saved, err := s.store.ReplaceCareersTeamMembers(ctx, workspaceID, members)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.publishCareersSiteIfInstalled(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	return saved, nil
+}
+
+func (s *Service) ReplaceCareersGalleryItems(ctx context.Context, workspaceID string, items []CareersGalleryItem) ([]CareersGalleryItem, error) {
+	if s == nil || s.store == nil {
+		return nil, fmt.Errorf("ats service is not configured")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	saved, err := s.store.ReplaceCareersGalleryItems(ctx, workspaceID, items)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.publishCareersSiteIfInstalled(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	return saved, nil
+}
+
+func (s *Service) PublishCareersSite(ctx context.Context, workspaceID string) error {
+	return s.publishCareersSite(ctx, workspaceID, false)
 }
 
 func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplicationInput) (*SubmissionResult, error) {
@@ -112,6 +434,9 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 	}
 	if strings.TrimSpace(input.WorkspaceID) == "" {
 		return nil, fmt.Errorf("workspace ID is required")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, input.WorkspaceID); err != nil {
+		return nil, err
 	}
 
 	var result *SubmissionResult
@@ -150,9 +475,9 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		application.ApplicantID = applicant.ID
 		application.ContactID = contact.ID
 
-		queue, err := s.platformStore.Queues().GetQueueBySlug(txCtx, vacancy.WorkspaceID, vacancy.CaseQueueSlug)
+		queue, err := s.resolveVacancyQueue(txCtx, vacancy)
 		if err != nil {
-			return fmt.Errorf("resolve vacancy queue %s: %w", vacancy.CaseQueueSlug, err)
+			return err
 		}
 
 		customFields := shareddomain.NewTypedCustomFields()
@@ -165,6 +490,25 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		for key, value := range applicationDomain.CaseCustomFields() {
 			customFields.SetAny(key, value)
 		}
+		customFields.SetString("ats_case_queue_id", queue.ID)
+		customFields.SetString("ats_case_queue_slug", queue.Slug)
+		if vacancy.Kind == atsdomain.VacancyKindGeneralApplication {
+			customFields.SetString("ats_candidate_bucket", generalApplicationsQueueSlug)
+		} else {
+			customFields.SetString("ats_candidate_bucket", "job_queue")
+		}
+
+		tags := []string{
+			"ats",
+			"candidate",
+			"application",
+			"applied",
+		}
+		if vacancy.Kind == atsdomain.VacancyKindGeneralApplication {
+			tags = append(tags, "general-application")
+		} else {
+			tags = append(tags, "job:"+vacancy.Slug)
+		}
 
 		caseObj, err := s.cases.CreateCase(txCtx, serviceapp.CreateCaseParams{
 			WorkspaceID:  vacancy.WorkspaceID,
@@ -175,12 +519,7 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 			ContactName:  applicant.FullName,
 			ContactEmail: applicant.Email,
 			Category:     "recruiting",
-			Tags: []string{
-				"ats",
-				"candidate",
-				"applied",
-				vacancy.Slug,
-			},
+			Tags:         tags,
 			CustomFields: customFields,
 		})
 		if err != nil {
@@ -207,6 +546,89 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *Service) UploadCareerAttachment(ctx context.Context, workspaceID, filename, contentType, description string, size int64, reader io.Reader) (*servicedomain.Attachment, error) {
+	if s == nil || s.platformStore == nil || s.attachments == nil {
+		return nil, fmt.Errorf("resume uploads are not configured")
+	}
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("workspace ID is required")
+	}
+	attachment := servicedomain.NewAttachment(
+		workspaceID,
+		strings.TrimSpace(filename),
+		strings.TrimSpace(contentType),
+		size,
+		servicedomain.AttachmentSourceUpload,
+	)
+	attachment.Description = strings.TrimSpace(description)
+	if err := s.attachments.Upload(ctx, attachment, reader); err != nil {
+		return nil, err
+	}
+	if err := s.platformStore.Cases().SaveAttachment(ctx, attachment, nil); err != nil {
+		return nil, fmt.Errorf("save attachment metadata: %w", err)
+	}
+	return attachment, nil
+}
+
+func (s *Service) UploadCareersMediaAsset(ctx context.Context, workspaceID, purpose, filename, contentType string, size int64, reader io.Reader) (*CareersMediaAsset, error) {
+	if s == nil || s.extension == nil || s.platformStore == nil {
+		return nil, fmt.Errorf("careers media publishing is not configured")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	workspaceID = strings.TrimSpace(workspaceID)
+	filename = strings.TrimSpace(filename)
+	contentType = strings.TrimSpace(strings.ToLower(contentType))
+	if workspaceID == "" {
+		return nil, fmt.Errorf("workspace ID is required")
+	}
+	if filename == "" {
+		return nil, fmt.Errorf("filename is required")
+	}
+	if !strings.HasPrefix(contentType, "image/") {
+		return nil, fmt.Errorf("careers media must be an image upload")
+	}
+	payload, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("read media upload: %w", err)
+	}
+	if len(payload) == 0 {
+		return nil, fmt.Errorf("media upload is empty")
+	}
+	if size <= 0 {
+		size = int64(len(payload))
+	}
+	if size > 10*1024*1024 {
+		return nil, fmt.Errorf("media upload exceeds the 10MB limit")
+	}
+	installed, err := s.platformStore.Extensions().GetInstalledExtensionBySlug(ctx, workspaceID, "ats")
+	if err != nil {
+		return nil, fmt.Errorf("resolve installed ats extension: %w", err)
+	}
+	safeName := sanitizeMediaFilename(filename)
+	assetID := "media_" + strings.ReplaceAll(strings.TrimSuffix(safeName, filepath.Ext(safeName)), ".", "-")
+	if len(assetID) > 64 {
+		assetID = assetID[:64]
+	}
+	assetPath := path.Join("site/assets/uploads", newATSAssetFilename(safeName))
+	if _, err := s.extension.PublishExtensionArtifact(ctx, installed.ID, "website", assetPath, payload, "ats-runtime"); err != nil {
+		return nil, fmt.Errorf("publish careers media asset: %w", err)
+	}
+	publicURL := "/careers/" + strings.TrimPrefix(assetPath, "site/")
+	return s.store.SaveCareersMediaAsset(ctx, CareersMediaAsset{
+		ID:           assetID + "_" + fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
+		WorkspaceID:  workspaceID,
+		Purpose:      purpose,
+		Filename:     safeName,
+		ContentType:  contentType,
+		SizeBytes:    size,
+		ArtifactPath: assetPath,
+		PublicURL:    publicURL,
+	})
 }
 
 func (s *Service) linkSubmissionAttachments(ctx context.Context, workspaceID, caseID string, applicant *Applicant) error {
@@ -308,6 +730,95 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 	return saved, nil
 }
 
+func (s *Service) RouteCandidate(ctx context.Context, workspaceID, applicationID string, input CandidateRouteInput) (*Application, error) {
+	if s == nil || s.platformStore == nil || s.store == nil || s.cases == nil {
+		return nil, fmt.Errorf("ats service is not configured")
+	}
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	destination := strings.TrimSpace(strings.ToLower(input.Destination))
+	if destination == "" {
+		return nil, fmt.Errorf("destination is required")
+	}
+
+	application, err := s.store.GetApplication(ctx, workspaceID, applicationID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(application.CaseID) == "" {
+		return nil, fmt.Errorf("application %s is not linked to a candidate case", application.ID)
+	}
+
+	vacancy, err := s.store.GetVacancy(ctx, workspaceID, application.VacancyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var targetQueue *servicedomain.Queue
+	switch destination {
+	case string(CandidateListScopeTalentPool):
+		targetQueue, err = s.ensureRoutingQueue(ctx, workspaceID, talentPoolQueueSlug, "Talent Pool", "Reusable queue for strong candidates who should stay warm.")
+	case "job_queue":
+		targetQueue, err = s.resolveVacancyQueue(ctx, vacancy)
+	default:
+		return nil, fmt.Errorf("unsupported route destination %q", destination)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	reason := strings.TrimSpace(input.Reason)
+	if reason == "" {
+		if destination == string(CandidateListScopeTalentPool) {
+			reason = "Moved to talent pool."
+		} else {
+			reason = "Returned to the job queue."
+		}
+	}
+
+	if err := s.cases.HandoffCase(ctx, application.CaseID, serviceapp.CaseHandoffParams{
+		QueueID:         targetQueue.ID,
+		Reason:          reason,
+		PerformedByName: strings.TrimSpace(input.ActorName),
+		PerformedByType: actorType(input.ActorType),
+	}); err != nil {
+		return nil, fmt.Errorf("route candidate case: %w", err)
+	}
+
+	caseObj, err := s.platformStore.Cases().GetCase(ctx, application.CaseID)
+	if err != nil {
+		return nil, fmt.Errorf("load routed candidate case: %w", err)
+	}
+	caseObj.CustomFields.SetString("ats_case_queue_id", targetQueue.ID)
+	caseObj.CustomFields.SetString("ats_case_queue_slug", targetQueue.Slug)
+	if destination == string(CandidateListScopeTalentPool) {
+		caseObj.CustomFields.SetString("ats_candidate_bucket", talentPoolQueueSlug)
+		caseObj.Tags = appendUniqueTag(caseObj.Tags, talentPoolCaseTag)
+	} else {
+		if vacancy.Kind == atsdomain.VacancyKindGeneralApplication {
+			caseObj.CustomFields.SetString("ats_candidate_bucket", generalApplicationsQueueSlug)
+		} else {
+			caseObj.CustomFields.SetString("ats_candidate_bucket", "job_queue")
+		}
+		caseObj.Tags = removeTag(caseObj.Tags, talentPoolCaseTag)
+	}
+	if err := s.platformStore.Cases().UpdateCase(ctx, caseObj); err != nil {
+		return nil, fmt.Errorf("persist routed candidate case: %w", err)
+	}
+
+	noteBody := strings.TrimSpace(input.Note)
+	if noteBody == "" {
+		noteBody = reason
+	}
+	if noteBody != "" {
+		if _, err := s.store.AddRecruiterNote(ctx, workspaceID, application.ID, firstNonBlank(input.ActorName, "ATS Admin"), actorType(input.ActorType), noteBody); err != nil {
+			return nil, err
+		}
+	}
+	return application, nil
+}
+
 func (s *Service) updateVacancyState(ctx context.Context, workspaceID, vacancyID string, mutate func(*atsdomain.Vacancy) error) (*Vacancy, error) {
 	if s == nil || s.store == nil {
 		return nil, fmt.Errorf("ats service is not configured")
@@ -320,7 +831,364 @@ func (s *Service) updateVacancyState(ctx context.Context, workspaceID, vacancyID
 	if err := mutate(domainVacancy); err != nil {
 		return nil, err
 	}
-	return s.store.SaveVacancy(ctx, vacancyFromDomain(domainVacancy))
+	saved, err := s.store.SaveVacancy(ctx, vacancyFromDomain(domainVacancy))
+	if err != nil {
+		return nil, err
+	}
+	if err := s.publishCareersSiteIfInstalled(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	return saved, nil
+}
+
+func (s *Service) publishCareersSiteIfInstalled(ctx context.Context, workspaceID string) error {
+	return s.publishCareersSite(ctx, workspaceID, true)
+}
+
+func (s *Service) publishCareersSite(ctx context.Context, workspaceID string, allowMissing bool) error {
+	if s == nil || s.extension == nil || s.platformStore == nil {
+		if allowMissing {
+			return nil
+		}
+		return fmt.Errorf("careers publishing is not configured")
+	}
+	bundle, err := s.CareersSiteBundle(ctx, workspaceID)
+	if err != nil {
+		return err
+	}
+	files, err := renderCareersSite(bundle)
+	if err != nil {
+		return err
+	}
+	installed, err := s.platformStore.Extensions().GetInstalledExtensionBySlug(ctx, workspaceID, "ats")
+	if err != nil {
+		if allowMissing && errors.Is(err, sharedstore.ErrNotFound) {
+			return nil
+		}
+		return fmt.Errorf("resolve installed ats extension: %w", err)
+	}
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, relativePath := range paths {
+		if _, err := s.extension.PublishExtensionArtifact(ctx, installed.ID, "website", relativePath, files[relativePath], "ats-runtime"); err != nil {
+			if allowMissing && strings.Contains(strings.ToLower(err.Error()), "artifact service not configured") {
+				return nil
+			}
+			return fmt.Errorf("publish careers artifact %s: %w", relativePath, err)
+		}
+	}
+	if _, err := s.store.MarkCareersSitePublished(ctx, workspaceID, time.Now().UTC()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) resolveVacancyQueue(ctx context.Context, vacancy *Vacancy) (*servicedomain.Queue, error) {
+	if vacancy == nil {
+		return nil, fmt.Errorf("vacancy is required")
+	}
+	if strings.TrimSpace(vacancy.CaseQueueID) != "" {
+		queue, err := s.platformStore.Queues().GetQueue(ctx, vacancy.CaseQueueID)
+		if err == nil {
+			return queue, nil
+		}
+	}
+	queue, err := s.platformStore.Queues().GetQueueBySlug(ctx, vacancy.WorkspaceID, vacancy.CaseQueueSlug)
+	if err != nil {
+		return nil, fmt.Errorf("resolve vacancy queue %s: %w", vacancy.CaseQueueSlug, err)
+	}
+	return queue, nil
+}
+
+func (s *Service) enrichAndFilterCandidateProfiles(ctx context.Context, workspaceID string, profiles []CandidateProfile, options CandidateListOptions) ([]CandidateProfile, error) {
+	if len(profiles) == 0 {
+		return profiles, nil
+	}
+	vacancies, err := s.store.ListVacancies(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	vacancyByID := make(map[string]Vacancy, len(vacancies))
+	var generalVacancyID string
+	for _, vacancy := range vacancies {
+		vacancyByID[vacancy.ID] = vacancy
+		if vacancy.Kind == atsdomain.VacancyKindGeneralApplication {
+			generalVacancyID = vacancy.ID
+		}
+	}
+
+	talentPoolQueueID := mustQueueID(ctx, s, workspaceID, talentPoolQueueSlug)
+	queueCache := map[string]*servicedomain.Queue{}
+	filtered := make([]CandidateProfile, 0, len(profiles))
+	for _, profile := range profiles {
+		if strings.TrimSpace(profile.Application.CaseID) != "" {
+			caseObj, err := s.platformStore.Cases().GetCase(ctx, profile.Application.CaseID)
+			if err == nil {
+				profile.CaseQueueID = strings.TrimSpace(caseObj.QueueID)
+				profile.IsTalentPool = profile.CaseQueueID != "" && profile.CaseQueueID == talentPoolQueueID
+				if profile.CaseQueueID != "" {
+					if queue, ok := queueCache[profile.CaseQueueID]; ok && queue != nil {
+						profile.CaseQueueSlug = queue.Slug
+						profile.CaseQueueName = queue.Name
+					} else if queue, queueErr := s.platformStore.Queues().GetQueue(ctx, profile.CaseQueueID); queueErr == nil {
+						profile.CaseQueueSlug = queue.Slug
+						profile.CaseQueueName = queue.Name
+						queueCache[profile.CaseQueueID] = queue
+					}
+				}
+			}
+		}
+
+		switch options.Scope {
+		case CandidateListScopeGeneral:
+			if profile.Application.VacancyID != generalVacancyID {
+				continue
+			}
+		case CandidateListScopeTalentPool:
+			if !profile.IsTalentPool {
+				continue
+			}
+		}
+		filtered = append(filtered, profile)
+	}
+	return filtered, nil
+}
+
+func filterPrimaryJobs(jobs []Vacancy) []Vacancy {
+	filtered := make([]Vacancy, 0, len(jobs))
+	for _, job := range jobs {
+		if strings.TrimSpace(string(job.Kind)) == "" || job.Kind == atsdomain.VacancyKindJob {
+			filtered = append(filtered, job)
+		}
+	}
+	return filtered
+}
+
+func appendUniqueTag(tags []string, tag string) []string {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return tags
+	}
+	for _, existing := range tags {
+		if strings.EqualFold(strings.TrimSpace(existing), tag) {
+			return tags
+		}
+	}
+	return append(tags, tag)
+}
+
+func removeTag(tags []string, tag string) []string {
+	tag = strings.TrimSpace(strings.ToLower(tag))
+	if tag == "" || len(tags) == 0 {
+		return tags
+	}
+	filtered := make([]string, 0, len(tags))
+	for _, existing := range tags {
+		if strings.TrimSpace(strings.ToLower(existing)) == tag {
+			continue
+		}
+		filtered = append(filtered, existing)
+	}
+	return filtered
+}
+
+func sanitizeMediaFilename(filename string) string {
+	filename = strings.TrimSpace(filepath.Base(filename))
+	if filename == "" {
+		return "asset"
+	}
+	ext := strings.ToLower(filepath.Ext(filename))
+	base := strings.TrimSuffix(filename, ext)
+	base = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z':
+			return r
+		case r >= 'A' && r <= 'Z':
+			return r + ('a' - 'A')
+		case r >= '0' && r <= '9':
+			return r
+		case r == '-', r == '_':
+			return r
+		default:
+			return '-'
+		}
+	}, base)
+	base = strings.Trim(base, "-")
+	if base == "" {
+		base = "asset"
+	}
+	if ext == "" {
+		ext = ".bin"
+	}
+	return base + ext
+}
+
+func newATSAssetFilename(filename string) string {
+	return fmt.Sprintf("%d-%s", time.Now().UTC().UnixNano(), strings.TrimSpace(filename))
+}
+
+func mustQueueID(ctx context.Context, s *Service, workspaceID, slug string) string {
+	if s == nil || s.platformStore == nil {
+		return ""
+	}
+	queue, err := s.platformStore.Queues().GetQueueBySlug(ctx, workspaceID, slug)
+	if err != nil {
+		return ""
+	}
+	return queue.ID
+}
+
+func (s *Service) syncSetupStatus(ctx context.Context, workspaceID string, site *CareersSiteProfile, team []CareersTeamMember, jobs []Vacancy) (*SetupStatus, error) {
+	state, err := s.store.GetCareersSetupState(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return s.syncSetupStatusWithState(ctx, state, site, team, jobs)
+}
+
+func (s *Service) syncSetupStatusWithState(ctx context.Context, state *CareersSetupState, site *CareersSiteProfile, team []CareersTeamMember, jobs []Vacancy) (*SetupStatus, error) {
+	if state == nil {
+		return nil, fmt.Errorf("careers setup state is required")
+	}
+	steps := buildSetupChecklist(site, team, jobs)
+	currentStep := strings.TrimSpace(strings.ToLower(state.CurrentStep))
+	if currentStep == "" {
+		currentStep = firstIncompleteSetupStep(steps)
+	}
+	if setupStepCompleted(currentStep, steps) {
+		currentStep = firstIncompleteSetupStep(steps)
+	}
+
+	isCompleted := true
+	for _, step := range steps {
+		if !step.Completed {
+			isCompleted = false
+			break
+		}
+	}
+
+	var completedAt *time.Time
+	if isCompleted {
+		completedAt = state.CompletedAt
+		if completedAt == nil {
+			now := time.Now().UTC()
+			completedAt = &now
+		}
+	}
+
+	if currentStep != state.CurrentStep || !timesEqual(completedAt, state.CompletedAt) {
+		saved, err := s.store.SaveCareersSetupState(ctx, CareersSetupState{
+			WorkspaceID: state.WorkspaceID,
+			CurrentStep: currentStep,
+			CompletedAt: completedAt,
+			CreatedAt:   state.CreatedAt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		state = saved
+	}
+
+	return &SetupStatus{
+		WorkspaceID: state.WorkspaceID,
+		CurrentStep: state.CurrentStep,
+		IsCompleted: isCompleted,
+		CompletedAt: state.CompletedAt,
+		PublishedAt: site.PublishedAt,
+		Steps:       steps,
+	}, nil
+}
+
+func buildSetupChecklist(site *CareersSiteProfile, team []CareersTeamMember, jobs []Vacancy) []SetupChecklistStep {
+	brandComplete := site != nil &&
+		strings.TrimSpace(site.CompanyName) != "" &&
+		strings.TrimSpace(site.SiteTitle) != "" &&
+		strings.TrimSpace(site.PrimaryColor) != ""
+
+	companyComplete := site != nil &&
+		strings.TrimSpace(site.Tagline) != "" &&
+		strings.TrimSpace(site.HeroTitle) != "" &&
+		strings.TrimSpace(site.HeroBody) != "" &&
+		strings.TrimSpace(site.StoryBody) != "" &&
+		strings.TrimSpace(site.ContactEmail) != ""
+
+	teamComplete := len(team) > 0
+	jobsComplete := len(filterPrimaryJobs(jobs)) > 0
+	publishComplete := site != nil && site.PublishedAt != nil && !site.PublishedAt.IsZero()
+
+	return []SetupChecklistStep{
+		{
+			Key:         "brand",
+			Title:       "Brand",
+			Description: "Set the company name, site title, colors, and visible brand markers.",
+			ActionLabel: "Edit site profile",
+			Completed:   brandComplete,
+		},
+		{
+			Key:         "company",
+			Title:       "Company Story",
+			Description: "Fill in the hero, company story, contact details, and core public copy.",
+			ActionLabel: "Finish company profile",
+			Completed:   companyComplete,
+		},
+		{
+			Key:         "team",
+			Title:       "Team & Gallery",
+			Description: "Show the people and moments that make the public site feel credible.",
+			ActionLabel: "Add people and visuals",
+			Completed:   teamComplete,
+		},
+		{
+			Key:         "jobs",
+			Title:       "Jobs",
+			Description: "Create at least one structured job so the generator has something real to publish.",
+			ActionLabel: "Create a job",
+			Completed:   jobsComplete,
+		},
+		{
+			Key:         "publish",
+			Title:       "Publish",
+			Description: "Publish the careers site once the structure and content are in place.",
+			ActionLabel: "Publish careers site",
+			Completed:   publishComplete,
+		},
+	}
+}
+
+func firstIncompleteSetupStep(steps []SetupChecklistStep) string {
+	for _, step := range steps {
+		if !step.Completed {
+			return step.Key
+		}
+	}
+	return "publish"
+}
+
+func setupStepCompleted(key string, steps []SetupChecklistStep) bool {
+	key = strings.TrimSpace(strings.ToLower(key))
+	if key == "" {
+		return false
+	}
+	for _, step := range steps {
+		if step.Key == key {
+			return step.Completed
+		}
+	}
+	return false
+}
+
+func timesEqual(left, right *time.Time) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return left.UTC().Equal(right.UTC())
+	}
 }
 
 func occurredAt(value time.Time) time.Time {

@@ -126,13 +126,15 @@ similar dedicated ATS.
 What it gives you:
 
 - a branded careers site served from the extension
-- a public application flow that creates candidate cases
+- a public job and general-application flow that creates candidate cases
 - ATS-owned vacancy lifecycle and application-stage logic in Go
+- ATS-owned branding, content, and managed careers media for the public site
 - recruiting queues and workflow tags on the same operational base
-- candidate evaluation built on Move Big Rocks cases, contacts, forms, queues,
-  automation, and other shared primitives
+- candidate evaluation built on Move Big Rocks cases, contacts, queues,
+  attachments, automation, and other shared primitives
 - resume or CV linkage through the shared attachment primitives already present
   in the platform
+- talent-pool routing on top of shared case and queue primitives
 - a strong self-hosted foundation for teams that want to keep hiring context in
   the same system as the rest of their operations
 
@@ -278,6 +280,9 @@ The current free public first-party bundle set is:
 - web analytics
 
 Install them by OCI ref:
+
+The latest published ATS bundle is currently `v0.8.25`. The source in this
+repo is ahead of that release and is prepared for the next ATS publish cut.
 
 ```bash
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.25 --workspace WORKSPACE_ID

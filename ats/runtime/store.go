@@ -19,6 +19,14 @@ type Store struct {
 	db *platformsql.SqlxDB
 }
 
+const vacancySelectColumns = `
+	id, workspace_id, slug, kind, title, team, location, work_mode, employment_type,
+	status, summary, description, public_language, public_about_the_job, public_responsibilities,
+	public_responsibilities_heading, public_about_you, public_about_you_heading, public_profile,
+	public_offers_intro, public_offers, public_offers_heading, public_quote,
+	application_form_slug, case_queue_id, case_queue_slug, careers_path,
+	published_at, closed_at, created_at, updated_at`
+
 func NewStore(db *platformsql.SqlxDB) (*Store, error) {
 	store := &Store{db: db}
 	if err := store.ensureSchemaAvailable(context.Background()); err != nil {
@@ -47,7 +55,19 @@ func (s *Store) EnsureWorkspaceDefaults(ctx context.Context, workspaceID string)
 		if err := s.ensureStagePresets(txCtx, workspaceID); err != nil {
 			return err
 		}
-		return s.ensureSavedFilters(txCtx, workspaceID)
+		if err := s.ensureSavedFilters(txCtx, workspaceID); err != nil {
+			return err
+		}
+		if err := s.ensureCareersSiteProfile(txCtx, workspaceID); err != nil {
+			return err
+		}
+		if err := s.ensureCareersSetupState(txCtx, workspaceID); err != nil {
+			return err
+		}
+		if err := s.ensureCareersTeamMembers(txCtx, workspaceID); err != nil {
+			return err
+		}
+		return s.ensureCareersGalleryItems(txCtx, workspaceID)
 	}); err != nil {
 		return nil, err
 	}
@@ -81,26 +101,45 @@ func (s *Store) CreateVacancy(ctx context.Context, input CreateJobInput) (*Vacan
 	}
 	vacancyDomain.Summary = strings.TrimSpace(input.Summary)
 	vacancyDomain.Description = strings.TrimSpace(input.Description)
+	vacancyDomain.PublicLanguage = strings.TrimSpace(input.Language)
+	vacancyDomain.AboutTheJob = strings.TrimSpace(input.AboutTheJob)
+	vacancyDomain.Responsibilities = input.Responsibilities
+	vacancyDomain.ResponsibilitiesHeading = strings.TrimSpace(input.ResponsibilitiesHeading)
+	vacancyDomain.AboutYou = strings.TrimSpace(input.AboutYou)
+	vacancyDomain.AboutYouHeading = strings.TrimSpace(input.AboutYouHeading)
+	vacancyDomain.Profile = input.Profile
+	vacancyDomain.OffersIntro = strings.TrimSpace(input.OffersIntro)
+	vacancyDomain.Offers = input.Offers
+	vacancyDomain.OffersHeading = strings.TrimSpace(input.OffersHeading)
+	vacancyDomain.Quote = strings.TrimSpace(input.Quote)
+	vacancyDomain.ApplicationFormSlug = ""
 	vacancyDomain.CaseQueueSlug = vacancyDomain.Slug + "-candidates"
 	if err := vacancyDomain.Validate(); err != nil {
 		return nil, err
 	}
+	return s.InsertVacancy(ctx, vacancyFromDomain(vacancyDomain))
+}
 
-	vacancy := vacancyFromDomain(vacancyDomain)
-	if err := s.db.Get(ctx).GetContext(ctx, vacancy, s.query(`
+func (s *Store) InsertVacancy(ctx context.Context, vacancy *Vacancy) (*Vacancy, error) {
+	if vacancy == nil {
+		return nil, fmt.Errorf("vacancy is required")
+	}
+	saved := &Vacancy{}
+	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 		INSERT INTO ${SCHEMA_NAME}.vacancies (
-			id, workspace_id, slug, title, team, location, work_mode, employment_type,
-			status, summary, description, application_form_slug, case_queue_slug, careers_path,
+			id, workspace_id, slug, kind, title, team, location, work_mode, employment_type,
+			status, summary, description, public_language, public_about_the_job, public_responsibilities,
+			public_responsibilities_heading, public_about_you, public_about_you_heading, public_profile,
+			public_offers_intro, public_offers, public_offers_heading, public_quote,
+			application_form_slug, case_queue_id, case_queue_slug, careers_path,
 			published_at, closed_at, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING id, workspace_id, slug, title, team, location, work_mode, employment_type,
-			status, summary, description, application_form_slug, case_queue_slug, careers_path,
-			published_at, closed_at, created_at, updated_at
-	`),
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		RETURNING `+vacancySelectColumns),
 		vacancy.ID,
 		vacancy.WorkspaceID,
 		vacancy.Slug,
+		string(vacancy.Kind),
 		vacancy.Title,
 		vacancy.Team,
 		vacancy.Location,
@@ -109,7 +148,19 @@ func (s *Store) CreateVacancy(ctx context.Context, input CreateJobInput) (*Vacan
 		string(vacancy.Status),
 		vacancy.Summary,
 		vacancy.Description,
+		vacancy.PublicLanguage,
+		vacancy.AboutTheJob,
+		vacancy.Responsibilities,
+		vacancy.ResponsibilitiesHeading,
+		vacancy.AboutYou,
+		vacancy.AboutYouHeading,
+		vacancy.Profile,
+		vacancy.OffersIntro,
+		vacancy.Offers,
+		vacancy.OffersHeading,
+		vacancy.Quote,
 		vacancy.ApplicationFormSlug,
+		vacancy.CaseQueueID,
 		vacancy.CaseQueueSlug,
 		vacancy.CareersPath,
 		vacancy.PublishedAt,
@@ -119,15 +170,13 @@ func (s *Store) CreateVacancy(ctx context.Context, input CreateJobInput) (*Vacan
 	); err != nil {
 		return nil, fmt.Errorf("create vacancy: %w", err)
 	}
-	return vacancy, nil
+	return saved, nil
 }
 
 func (s *Store) ListVacancies(ctx context.Context, workspaceID string) ([]Vacancy, error) {
 	var vacancies []Vacancy
 	if err := s.db.Get(ctx).SelectContext(ctx, &vacancies, s.query(`
-		SELECT id, workspace_id, slug, title, team, location, work_mode, employment_type,
-			status, summary, description, application_form_slug, case_queue_slug, careers_path,
-			published_at, closed_at, created_at, updated_at
+		SELECT `+vacancySelectColumns+`
 		FROM ${SCHEMA_NAME}.vacancies
 		WHERE workspace_id = ?
 		ORDER BY created_at DESC
@@ -140,9 +189,7 @@ func (s *Store) ListVacancies(ctx context.Context, workspaceID string) ([]Vacanc
 func (s *Store) GetVacancy(ctx context.Context, workspaceID, vacancyID string) (*Vacancy, error) {
 	vacancy := &Vacancy{}
 	if err := s.db.Get(ctx).GetContext(ctx, vacancy, s.query(`
-		SELECT id, workspace_id, slug, title, team, location, work_mode, employment_type,
-			status, summary, description, application_form_slug, case_queue_slug, careers_path,
-			published_at, closed_at, created_at, updated_at
+		SELECT `+vacancySelectColumns+`
 		FROM ${SCHEMA_NAME}.vacancies
 		WHERE workspace_id = ? AND id = ?
 	`), workspaceID, vacancyID); err != nil {
@@ -157,9 +204,7 @@ func (s *Store) GetVacancy(ctx context.Context, workspaceID, vacancyID string) (
 func (s *Store) GetVacancyBySlug(ctx context.Context, workspaceID, slug string) (*Vacancy, error) {
 	vacancy := &Vacancy{}
 	if err := s.db.Get(ctx).GetContext(ctx, vacancy, s.query(`
-		SELECT id, workspace_id, slug, title, team, location, work_mode, employment_type,
-			status, summary, description, application_form_slug, case_queue_slug, careers_path,
-			published_at, closed_at, created_at, updated_at
+		SELECT `+vacancySelectColumns+`
 		FROM ${SCHEMA_NAME}.vacancies
 		WHERE workspace_id = ? AND slug = ?
 	`), workspaceID, strings.TrimSpace(slug)); err != nil {
@@ -178,17 +223,37 @@ func (s *Store) SaveVacancy(ctx context.Context, vacancy *Vacancy) (*Vacancy, er
 	saved := &Vacancy{}
 	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 		UPDATE ${SCHEMA_NAME}.vacancies
-		SET status = ?, summary = ?, description = ?, application_form_slug = ?, case_queue_slug = ?,
+		SET kind = ?, title = ?, team = ?, location = ?, work_mode = ?, employment_type = ?,
+			status = ?, summary = ?, description = ?, public_language = ?, public_about_the_job = ?,
+			public_responsibilities = ?, public_responsibilities_heading = ?, public_about_you = ?,
+			public_about_you_heading = ?, public_profile = ?, public_offers_intro = ?, public_offers = ?,
+			public_offers_heading = ?, public_quote = ?, application_form_slug = ?, case_queue_id = ?, case_queue_slug = ?,
 			careers_path = ?, published_at = ?, closed_at = ?, updated_at = ?
 		WHERE workspace_id = ? AND id = ?
-		RETURNING id, workspace_id, slug, title, team, location, work_mode, employment_type,
-			status, summary, description, application_form_slug, case_queue_slug, careers_path,
-			published_at, closed_at, created_at, updated_at
+		RETURNING `+vacancySelectColumns+`
 	`),
+		string(vacancy.Kind),
+		vacancy.Title,
+		vacancy.Team,
+		vacancy.Location,
+		string(vacancy.WorkMode),
+		string(vacancy.EmploymentType),
 		string(vacancy.Status),
 		vacancy.Summary,
 		vacancy.Description,
+		vacancy.PublicLanguage,
+		vacancy.AboutTheJob,
+		vacancy.Responsibilities,
+		vacancy.ResponsibilitiesHeading,
+		vacancy.AboutYou,
+		vacancy.AboutYouHeading,
+		vacancy.Profile,
+		vacancy.OffersIntro,
+		vacancy.Offers,
+		vacancy.OffersHeading,
+		vacancy.Quote,
 		vacancy.ApplicationFormSlug,
+		vacancy.CaseQueueID,
 		vacancy.CaseQueueSlug,
 		vacancy.CareersPath,
 		vacancy.PublishedAt,
@@ -203,6 +268,42 @@ func (s *Store) SaveVacancy(ctx context.Context, vacancy *Vacancy) (*Vacancy, er
 		return nil, fmt.Errorf("save vacancy: %w", err)
 	}
 	return saved, nil
+}
+
+func (s *Store) UpdateVacancy(ctx context.Context, workspaceID, vacancyID string, input UpdateJobInput) (*Vacancy, error) {
+	current, err := s.GetVacancy(ctx, workspaceID, vacancyID)
+	if err != nil {
+		return nil, err
+	}
+	domainVacancy := current.toDomain()
+	domainVacancy.Title = strings.TrimSpace(input.Title)
+	domainVacancy.Team = strings.TrimSpace(input.Team)
+	domainVacancy.Location = strings.TrimSpace(input.Location)
+	if input.WorkMode != "" {
+		domainVacancy.WorkMode = input.WorkMode
+	}
+	if input.EmploymentType != "" {
+		domainVacancy.EmploymentType = input.EmploymentType
+	}
+	domainVacancy.Summary = strings.TrimSpace(input.Summary)
+	domainVacancy.Description = strings.TrimSpace(input.Description)
+	domainVacancy.PublicLanguage = strings.TrimSpace(input.Language)
+	domainVacancy.AboutTheJob = strings.TrimSpace(input.AboutTheJob)
+	domainVacancy.Responsibilities = input.Responsibilities
+	domainVacancy.ResponsibilitiesHeading = strings.TrimSpace(input.ResponsibilitiesHeading)
+	domainVacancy.AboutYou = strings.TrimSpace(input.AboutYou)
+	domainVacancy.AboutYouHeading = strings.TrimSpace(input.AboutYouHeading)
+	domainVacancy.Profile = input.Profile
+	domainVacancy.OffersIntro = strings.TrimSpace(input.OffersIntro)
+	domainVacancy.Offers = input.Offers
+	domainVacancy.OffersHeading = strings.TrimSpace(input.OffersHeading)
+	domainVacancy.Quote = strings.TrimSpace(input.Quote)
+	domainVacancy.CareersPath = "/careers/jobs/" + domainVacancy.Slug
+	domainVacancy.UpdatedAt = time.Now().UTC()
+	if err := domainVacancy.Validate(); err != nil {
+		return nil, err
+	}
+	return s.SaveVacancy(ctx, vacancyFromDomain(domainVacancy))
 }
 
 func (s *Store) UpsertApplicant(ctx context.Context, applicant *Applicant) (*Applicant, error) {
@@ -313,12 +414,12 @@ func (s *Store) CreateApplication(ctx context.Context, application *Application)
 	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 		INSERT INTO ${SCHEMA_NAME}.applications (
 			id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
+			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
 			withdrawn_at, rejection_reason, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
+			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
 			withdrawn_at, rejection_reason, created_at, updated_at
 	`),
 		application.ID,
@@ -328,6 +429,8 @@ func (s *Store) CreateApplication(ctx context.Context, application *Application)
 		application.CaseID,
 		application.ContactID,
 		application.FormSubmissionID,
+		string(application.SourceKind),
+		application.SourceRefID,
 		application.Source,
 		string(application.Stage),
 		application.AppliedAt,
@@ -349,7 +452,7 @@ func (s *Store) GetApplication(ctx context.Context, workspaceID, applicationID s
 	application := &Application{}
 	if err := s.db.Get(ctx).GetContext(ctx, application, s.query(`
 		SELECT id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
+			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
 			withdrawn_at, rejection_reason, created_at, updated_at
 		FROM ${SCHEMA_NAME}.applications
 		WHERE workspace_id = ? AND id = ?
@@ -370,17 +473,19 @@ func (s *Store) SaveApplication(ctx context.Context, application *Application) (
 	saved := &Application{}
 	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 		UPDATE ${SCHEMA_NAME}.applications
-		SET case_id = ?, contact_id = ?, form_submission_id = ?, source = ?, stage = ?,
+		SET case_id = ?, contact_id = ?, form_submission_id = ?, source_kind = ?, source_ref_id = ?, source = ?, stage = ?,
 			applied_at = ?, last_stage_changed_at = ?, reviewed_at = ?, hired_at = ?, rejected_at = ?,
 			withdrawn_at = ?, rejection_reason = ?, updated_at = ?
 		WHERE workspace_id = ? AND id = ?
 		RETURNING id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
+			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
 			withdrawn_at, rejection_reason, created_at, updated_at
 	`),
 		application.CaseID,
 		application.ContactID,
 		application.FormSubmissionID,
+		string(application.SourceKind),
+		application.SourceRefID,
 		application.Source,
 		string(application.Stage),
 		application.AppliedAt,
@@ -422,7 +527,7 @@ func (s *Store) ListApplications(ctx context.Context, workspaceID, vacancyID str
 	args := []any{workspaceID}
 	query := `
 		SELECT id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
+			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
 			withdrawn_at, rejection_reason, created_at, updated_at
 		FROM ${SCHEMA_NAME}.applications
 		WHERE workspace_id = ?
@@ -680,47 +785,73 @@ func vacancyFromDomain(v *atsdomain.Vacancy) *Vacancy {
 		return nil
 	}
 	return &Vacancy{
-		ID:                  v.ID,
-		WorkspaceID:         v.WorkspaceID,
-		Slug:                v.Slug,
-		Title:               v.Title,
-		Team:                v.Team,
-		Location:            v.Location,
-		WorkMode:            v.WorkMode,
-		EmploymentType:      v.EmploymentType,
-		Status:              v.Status,
-		Summary:             v.Summary,
-		Description:         v.Description,
-		ApplicationFormSlug: v.ApplicationFormSlug,
-		CaseQueueSlug:       v.CaseQueueSlug,
-		CareersPath:         v.CareersPath,
-		PublishedAt:         v.PublishedAt,
-		ClosedAt:            v.ClosedAt,
-		CreatedAt:           v.CreatedAt,
-		UpdatedAt:           v.UpdatedAt,
+		ID:                      v.ID,
+		WorkspaceID:             v.WorkspaceID,
+		Slug:                    v.Slug,
+		Kind:                    v.Kind,
+		Title:                   v.Title,
+		Team:                    v.Team,
+		Location:                v.Location,
+		WorkMode:                v.WorkMode,
+		EmploymentType:          v.EmploymentType,
+		Status:                  v.Status,
+		Summary:                 v.Summary,
+		Description:             v.Description,
+		PublicLanguage:          v.PublicLanguage,
+		AboutTheJob:             v.AboutTheJob,
+		Responsibilities:        stringArrayOrEmpty(v.Responsibilities),
+		ResponsibilitiesHeading: v.ResponsibilitiesHeading,
+		AboutYou:                v.AboutYou,
+		AboutYouHeading:         v.AboutYouHeading,
+		Profile:                 stringArrayOrEmpty(v.Profile),
+		OffersIntro:             v.OffersIntro,
+		Offers:                  stringArrayOrEmpty(v.Offers),
+		OffersHeading:           v.OffersHeading,
+		Quote:                   v.Quote,
+		ApplicationFormSlug:     v.ApplicationFormSlug,
+		CaseQueueID:             v.CaseQueueID,
+		CaseQueueSlug:           v.CaseQueueSlug,
+		CareersPath:             v.CareersPath,
+		PublishedAt:             v.PublishedAt,
+		ClosedAt:                v.ClosedAt,
+		CreatedAt:               v.CreatedAt,
+		UpdatedAt:               v.UpdatedAt,
 	}
 }
 
 func (v Vacancy) toDomain() *atsdomain.Vacancy {
 	return &atsdomain.Vacancy{
-		ID:                  v.ID,
-		WorkspaceID:         v.WorkspaceID,
-		Slug:                v.Slug,
-		Title:               v.Title,
-		Team:                v.Team,
-		Location:            v.Location,
-		WorkMode:            v.WorkMode,
-		EmploymentType:      v.EmploymentType,
-		Status:              v.Status,
-		Summary:             v.Summary,
-		Description:         v.Description,
-		ApplicationFormSlug: v.ApplicationFormSlug,
-		CaseQueueSlug:       v.CaseQueueSlug,
-		CareersPath:         v.CareersPath,
-		PublishedAt:         v.PublishedAt,
-		ClosedAt:            v.ClosedAt,
-		CreatedAt:           v.CreatedAt,
-		UpdatedAt:           v.UpdatedAt,
+		ID:                      v.ID,
+		WorkspaceID:             v.WorkspaceID,
+		Slug:                    v.Slug,
+		Kind:                    v.Kind,
+		Title:                   v.Title,
+		Team:                    v.Team,
+		Location:                v.Location,
+		WorkMode:                v.WorkMode,
+		EmploymentType:          v.EmploymentType,
+		Status:                  v.Status,
+		Summary:                 v.Summary,
+		Description:             v.Description,
+		PublicLanguage:          v.PublicLanguage,
+		AboutTheJob:             v.AboutTheJob,
+		Responsibilities:        []string(v.Responsibilities),
+		ResponsibilitiesHeading: v.ResponsibilitiesHeading,
+		AboutYou:                v.AboutYou,
+		AboutYouHeading:         v.AboutYouHeading,
+		Profile:                 []string(v.Profile),
+		OffersIntro:             v.OffersIntro,
+		Offers:                  []string(v.Offers),
+		OffersHeading:           v.OffersHeading,
+		Quote:                   v.Quote,
+		ApplicationFormSlug:     v.ApplicationFormSlug,
+		CaseQueueID:             v.CaseQueueID,
+		CaseQueueSlug:           v.CaseQueueSlug,
+		CareersPath:             v.CareersPath,
+		PublishedAt:             v.PublishedAt,
+		ClosedAt:                v.ClosedAt,
+		CreatedAt:               v.CreatedAt,
+		UpdatedAt:               v.UpdatedAt,
 	}
 }
 
@@ -754,6 +885,8 @@ func (a Application) toDomain() *atsdomain.Application {
 		CaseID:             a.CaseID,
 		ContactID:          a.ContactID,
 		FormSubmissionID:   a.FormSubmissionID,
+		SourceKind:         a.SourceKind,
+		SourceRefID:        a.SourceRefID,
 		Source:             a.Source,
 		Stage:              a.Stage,
 		AppliedAt:          a.AppliedAt,
@@ -764,6 +897,13 @@ func (a Application) toDomain() *atsdomain.Application {
 		WithdrawnAt:        a.WithdrawnAt,
 		RejectionReason:    a.RejectionReason,
 	}
+}
+
+func stringArrayOrEmpty(values []string) pq.StringArray {
+	if len(values) == 0 {
+		return pq.StringArray{}
+	}
+	return pq.StringArray(values)
 }
 
 func applicationFromDomain(a *atsdomain.Application) *Application {
@@ -779,6 +919,8 @@ func applicationFromDomain(a *atsdomain.Application) *Application {
 		CaseID:             a.CaseID,
 		ContactID:          a.ContactID,
 		FormSubmissionID:   a.FormSubmissionID,
+		SourceKind:         a.SourceKind,
+		SourceRefID:        a.SourceRefID,
 		Source:             a.Source,
 		Stage:              a.Stage,
 		AppliedAt:          a.AppliedAt,

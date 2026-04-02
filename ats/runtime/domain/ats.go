@@ -36,6 +36,13 @@ const (
 	WorkModeOnsite WorkMode = "onsite"
 )
 
+type VacancyKind string
+
+const (
+	VacancyKindJob                VacancyKind = "job"
+	VacancyKindGeneralApplication VacancyKind = "general_application"
+)
+
 type ApplicationStage string
 
 const (
@@ -58,25 +65,47 @@ var applicationStageOrder = map[ApplicationStage]int{
 	ApplicationStageWithdrawn: 5,
 }
 
+type ApplicationSourceKind string
+
+const (
+	ApplicationSourceKindATSPublic      ApplicationSourceKind = "ats_public"
+	ApplicationSourceKindFormSubmission ApplicationSourceKind = "form_submission"
+	ApplicationSourceKindAPI            ApplicationSourceKind = "api"
+	ApplicationSourceKindImport         ApplicationSourceKind = "import"
+)
+
 type Vacancy struct {
-	ID                  string
-	WorkspaceID         string
-	Slug                string
-	Title               string
-	Team                string
-	Location            string
-	WorkMode            WorkMode
-	EmploymentType      EmploymentType
-	Status              VacancyStatus
-	Summary             string
-	Description         string
-	ApplicationFormSlug string
-	CaseQueueSlug       string
-	CareersPath         string
-	PublishedAt         *time.Time
-	ClosedAt            *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                      string
+	WorkspaceID             string
+	Slug                    string
+	Kind                    VacancyKind
+	Title                   string
+	Team                    string
+	Location                string
+	WorkMode                WorkMode
+	EmploymentType          EmploymentType
+	Status                  VacancyStatus
+	Summary                 string
+	Description             string
+	PublicLanguage          string
+	AboutTheJob             string
+	Responsibilities        []string
+	ResponsibilitiesHeading string
+	AboutYou                string
+	AboutYouHeading         string
+	Profile                 []string
+	OffersIntro             string
+	Offers                  []string
+	OffersHeading           string
+	Quote                   string
+	ApplicationFormSlug     string
+	CaseQueueID             string
+	CaseQueueSlug           string
+	CareersPath             string
+	PublishedAt             *time.Time
+	ClosedAt                *time.Time
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 func NewVacancy(workspaceID, slug, title string) (*Vacancy, error) {
@@ -97,12 +126,13 @@ func NewVacancy(workspaceID, slug, title string) (*Vacancy, error) {
 		ID:                  newATSID("vac"),
 		WorkspaceID:         workspaceID,
 		Slug:                slug,
+		Kind:                VacancyKindJob,
 		Title:               title,
 		Status:              VacancyStatusDraft,
 		WorkMode:            WorkModeRemote,
 		EmploymentType:      EmploymentTypeFullTime,
-		ApplicationFormSlug: "job-application",
-		CareersPath:         "/careers/apply?role_slug=" + slug,
+		ApplicationFormSlug: "",
+		CareersPath:         "/careers/jobs/" + slug,
 		CreatedAt:           now,
 		UpdatedAt:           now,
 	}
@@ -115,12 +145,25 @@ func (v *Vacancy) Validate() error {
 	}
 	v.WorkspaceID = strings.TrimSpace(v.WorkspaceID)
 	v.Slug = normalizeSlug(v.Slug)
+	v.Kind = normalizeVacancyKind(v.Kind)
 	v.Title = strings.TrimSpace(v.Title)
 	v.Team = strings.TrimSpace(v.Team)
 	v.Location = strings.TrimSpace(v.Location)
 	v.Summary = strings.TrimSpace(v.Summary)
 	v.Description = strings.TrimSpace(v.Description)
+	v.PublicLanguage = strings.TrimSpace(strings.ToLower(v.PublicLanguage))
+	v.AboutTheJob = strings.TrimSpace(v.AboutTheJob)
+	v.Responsibilities = normalizeStringSlice(v.Responsibilities)
+	v.ResponsibilitiesHeading = strings.TrimSpace(v.ResponsibilitiesHeading)
+	v.AboutYou = strings.TrimSpace(v.AboutYou)
+	v.AboutYouHeading = strings.TrimSpace(v.AboutYouHeading)
+	v.Profile = normalizeStringSlice(v.Profile)
+	v.OffersIntro = strings.TrimSpace(v.OffersIntro)
+	v.Offers = normalizeStringSlice(v.Offers)
+	v.OffersHeading = strings.TrimSpace(v.OffersHeading)
+	v.Quote = strings.TrimSpace(v.Quote)
 	v.ApplicationFormSlug = normalizeSlug(v.ApplicationFormSlug)
+	v.CaseQueueID = strings.TrimSpace(v.CaseQueueID)
 	v.CaseQueueSlug = normalizeSlug(v.CaseQueueSlug)
 	v.CareersPath = strings.TrimSpace(v.CareersPath)
 	if v.WorkspaceID == "" {
@@ -131,6 +174,11 @@ func (v *Vacancy) Validate() error {
 	}
 	if v.Title == "" {
 		return fmt.Errorf("title is required")
+	}
+	switch v.Kind {
+	case "", VacancyKindJob, VacancyKindGeneralApplication:
+	default:
+		return fmt.Errorf("invalid vacancy kind %q", v.Kind)
 	}
 	switch v.Status {
 	case VacancyStatusDraft, VacancyStatusOpen, VacancyStatusPaused, VacancyStatusClosed, VacancyStatusArchived:
@@ -214,16 +262,23 @@ func (v Vacancy) IsOpen() bool {
 	return v.Status == VacancyStatusOpen
 }
 
+func (v Vacancy) IsPubliclyListed() bool {
+	return v.Kind == VacancyKindJob
+}
+
 func (v Vacancy) CaseCustomFields() map[string]any {
 	return map[string]any{
 		"ats_vacancy_id":              strings.TrimSpace(v.ID),
 		"ats_vacancy_slug":            v.Slug,
+		"ats_vacancy_kind":            string(v.Kind),
 		"ats_vacancy_title":           v.Title,
 		"ats_vacancy_status":          string(v.Status),
 		"ats_vacancy_team":            v.Team,
 		"ats_vacancy_location":        v.Location,
 		"ats_vacancy_work_mode":       string(v.WorkMode),
 		"ats_vacancy_employment_type": string(v.EmploymentType),
+		"ats_vacancy_case_queue_id":   v.CaseQueueID,
+		"ats_vacancy_case_queue_slug": v.CaseQueueSlug,
 		"ats_vacancy_careers_path":    v.CareersPath,
 	}
 }
@@ -306,6 +361,8 @@ type Application struct {
 	CaseID             string
 	ContactID          string
 	FormSubmissionID   string
+	SourceKind         ApplicationSourceKind
+	SourceRefID        string
 	Source             string
 	Stage              ApplicationStage
 	AppliedAt          time.Time
@@ -317,11 +374,13 @@ type Application struct {
 	RejectionReason    string
 }
 
-func NewApplication(workspaceID, vacancyID, applicantID, source string) (*Application, error) {
+func NewApplication(workspaceID, vacancyID, applicantID string, sourceKind ApplicationSourceKind, source, sourceRefID string) (*Application, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	vacancyID = strings.TrimSpace(vacancyID)
 	applicantID = strings.TrimSpace(applicantID)
+	sourceKind = normalizeApplicationSourceKind(sourceKind)
 	source = strings.TrimSpace(source)
+	sourceRefID = strings.TrimSpace(sourceRefID)
 	if workspaceID == "" {
 		return nil, fmt.Errorf("workspace_id is required")
 	}
@@ -331,8 +390,14 @@ func NewApplication(workspaceID, vacancyID, applicantID, source string) (*Applic
 	if applicantID == "" {
 		return nil, fmt.Errorf("applicant_id is required")
 	}
+	if sourceKind == "" {
+		sourceKind = ApplicationSourceKindATSPublic
+	}
+	if !validApplicationSourceKind(sourceKind) {
+		return nil, fmt.Errorf("invalid application source kind %q", sourceKind)
+	}
 	if source == "" {
-		source = "careers_form"
+		source = defaultApplicationSource(sourceKind)
 	}
 	now := time.Now().UTC()
 	return &Application{
@@ -340,6 +405,8 @@ func NewApplication(workspaceID, vacancyID, applicantID, source string) (*Applic
 		WorkspaceID:        workspaceID,
 		VacancyID:          vacancyID,
 		ApplicantID:        applicantID,
+		SourceKind:         sourceKind,
+		SourceRefID:        sourceRefID,
 		Source:             source,
 		Stage:              ApplicationStageReceived,
 		AppliedAt:          now,
@@ -422,6 +489,8 @@ func (a *Application) Validate() error {
 	a.CaseID = strings.TrimSpace(a.CaseID)
 	a.ContactID = strings.TrimSpace(a.ContactID)
 	a.FormSubmissionID = strings.TrimSpace(a.FormSubmissionID)
+	a.SourceKind = normalizeApplicationSourceKind(a.SourceKind)
+	a.SourceRefID = strings.TrimSpace(a.SourceRefID)
 	a.Source = strings.TrimSpace(a.Source)
 	a.RejectionReason = strings.TrimSpace(a.RejectionReason)
 	if a.WorkspaceID == "" {
@@ -432,6 +501,9 @@ func (a *Application) Validate() error {
 	}
 	if a.ApplicantID == "" {
 		return fmt.Errorf("applicant_id is required")
+	}
+	if !validApplicationSourceKind(a.SourceKind) {
+		return fmt.Errorf("invalid application source kind %q", a.SourceKind)
 	}
 	if !validApplicationStage(a.Stage) {
 		return fmt.Errorf("invalid application stage %q", a.Stage)
@@ -455,6 +527,8 @@ func (a Application) CaseCustomFields() map[string]any {
 		"ats_application_applicant_id":     a.ApplicantID,
 		"ats_application_stage":            string(a.Stage),
 		"ats_application_source":           a.Source,
+		"ats_application_source_kind":      string(a.SourceKind),
+		"ats_application_source_ref_id":    a.SourceRefID,
 		"ats_application_form_submission":  a.FormSubmissionID,
 		"ats_application_rejection_reason": a.RejectionReason,
 	}
@@ -473,7 +547,9 @@ type CandidateSubmission struct {
 	PortfolioURL       string
 	CoverNote          string
 	ResumeAttachmentID string
+	SourceKind         ApplicationSourceKind
 	Source             string
+	SourceRefID        string
 	FormSubmissionID   string
 }
 
@@ -506,12 +582,60 @@ func BuildCandidateRecord(workspaceID string, vacancy *Vacancy, submission Candi
 		}
 	}
 
-	application, err := NewApplication(workspaceID, vacancy.ID, applicant.ID, submission.Source)
+	sourceKind := normalizeApplicationSourceKind(submission.SourceKind)
+	if sourceKind == "" {
+		if strings.TrimSpace(submission.FormSubmissionID) != "" {
+			sourceKind = ApplicationSourceKindFormSubmission
+		} else {
+			sourceKind = ApplicationSourceKindATSPublic
+		}
+	}
+	sourceRefID := strings.TrimSpace(submission.SourceRefID)
+	if sourceRefID == "" {
+		sourceRefID = strings.TrimSpace(submission.FormSubmissionID)
+	}
+
+	application, err := NewApplication(workspaceID, vacancy.ID, applicant.ID, sourceKind, submission.Source, sourceRefID)
 	if err != nil {
 		return nil, nil, err
 	}
 	application.FormSubmissionID = strings.TrimSpace(submission.FormSubmissionID)
 	return applicant, application, nil
+}
+
+func normalizeApplicationSourceKind(value ApplicationSourceKind) ApplicationSourceKind {
+	value = ApplicationSourceKind(strings.TrimSpace(strings.ToLower(string(value))))
+	return value
+}
+
+func normalizeVacancyKind(value VacancyKind) VacancyKind {
+	value = VacancyKind(strings.TrimSpace(strings.ToLower(string(value))))
+	if value == "" {
+		return VacancyKindJob
+	}
+	return value
+}
+
+func validApplicationSourceKind(value ApplicationSourceKind) bool {
+	switch value {
+	case ApplicationSourceKindATSPublic, ApplicationSourceKindFormSubmission, ApplicationSourceKindAPI, ApplicationSourceKindImport:
+		return true
+	default:
+		return false
+	}
+}
+
+func defaultApplicationSource(kind ApplicationSourceKind) string {
+	switch kind {
+	case ApplicationSourceKindFormSubmission:
+		return "form_submission"
+	case ApplicationSourceKindAPI:
+		return "api"
+	case ApplicationSourceKindImport:
+		return "import"
+	default:
+		return "careers_site"
+	}
 }
 
 func validApplicationStage(stage ApplicationStage) bool {
@@ -534,6 +658,24 @@ func normalizedTime(value time.Time) time.Time {
 		return time.Now().UTC()
 	}
 	return value.UTC()
+}
+
+func normalizeStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }
 
 func newATSID(prefix string) string {

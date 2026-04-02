@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="0; url=/careers">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Careers</title>
+    <link rel="stylesheet" href="/careers/assets/site.css">
+  </head>
+  <body>
+    <main class="placeholder-shell">
+      <section class="placeholder-card">
+        <div class="eyebrow">ATS Careers</div>
+        <h1>Redirecting…</h1>
+        <p>Applications now live on each role page.</p>
+        <a class="button-primary" href="/careers">Go to careers</a>
+      </section>
+    </main>
+  </body>
+</html>
