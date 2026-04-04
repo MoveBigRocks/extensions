@@ -14,7 +14,6 @@ import (
 
 	automationservices "github.com/movebigrocks/extension-sdk/extensionhost/automation/services"
 	sharedstore "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
-	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
 	platformservices "github.com/movebigrocks/extension-sdk/extensionhost/platform/services"
 	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
 	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
@@ -27,14 +26,15 @@ type attachmentUploader interface {
 }
 
 type Service struct {
-	platformStore *platformsql.Store
-	store         *Store
-	queueService  *serviceapp.QueueService
-	contact       *platformservices.ContactService
-	cases         *serviceapp.CaseService
-	rules         *automationservices.RulesEngine
-	extension     *platformservices.ExtensionService
-	attachments   attachmentUploader
+	tx              hostTransactionRunner
+	store           *Store
+	queues          hostQueueGateway
+	contacts        hostContactGateway
+	cases           hostCaseGateway
+	attachmentStore hostAttachmentGateway
+	rules           hostRuleEvaluator
+	artifacts       hostArtifactPublisher
+	attachments     attachmentUploader
 }
 
 const (
@@ -45,24 +45,26 @@ const (
 )
 
 func NewService(
-	platformStore *platformsql.Store,
+	tx hostTransactionRunner,
 	store *Store,
-	queueService *serviceapp.QueueService,
-	contact *platformservices.ContactService,
-	caseService *serviceapp.CaseService,
-	rules *automationservices.RulesEngine,
-	extensionService *platformservices.ExtensionService,
+	queues hostQueueGateway,
+	contacts hostContactGateway,
+	caseService hostCaseGateway,
+	attachmentStore hostAttachmentGateway,
+	rules hostRuleEvaluator,
+	artifacts hostArtifactPublisher,
 	attachments attachmentUploader,
 ) *Service {
 	return &Service{
-		platformStore: platformStore,
-		store:         store,
-		queueService:  queueService,
-		contact:       contact,
-		cases:         caseService,
-		rules:         rules,
-		extension:     extensionService,
-		attachments:   attachments,
+		tx:              tx,
+		store:           store,
+		queues:          queues,
+		contacts:        contacts,
+		cases:           caseService,
+		attachmentStore: attachmentStore,
+		rules:           rules,
+		artifacts:       artifacts,
+		attachments:     attachments,
 	}
 }
 
@@ -87,15 +89,15 @@ func (s *Service) ensureWorkspaceProvisioned(ctx context.Context, workspaceID st
 }
 
 func (s *Service) ensureRoutingQueue(ctx context.Context, workspaceID, slug, name, description string) (*servicedomain.Queue, error) {
-	if s == nil || s.queueService == nil || s.platformStore == nil {
+	if s == nil || s.queues == nil {
 		return nil, fmt.Errorf("queue service is not configured")
 	}
-	if queue, err := s.platformStore.Queues().GetQueueBySlug(ctx, workspaceID, slug); err == nil {
+	if queue, err := s.queues.GetQueueBySlug(ctx, workspaceID, slug); err == nil {
 		return queue, nil
 	} else if err != nil && !strings.Contains(strings.ToLower(err.Error()), "not found") {
 		return nil, fmt.Errorf("load queue %s: %w", slug, err)
 	}
-	queue, err := s.queueService.CreateQueue(ctx, serviceapp.CreateQueueParams{
+	queue, err := s.queues.CreateQueue(ctx, serviceapp.CreateQueueParams{
 		WorkspaceID: strings.TrimSpace(workspaceID),
 		Name:        strings.TrimSpace(name),
 		Slug:        strings.TrimSpace(slug),
@@ -107,7 +109,7 @@ func (s *Service) ensureRoutingQueue(ctx context.Context, workspaceID, slug, nam
 	if !strings.Contains(strings.ToLower(err.Error()), "duplicate") {
 		return nil, fmt.Errorf("create queue %s: %w", slug, err)
 	}
-	queue, err = s.platformStore.Queues().GetQueueBySlug(ctx, workspaceID, slug)
+	queue, err = s.queues.GetQueueBySlug(ctx, workspaceID, slug)
 	if err != nil {
 		return nil, fmt.Errorf("load queue %s: %w", slug, err)
 	}
@@ -180,12 +182,12 @@ func (s *Service) ensureGeneralApplicationVacancy(ctx context.Context, workspace
 }
 
 func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*Vacancy, error) {
-	if s == nil || s.platformStore == nil || s.store == nil || s.queueService == nil {
+	if s == nil || s.tx == nil || s.store == nil || s.queues == nil {
 		return nil, fmt.Errorf("ats service is not configured")
 	}
 
 	var created *Vacancy
-	err := s.platformStore.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		if _, err := s.ensureWorkspaceProvisioned(txCtx, input.WorkspaceID); err != nil {
 			return err
 		}
@@ -193,7 +195,7 @@ func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*Vacancy
 		if err != nil {
 			return err
 		}
-		queue, err := s.queueService.CreateQueue(txCtx, serviceapp.CreateQueueParams{
+		queue, err := s.queues.CreateQueue(txCtx, serviceapp.CreateQueueParams{
 			WorkspaceID: vacancy.WorkspaceID,
 			Name:        vacancy.Title + " Candidates",
 			Slug:        vacancy.CaseQueueSlug,
@@ -203,7 +205,7 @@ func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*Vacancy
 			if !strings.Contains(strings.ToLower(err.Error()), "duplicate") {
 				return fmt.Errorf("create vacancy queue: %w", err)
 			}
-			queue, err = s.platformStore.Queues().GetQueueBySlug(txCtx, vacancy.WorkspaceID, vacancy.CaseQueueSlug)
+			queue, err = s.queues.GetQueueBySlug(txCtx, vacancy.WorkspaceID, vacancy.CaseQueueSlug)
 			if err != nil {
 				return fmt.Errorf("load existing vacancy queue: %w", err)
 			}
@@ -482,7 +484,7 @@ func (s *Service) PublishCareersSite(ctx context.Context, workspaceID string) er
 }
 
 func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplicationInput) (*SubmissionResult, error) {
-	if s == nil || s.platformStore == nil || s.store == nil || s.contact == nil || s.cases == nil {
+	if s == nil || s.tx == nil || s.store == nil || s.contacts == nil || s.cases == nil {
 		return nil, fmt.Errorf("ats service is not configured")
 	}
 	if strings.TrimSpace(input.WorkspaceID) == "" {
@@ -493,17 +495,23 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 	}
 
 	var result *SubmissionResult
-	err := s.platformStore.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		vacancy, err := s.store.GetVacancyBySlug(txCtx, input.WorkspaceID, input.VacancySlug)
 		if err != nil {
 			return err
 		}
-		applicantDomain, applicationDomain, err := atsdomain.BuildCandidateRecord(input.WorkspaceID, vacancy.toDomain(), input.Submission)
+		resolvedResumeAttachmentID, publicUpload, err := s.resolveSubmissionResumeAttachment(txCtx, input.WorkspaceID, input.Submission.ResumeAttachmentID)
+		if err != nil {
+			return err
+		}
+		submission := input.Submission
+		submission.ResumeAttachmentID = resolvedResumeAttachmentID
+		applicantDomain, applicationDomain, err := atsdomain.BuildCandidateRecord(input.WorkspaceID, vacancy.toDomain(), submission)
 		if err != nil {
 			return err
 		}
 
-		contact, err := s.contact.CreateContact(txCtx, platformservices.CreateContactParams{
+		contact, err := s.contacts.CreateContact(txCtx, platformservices.CreateContactParams{
 			WorkspaceID: input.WorkspaceID,
 			Email:       applicantDomain.Email,
 			Name:        applicantDomain.FullName,
@@ -587,6 +595,11 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		if err != nil {
 			return err
 		}
+		if publicUpload != nil {
+			if _, err := s.store.ConsumePublicAttachmentUpload(txCtx, input.WorkspaceID, publicUpload.Token); err != nil {
+				return err
+			}
+		}
 
 		result = &SubmissionResult{
 			Vacancy:     *vacancy,
@@ -601,8 +614,8 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 	return result, nil
 }
 
-func (s *Service) UploadCareerAttachment(ctx context.Context, workspaceID, filename, contentType, description string, size int64, reader io.Reader) (*servicedomain.Attachment, error) {
-	if s == nil || s.platformStore == nil || s.attachments == nil {
+func (s *Service) UploadCareerAttachment(ctx context.Context, workspaceID, filename, contentType, description string, size int64, reader io.Reader) (*PublicAttachmentUploadResponse, error) {
+	if s == nil || s.attachmentStore == nil || s.attachments == nil || s.store == nil {
 		return nil, fmt.Errorf("resume uploads are not configured")
 	}
 	workspaceID = strings.TrimSpace(workspaceID)
@@ -620,14 +633,24 @@ func (s *Service) UploadCareerAttachment(ctx context.Context, workspaceID, filen
 	if err := s.attachments.Upload(ctx, attachment, reader); err != nil {
 		return nil, err
 	}
-	if err := s.platformStore.Cases().SaveAttachment(ctx, attachment, nil); err != nil {
+	if err := s.attachmentStore.SaveAttachment(ctx, attachment, nil); err != nil {
 		return nil, fmt.Errorf("save attachment metadata: %w", err)
 	}
-	return attachment, nil
+	upload, err := s.store.CreatePublicAttachmentUpload(ctx, workspaceID, attachment.ID, "resume")
+	if err != nil {
+		return nil, err
+	}
+	return &PublicAttachmentUploadResponse{
+		ID:          upload.Token,
+		Filename:    attachment.Filename,
+		ContentType: attachment.ContentType,
+		Size:        attachment.Size,
+		Status:      string(attachment.Status),
+	}, nil
 }
 
 func (s *Service) UploadCareersMediaAsset(ctx context.Context, workspaceID, purpose, filename, contentType string, size int64, reader io.Reader) (*CareersMediaAsset, error) {
-	if s == nil || s.extension == nil || s.platformStore == nil {
+	if s == nil || s.artifacts == nil {
 		return nil, fmt.Errorf("careers media publishing is not configured")
 	}
 	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
@@ -658,17 +681,13 @@ func (s *Service) UploadCareersMediaAsset(ctx context.Context, workspaceID, purp
 	if size > 10*1024*1024 {
 		return nil, fmt.Errorf("media upload exceeds the 10MB limit")
 	}
-	installed, err := s.platformStore.Extensions().GetInstalledExtensionBySlug(ctx, workspaceID, "ats")
-	if err != nil {
-		return nil, fmt.Errorf("resolve installed ats extension: %w", err)
-	}
 	safeName := sanitizeMediaFilename(filename)
 	assetID := "media_" + strings.ReplaceAll(strings.TrimSuffix(safeName, filepath.Ext(safeName)), ".", "-")
 	if len(assetID) > 64 {
 		assetID = assetID[:64]
 	}
 	assetPath := path.Join("site/assets/uploads", newATSAssetFilename(safeName))
-	if _, err := s.extension.PublishExtensionArtifact(ctx, installed.ID, "website", assetPath, payload, "ats-runtime"); err != nil {
+	if err := s.artifacts.PublishWorkspaceArtifact(ctx, workspaceID, "website", assetPath, payload, "ats-runtime"); err != nil {
 		return nil, fmt.Errorf("publish careers media asset: %w", err)
 	}
 	publicURL := "/careers/" + strings.TrimPrefix(assetPath, "site/")
@@ -684,8 +703,26 @@ func (s *Service) UploadCareersMediaAsset(ctx context.Context, workspaceID, purp
 	})
 }
 
+func (s *Service) resolveSubmissionResumeAttachment(ctx context.Context, workspaceID, reference string) (string, *PublicAttachmentUpload, error) {
+	reference = strings.TrimSpace(reference)
+	if reference == "" {
+		return "", nil, nil
+	}
+	if !strings.HasPrefix(reference, publicAttachmentUploadTokenPrefix) {
+		return reference, nil, nil
+	}
+	upload, err := s.store.GetPublicAttachmentUpload(ctx, workspaceID, reference)
+	if err != nil {
+		return "", nil, fmt.Errorf("resolve resume upload token: %w", err)
+	}
+	if upload.ConsumedAt != nil {
+		return "", nil, fmt.Errorf("resume upload token has already been used")
+	}
+	return strings.TrimSpace(upload.AttachmentID), upload, nil
+}
+
 func (s *Service) linkSubmissionAttachments(ctx context.Context, workspaceID, caseID string, application *Application) error {
-	if s == nil || s.platformStore == nil || application == nil {
+	if s == nil || s.attachmentStore == nil || application == nil {
 		return nil
 	}
 
@@ -694,7 +731,7 @@ func (s *Service) linkSubmissionAttachments(ctx context.Context, workspaceID, ca
 		return nil
 	}
 
-	attachment, err := s.platformStore.Cases().GetAttachment(ctx, workspaceID, resumeAttachmentID)
+	attachment, err := s.attachmentStore.GetAttachment(ctx, workspaceID, resumeAttachmentID)
 	if err != nil {
 		return fmt.Errorf("load resume attachment %s: %w", resumeAttachmentID, err)
 	}
@@ -704,7 +741,7 @@ func (s *Service) linkSubmissionAttachments(ctx context.Context, workspaceID, ca
 	if strings.TrimSpace(attachment.CaseID) != "" && strings.TrimSpace(attachment.CaseID) != caseID {
 		return fmt.Errorf("resume attachment %s is already linked to case %s", attachment.ID, attachment.CaseID)
 	}
-	if err := s.platformStore.Cases().LinkAttachmentsToCase(ctx, workspaceID, caseID, []string{attachment.ID}); err != nil {
+	if err := s.attachmentStore.LinkAttachmentsToCase(ctx, workspaceID, caseID, []string{attachment.ID}); err != nil {
 		return fmt.Errorf("link resume attachment %s to case %s: %w", attachment.ID, caseID, err)
 	}
 	return nil
@@ -715,7 +752,7 @@ func (s *Service) AddRecruiterNote(ctx context.Context, workspaceID, application
 }
 
 func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applicationID string, input StageChangeInput) (*Application, error) {
-	if s == nil || s.platformStore == nil || s.store == nil {
+	if s == nil || s.tx == nil || s.store == nil || s.cases == nil {
 		return nil, fmt.Errorf("ats service is not configured")
 	}
 	if strings.TrimSpace(workspaceID) == "" || strings.TrimSpace(applicationID) == "" {
@@ -723,7 +760,7 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 	}
 
 	var saved *Application
-	err := s.platformStore.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		current, err := s.store.GetApplication(txCtx, workspaceID, applicationID)
 		if err != nil {
 			return err
@@ -754,7 +791,7 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 			}
 		}
 		if strings.TrimSpace(saved.CaseID) != "" {
-			caseObj, err := s.platformStore.Cases().GetCase(txCtx, saved.CaseID)
+			caseObj, err := s.cases.GetCase(txCtx, saved.CaseID)
 			if err != nil {
 				return fmt.Errorf("load candidate case: %w", err)
 			}
@@ -762,7 +799,7 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 			if saved.RejectionReason != "" {
 				caseObj.CustomFields.SetString("ats_application_rejection_reason", saved.RejectionReason)
 			}
-			if err := s.platformStore.Cases().UpdateCase(txCtx, caseObj); err != nil {
+			if err := s.cases.UpdateCase(txCtx, caseObj); err != nil {
 				return fmt.Errorf("update candidate case stage mirror: %w", err)
 			}
 			if s.rules == nil {
@@ -784,7 +821,7 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 }
 
 func (s *Service) RouteCandidate(ctx context.Context, workspaceID, applicationID string, input CandidateRouteInput) (*Application, error) {
-	if s == nil || s.platformStore == nil || s.store == nil || s.cases == nil {
+	if s == nil || s.store == nil || s.cases == nil {
 		return nil, fmt.Errorf("ats service is not configured")
 	}
 	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
@@ -839,7 +876,7 @@ func (s *Service) RouteCandidate(ctx context.Context, workspaceID, applicationID
 		return nil, fmt.Errorf("route candidate case: %w", err)
 	}
 
-	caseObj, err := s.platformStore.Cases().GetCase(ctx, application.CaseID)
+	caseObj, err := s.cases.GetCase(ctx, application.CaseID)
 	if err != nil {
 		return nil, fmt.Errorf("load routed candidate case: %w", err)
 	}
@@ -856,7 +893,7 @@ func (s *Service) RouteCandidate(ctx context.Context, workspaceID, applicationID
 		}
 		caseObj.Tags = removeTag(caseObj.Tags, talentPoolCaseTag)
 	}
-	if err := s.platformStore.Cases().UpdateCase(ctx, caseObj); err != nil {
+	if err := s.cases.UpdateCase(ctx, caseObj); err != nil {
 		return nil, fmt.Errorf("persist routed candidate case: %w", err)
 	}
 
@@ -899,7 +936,7 @@ func (s *Service) publishCareersSiteIfInstalled(ctx context.Context, workspaceID
 }
 
 func (s *Service) publishCareersSite(ctx context.Context, workspaceID string, allowMissing bool) error {
-	if s == nil || s.extension == nil || s.platformStore == nil {
+	if s == nil || s.artifacts == nil {
 		if allowMissing {
 			return nil
 		}
@@ -913,20 +950,16 @@ func (s *Service) publishCareersSite(ctx context.Context, workspaceID string, al
 	if err != nil {
 		return err
 	}
-	installed, err := s.platformStore.Extensions().GetInstalledExtensionBySlug(ctx, workspaceID, "ats")
-	if err != nil {
-		if allowMissing && errors.Is(err, sharedstore.ErrNotFound) {
-			return nil
-		}
-		return fmt.Errorf("resolve installed ats extension: %w", err)
-	}
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
 	for _, relativePath := range paths {
-		if _, err := s.extension.PublishExtensionArtifact(ctx, installed.ID, "website", relativePath, files[relativePath], "ats-runtime"); err != nil {
+		if err := s.artifacts.PublishWorkspaceArtifact(ctx, workspaceID, "website", relativePath, files[relativePath], "ats-runtime"); err != nil {
+			if allowMissing && errors.Is(err, sharedstore.ErrNotFound) {
+				return nil
+			}
 			if allowMissing && strings.Contains(strings.ToLower(err.Error()), "artifact service not configured") {
 				return nil
 			}
@@ -944,12 +977,12 @@ func (s *Service) resolveVacancyQueue(ctx context.Context, vacancy *Vacancy) (*s
 		return nil, fmt.Errorf("vacancy is required")
 	}
 	if strings.TrimSpace(vacancy.CaseQueueID) != "" {
-		queue, err := s.platformStore.Queues().GetQueue(ctx, vacancy.CaseQueueID)
+		queue, err := s.queues.GetQueue(ctx, vacancy.CaseQueueID)
 		if err == nil {
 			return queue, nil
 		}
 	}
-	queue, err := s.platformStore.Queues().GetQueueBySlug(ctx, vacancy.WorkspaceID, vacancy.CaseQueueSlug)
+	queue, err := s.queues.GetQueueBySlug(ctx, vacancy.WorkspaceID, vacancy.CaseQueueSlug)
 	if err != nil {
 		return nil, fmt.Errorf("resolve vacancy queue %s: %w", vacancy.CaseQueueSlug, err)
 	}
@@ -988,7 +1021,7 @@ func (s *Service) enrichAndFilterCandidateProfiles(ctx context.Context, workspac
 	filtered := make([]CandidateProfile, 0, len(profiles))
 	for _, profile := range profiles {
 		if strings.TrimSpace(profile.Application.CaseID) != "" {
-			caseObj, err := s.platformStore.Cases().GetCase(ctx, profile.Application.CaseID)
+			caseObj, err := s.cases.GetCase(ctx, profile.Application.CaseID)
 			if err == nil {
 				profile.CaseQueueID = strings.TrimSpace(caseObj.QueueID)
 				profile.IsTalentPool = profile.CaseQueueID != "" && profile.CaseQueueID == talentPoolQueueID
@@ -996,7 +1029,7 @@ func (s *Service) enrichAndFilterCandidateProfiles(ctx context.Context, workspac
 					if queue, ok := queueCache[profile.CaseQueueID]; ok && queue != nil {
 						profile.CaseQueueSlug = queue.Slug
 						profile.CaseQueueName = queue.Name
-					} else if queue, queueErr := s.platformStore.Queues().GetQueue(ctx, profile.CaseQueueID); queueErr == nil {
+					} else if queue, queueErr := s.queues.GetQueue(ctx, profile.CaseQueueID); queueErr == nil {
 						profile.CaseQueueSlug = queue.Slug
 						profile.CaseQueueName = queue.Name
 						queueCache[profile.CaseQueueID] = queue
@@ -1100,10 +1133,10 @@ func newATSAssetFilename(filename string) string {
 }
 
 func mustQueueID(ctx context.Context, s *Service, workspaceID, slug string) string {
-	if s == nil || s.platformStore == nil {
+	if s == nil || s.queues == nil {
 		return ""
 	}
-	queue, err := s.platformStore.Queues().GetQueueBySlug(ctx, workspaceID, slug)
+	queue, err := s.queues.GetQueueBySlug(ctx, workspaceID, slug)
 	if err != nil {
 		return ""
 	}

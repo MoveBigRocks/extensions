@@ -617,7 +617,19 @@ func (h *Handler) SubmitApplication(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, result)
+	c.JSON(http.StatusCreated, PublicSubmissionResponse{
+		Status:  "accepted",
+		Message: "Application received.",
+		Job: PublicSubmissionJob{
+			Slug:  result.Vacancy.Slug,
+			Title: result.Vacancy.Title,
+		},
+		Application: PublicSubmissionApplication{
+			ID:        result.Application.ID,
+			Stage:     result.Application.Stage,
+			AppliedAt: result.Application.AppliedAt,
+		},
+	})
 }
 
 func (h *Handler) UploadCareerAttachment(c *gin.Context) {
@@ -643,7 +655,7 @@ func (h *Handler) UploadCareerAttachment(c *gin.Context) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	attachment, err := h.service.UploadCareerAttachment(
+	upload, err := h.service.UploadCareerAttachment(
 		c.Request.Context(),
 		workspaceID,
 		fileHeader.Filename,
@@ -656,14 +668,7 @@ func (h *Handler) UploadCareerAttachment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{
-		"id":          attachment.ID,
-		"workspaceID": attachment.WorkspaceID,
-		"filename":    attachment.Filename,
-		"contentType": attachment.ContentType,
-		"size":        attachment.Size,
-		"status":      attachment.Status,
-	})
+	c.JSON(http.StatusCreated, upload)
 }
 
 func (h *Handler) ChangeCandidateStage(c *gin.Context) {

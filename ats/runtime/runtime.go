@@ -135,7 +135,17 @@ func NewRuntime(store *platformsql.Store, opts ...RuntimeOption) (*Runtime, erro
 	)
 	rulesEngine.SetExtensionChecker(extensionService)
 
-	service := NewService(store, atsStore, queueService, contactService, caseService, rulesEngine, extensionService, options.attachment)
+	service := NewService(
+		store,
+		atsStore,
+		hostQueueGatewayAdapter{store: store.Queues(), service: queueService},
+		hostContactGatewayAdapter{service: contactService},
+		hostCaseGatewayAdapter{service: caseService},
+		hostAttachmentGatewayAdapter{store: store.Cases()},
+		rulesEngine,
+		hostArtifactPublisherAdapter{store: store.Extensions(), service: extensionService},
+		options.attachment,
+	)
 	return &Runtime{
 		Store:       store,
 		ATSStore:    atsStore,

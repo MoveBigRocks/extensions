@@ -145,6 +145,16 @@ type CareersMediaAsset struct {
 	UpdatedAt    time.Time `db:"updated_at" json:"updatedAt"`
 }
 
+type PublicAttachmentUpload struct {
+	Token        string     `db:"token" json:"token"`
+	WorkspaceID  string     `db:"workspace_id" json:"workspaceId"`
+	AttachmentID string     `db:"attachment_id" json:"attachmentId"`
+	Purpose      string     `db:"purpose" json:"purpose"`
+	ConsumedAt   *time.Time `db:"consumed_at" json:"consumedAt,omitempty"`
+	CreatedAt    time.Time  `db:"created_at" json:"createdAt"`
+	UpdatedAt    time.Time  `db:"updated_at" json:"updatedAt"`
+}
+
 type Applicant struct {
 	ID                    string    `db:"id" json:"id"`
 	WorkspaceID           string    `db:"workspace_id" json:"workspaceId"`
@@ -381,6 +391,32 @@ type SubmissionResult struct {
 	Vacancy     Vacancy     `json:"vacancy"`
 	Applicant   Applicant   `json:"applicant"`
 	Application Application `json:"application"`
+}
+
+type PublicSubmissionJob struct {
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
+}
+
+type PublicSubmissionApplication struct {
+	ID        string                     `json:"id"`
+	Stage     atsdomain.ApplicationStage `json:"stage"`
+	AppliedAt time.Time                  `json:"appliedAt"`
+}
+
+type PublicSubmissionResponse struct {
+	Status      string                      `json:"status"`
+	Message     string                      `json:"message"`
+	Job         PublicSubmissionJob         `json:"job"`
+	Application PublicSubmissionApplication `json:"application"`
+}
+
+type PublicAttachmentUploadResponse struct {
+	ID          string `json:"id"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"contentType"`
+	Size        int64  `json:"size"`
+	Status      string `json:"status"`
 }
 
 type SetupChecklistStep struct {

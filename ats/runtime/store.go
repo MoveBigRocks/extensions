@@ -39,6 +39,11 @@ const applicationSelectColumns = `
 	last_stage_changed_at, reviewed_at, hired_at, rejected_at, withdrawn_at, rejection_reason,
 	created_at, updated_at`
 
+const publicAttachmentUploadSelectColumns = `
+	token, workspace_id, attachment_id, purpose, consumed_at, created_at, updated_at`
+
+const publicAttachmentUploadTokenPrefix = "atsu_"
+
 func NewStore(db *platformsql.SqlxDB) (*Store, error) {
 	store := &Store{db: db}
 	if err := store.ensureSchemaAvailable(context.Background()); err != nil {
@@ -528,6 +533,62 @@ func (s *Store) SaveApplication(ctx context.Context, application *Application) (
 		return nil, fmt.Errorf("save application: %w", err)
 	}
 	return saved, nil
+}
+
+func (s *Store) CreatePublicAttachmentUpload(ctx context.Context, workspaceID, attachmentID, purpose string) (*PublicAttachmentUpload, error) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	attachmentID = strings.TrimSpace(attachmentID)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("workspace ID is required")
+	}
+	if attachmentID == "" {
+		return nil, fmt.Errorf("attachment ID is required")
+	}
+	now := time.Now().UTC()
+	token := publicAttachmentUploadTokenPrefix + strings.ReplaceAll(uuid.NewString(), "-", "")
+	saved := &PublicAttachmentUpload{}
+	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
+		INSERT INTO ${SCHEMA_NAME}.public_attachment_uploads (
+			token, workspace_id, attachment_id, purpose, created_at, updated_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?)
+		RETURNING `+publicAttachmentUploadSelectColumns+`
+	`), token, workspaceID, attachmentID, strings.TrimSpace(purpose), now, now); err != nil {
+		return nil, fmt.Errorf("create public attachment upload: %w", err)
+	}
+	return saved, nil
+}
+
+func (s *Store) GetPublicAttachmentUpload(ctx context.Context, workspaceID, token string) (*PublicAttachmentUpload, error) {
+	upload := &PublicAttachmentUpload{}
+	if err := s.db.Get(ctx).GetContext(ctx, upload, s.query(`
+		SELECT `+publicAttachmentUploadSelectColumns+`
+		FROM ${SCHEMA_NAME}.public_attachment_uploads
+		WHERE workspace_id = ? AND token = ?
+	`), strings.TrimSpace(workspaceID), strings.TrimSpace(token)); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("public attachment upload not found")
+		}
+		return nil, fmt.Errorf("get public attachment upload: %w", err)
+	}
+	return upload, nil
+}
+
+func (s *Store) ConsumePublicAttachmentUpload(ctx context.Context, workspaceID, token string) (*PublicAttachmentUpload, error) {
+	now := time.Now().UTC()
+	upload := &PublicAttachmentUpload{}
+	if err := s.db.Get(ctx).GetContext(ctx, upload, s.query(`
+		UPDATE ${SCHEMA_NAME}.public_attachment_uploads
+		SET consumed_at = ?, updated_at = ?
+		WHERE workspace_id = ? AND token = ? AND consumed_at IS NULL
+		RETURNING `+publicAttachmentUploadSelectColumns+`
+	`), now, now, strings.TrimSpace(workspaceID), strings.TrimSpace(token)); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("public attachment upload not found")
+		}
+		return nil, fmt.Errorf("consume public attachment upload: %w", err)
+	}
+	return upload, nil
 }
 
 func (s *Store) GetApplicant(ctx context.Context, workspaceID, applicantID string) (*Applicant, error) {

@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -266,7 +268,14 @@ func TestATSHandlerRunsLifecycleOverHTTP(t *testing.T) {
 	})
 	application := submitted["application"].(map[string]any)
 	applicationID := application["id"].(string)
-	caseID := application["caseId"].(string)
+	require.Equal(t, "accepted", submitted["status"])
+	require.Equal(t, "Support Engineer", submitted["job"].(map[string]any)["title"])
+	_, hasApplicant := submitted["applicant"]
+	require.False(t, hasApplicant)
+
+	storedApplication, err := runtime.ATSStore.GetApplication(ctx, workspace.ID, applicationID)
+	require.NoError(t, err)
+	caseID := storedApplication.CaseID
 
 	doJSON(http.MethodPost, "/extensions/ats/api/applications/"+applicationID+"/notes", map[string]any{
 		"body":       "Invite to recruiter screen.",
@@ -626,6 +635,108 @@ func TestATSCareersMediaUploadPublishesManagedAsset(t *testing.T) {
 	require.NotEmpty(t, files)
 }
 
+func TestATSPublicResumeUploadsReturnOpaqueSingleUseTokens(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	attachmentService := newTestAttachmentService(t)
+	runtime, err := NewRuntime(store, WithAttachmentService(attachmentService))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+
+	job, err := runtime.Service.CreateJob(ctx, CreateJobInput{
+		WorkspaceID: workspace.ID,
+		Slug:        "platform-engineer",
+		Title:       "Platform Engineer",
+		Summary:     "Build durable systems.",
+		Description: "Own the platform edge to edge.",
+	})
+	require.NoError(t, err)
+	_, err = runtime.Service.PublishJob(ctx, workspace.ID, job.ID, time.Now().UTC())
+	require.NoError(t, err)
+
+	engine := runtimehttp.DefaultEngine()
+	RegisterRoutes(engine, runtime.Handler)
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "resume.pdf")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("%PDF-1.4 test resume"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	uploadReq, err := http.NewRequest(http.MethodPost, server.URL+"/careers/attachments", body)
+	require.NoError(t, err)
+	uploadReq.Header.Set("Content-Type", writer.FormDataContentType())
+	uploadReq.Header.Set("X-MBR-Workspace-ID", workspace.ID)
+
+	uploadResp, err := http.DefaultClient.Do(uploadReq)
+	require.NoError(t, err)
+	defer uploadResp.Body.Close()
+	require.Equal(t, http.StatusCreated, uploadResp.StatusCode)
+
+	var uploaded map[string]any
+	require.NoError(t, json.NewDecoder(uploadResp.Body).Decode(&uploaded))
+	uploadToken := uploaded["id"].(string)
+	require.True(t, strings.HasPrefix(uploadToken, publicAttachmentUploadTokenPrefix))
+
+	publicUpload, err := runtime.ATSStore.GetPublicAttachmentUpload(ctx, workspace.ID, uploadToken)
+	require.NoError(t, err)
+	require.NotEmpty(t, publicUpload.AttachmentID)
+
+	payload, err := json.Marshal(map[string]any{
+		"vacancySlug":        "platform-engineer",
+		"fullName":           "Morgan Lee",
+		"email":              "morgan@example.com",
+		"resumeAttachmentId": uploadToken,
+	})
+	require.NoError(t, err)
+
+	submitReq, err := http.NewRequest(http.MethodPost, server.URL+"/careers/applications", bytes.NewReader(payload))
+	require.NoError(t, err)
+	submitReq.Header.Set("Content-Type", "application/json")
+	submitReq.Header.Set("X-MBR-Workspace-ID", workspace.ID)
+
+	submitResp, err := http.DefaultClient.Do(submitReq)
+	require.NoError(t, err)
+	defer submitResp.Body.Close()
+	require.Equal(t, http.StatusCreated, submitResp.StatusCode)
+
+	var submitted map[string]any
+	require.NoError(t, json.NewDecoder(submitResp.Body).Decode(&submitted))
+	applicationID := submitted["application"].(map[string]any)["id"].(string)
+
+	storedApplication, err := runtime.ATSStore.GetApplication(ctx, workspace.ID, applicationID)
+	require.NoError(t, err)
+	require.Equal(t, publicUpload.AttachmentID, storedApplication.SubmissionResumeAttachmentID)
+
+	consumedUpload, err := runtime.ATSStore.GetPublicAttachmentUpload(ctx, workspace.ID, uploadToken)
+	require.NoError(t, err)
+	require.NotNil(t, consumedUpload.ConsumedAt)
+
+	reuseReq, err := http.NewRequest(http.MethodPost, server.URL+"/careers/applications", bytes.NewReader(payload))
+	require.NoError(t, err)
+	reuseReq.Header.Set("Content-Type", "application/json")
+	reuseReq.Header.Set("X-MBR-Workspace-ID", workspace.ID)
+
+	reuseResp, err := http.DefaultClient.Do(reuseReq)
+	require.NoError(t, err)
+	defer reuseResp.Body.Close()
+	require.Equal(t, http.StatusBadRequest, reuseResp.StatusCode)
+}
+
 func TestATSPublicSubmitIgnoresSpoofedSourceMetadata(t *testing.T) {
 	storeIface, cleanup := testutil.SetupTestSQLStore(t)
 	defer cleanup()
@@ -684,10 +795,18 @@ func TestATSPublicSubmitIgnoresSpoofedSourceMetadata(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	application := decoded["application"].(map[string]any)
-	require.Equal(t, string(atsdomain.ApplicationSourceKindATSPublic), application["sourceKind"])
-	require.Equal(t, "careers_site", application["source"])
-	require.Equal(t, "", application["sourceRefId"])
-	require.Equal(t, "", application["formSubmissionId"])
+	applicationID := application["id"].(string)
+	_, exposedApplicant := decoded["applicant"]
+	require.False(t, exposedApplicant)
+	_, exposedVacancy := decoded["vacancy"]
+	require.False(t, exposedVacancy)
+
+	storedApplication, err := runtime.ATSStore.GetApplication(ctx, workspace.ID, applicationID)
+	require.NoError(t, err)
+	require.Equal(t, atsdomain.ApplicationSourceKindATSPublic, storedApplication.SourceKind)
+	require.Equal(t, "careers_site", storedApplication.Source)
+	require.Equal(t, "", storedApplication.SourceRefID)
+	require.Equal(t, "", storedApplication.FormSubmissionID)
 }
 
 func TestATSSetupStatusRequiresRealOperatorConfiguration(t *testing.T) {
@@ -852,7 +971,7 @@ type testS3Server struct {
 	puts   [][]byte
 }
 
-func createUploadedAttachment(t *testing.T, ctx context.Context, store *platformsql.Store, workspaceID, filename string, payload []byte) *servicedomain.Attachment {
+func newTestAttachmentService(t testing.TB) *serviceapp.AttachmentService {
 	t.Helper()
 
 	s3Server := newTestS3Server(t)
@@ -865,6 +984,13 @@ func createUploadedAttachment(t *testing.T, ctx context.Context, store *platform
 		Logger:      logger.NewNop(),
 	})
 	require.NoError(t, err)
+	return attachmentService
+}
+
+func createUploadedAttachment(t *testing.T, ctx context.Context, store *platformsql.Store, workspaceID, filename string, payload []byte) *servicedomain.Attachment {
+	t.Helper()
+
+	attachmentService := newTestAttachmentService(t)
 
 	attachment := servicedomain.NewAttachment(workspaceID, filename, "application/pdf", int64(len(payload)), servicedomain.AttachmentSourceUpload)
 	attachment.Description = "ATS resume proof attachment"

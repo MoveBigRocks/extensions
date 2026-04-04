@@ -140,8 +140,8 @@ What it gives you:
 - recruiting queues and workflow tags on the same operational base
 - candidate evaluation built on Move Big Rocks cases, contacts, queues,
   attachments, automation, and other shared primitives
-- resume or CV linkage through the shared attachment primitives already present
-  in the platform
+- opaque public resume-upload receipts that resolve into shared attachment
+  primitives on the host side
 - talent-pool routing on top of shared case and queue primitives
 - a strong self-hosted foundation for teams that want to keep hiring context in
   the same system as the rest of their operations

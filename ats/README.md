@@ -11,7 +11,7 @@ and recruiter workflow built on shared MBR primitives.
 - generates a branded public careers site at `/careers`
 - generates public job pages at `/careers/jobs/:slug`
 - supports a first-class general-application flow
-- accepts ATS-native public applications and resume uploads
+- accepts ATS-native public applications and opaque resume-upload receipts
 - creates one shared contact and one shared case for each ATS application
 - routes candidate work across shared queues, attachments, tags, and automation
 - lets recruiters manage stages, notes, saved views, stage presets, and
@@ -39,6 +39,9 @@ Move Big Rocks shared primitives are reused deliberately:
 
 Submission-specific data is stored on the ATS `applications` records, so
 multiple applications from the same person do not overwrite each other.
+The runtime receives workspace context from the host and uses narrowed host
+capabilities for shared primitives instead of reaching through broad core
+stores inside the ATS business layer.
 
 ## Public Surface
 
@@ -50,6 +53,8 @@ multiple applications from the same person do not overwrite each other.
 The public site is generated from ATS SQL data only. Open jobs render as live
 job pages. Draft jobs are not rendered as public pages, and previously
 published closed or paused jobs are replaced with an unavailable page.
+Public submit and upload endpoints return public-safe receipts rather than
+internal workspace, case, contact, or raw attachment identifiers.
 
 ## Admin Surface
 
