@@ -96,11 +96,11 @@ Then:
 
 From a checkout of this repo, cut tags that match the manifest versions in the
 extension directories. Publish only the extensions you are intentionally
-releasing. For the current ATS source that means `ats-v0.8.31`:
+releasing. For the current ATS source that means `ats-v0.8.32`:
 
 ```bash
-git tag ats-v0.8.31
-git push origin ats-v0.8.31
+git tag ats-v0.8.32
+git push origin ats-v0.8.32
 ```
 
 That should trigger one workflow run and create the ATS GHCR package for that
@@ -125,7 +125,7 @@ For each package, open GitHub Packages and set visibility to `Public`:
 Then verify that the install refs you expect to use are the real published
 ones. For ATS that means:
 
-- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.31`
+- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.32`
 
 For other first-party extensions, use the version that is both:
 
@@ -158,7 +158,7 @@ The current DemandOps desired-state mapping is:
 Install, validate, and activate with the real workspace IDs:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.31 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_DEFAULT --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.32 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_DEFAULT --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```

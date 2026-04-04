@@ -40,9 +40,18 @@ jobs:
     env:
       SIGNING_KEY_ID: demandops-public-1
       GOFLAGS: -mod=vendor
+      SDK_REPOSITORY: MoveBigRocks/extension-sdk
+      SDK_REF: v0.8.23
     steps:
       - name: Checkout extension sources
         uses: actions/checkout@v4
+
+      - name: Checkout pinned SDK tooling
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SDK_REPOSITORY }}
+          ref: ${{ env.SDK_REF }}
+          path: mbr-sdk
 
       - name: Set up Go
         uses: actions/setup-go@v5

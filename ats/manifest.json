@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "ats",
   "name": "Applicant Tracking",
-  "version": "0.8.31",
+  "version": "0.8.32",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "workspace",
@@ -17,7 +17,7 @@
   },
   "runtime": {
     "protocol": "unix_socket_http",
-    "ociReference": "ghcr.io/movebigrocks/mbr-ext-ats-runtime:v0.8.31",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-ats-runtime:v0.8.32",
     "digest": "sha256:pending"
   },
   "description": "Set up a branded careers site, publish jobs, intake candidate applications, and manage applicant stages on Move Big Rocks cases, contacts, queues, attachments, tags, automations, and ATS-owned recruiting state.",
