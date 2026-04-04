@@ -315,7 +315,7 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
-# github.com/movebigrocks/extension-sdk v0.8.24-0.20260330122540-01f8f3de213d
+# github.com/movebigrocks/extension-sdk v0.8.24-0.20260404152813-518bb2bedf68
 ## explicit; go 1.26.0
 github.com/movebigrocks/extension-sdk/artifacts/services
 github.com/movebigrocks/extension-sdk/eventbus

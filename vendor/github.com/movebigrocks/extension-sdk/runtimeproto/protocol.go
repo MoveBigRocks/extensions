@@ -8,11 +8,15 @@ import (
 
 const (
 	HeaderInternalRequest       = "X-MBR-Internal-Extension-Request"
+	HeaderHostToken             = "X-MBR-Host-Token"
 	HeaderUserID                = "X-MBR-User-ID"
 	HeaderExtensionID           = "X-MBR-Extension-ID"
 	HeaderExtensionSlug         = "X-MBR-Extension-Slug"
 	HeaderExtensionPackageKey   = "X-MBR-Extension-Package-Key"
 	HeaderExtensionConfigJSON   = "X-MBR-Extension-Config-JSON"
+	HeaderPublicBaseURL         = "X-MBR-Public-Base-URL"
+	HeaderAdminBaseURL          = "X-MBR-Admin-Base-URL"
+	HeaderAPIBaseURL            = "X-MBR-API-Base-URL"
 	HeaderWorkspaceID           = "X-MBR-Workspace-ID"
 	HeaderUserName              = "X-MBR-User-Name"
 	HeaderUserEmail             = "X-MBR-User-Email"

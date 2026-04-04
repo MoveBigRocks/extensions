@@ -193,6 +193,27 @@ func ExtensionConfigString(c *gin.Context, key string) (string, bool) {
 	return parsed, true
 }
 
+func PublicBaseURL(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.GetString("public_base_url"))
+}
+
+func AdminBaseURL(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.GetString("admin_base_url"))
+}
+
+func APIBaseURL(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.GetString("api_base_url"))
+}
+
 func ForwardedContextMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if extensionID := strings.TrimSpace(c.GetHeader(runtimeproto.HeaderExtensionID)); extensionID != "" {
@@ -203,6 +224,15 @@ func ForwardedContextMiddleware() gin.HandlerFunc {
 		}
 		if packageKey := strings.TrimSpace(c.GetHeader(runtimeproto.HeaderExtensionPackageKey)); packageKey != "" {
 			c.Set("extension_package_key", packageKey)
+		}
+		if publicBaseURL := strings.TrimSpace(c.GetHeader(runtimeproto.HeaderPublicBaseURL)); publicBaseURL != "" {
+			c.Set("public_base_url", publicBaseURL)
+		}
+		if adminBaseURL := strings.TrimSpace(c.GetHeader(runtimeproto.HeaderAdminBaseURL)); adminBaseURL != "" {
+			c.Set("admin_base_url", adminBaseURL)
+		}
+		if apiBaseURL := strings.TrimSpace(c.GetHeader(runtimeproto.HeaderAPIBaseURL)); apiBaseURL != "" {
+			c.Set("api_base_url", apiBaseURL)
 		}
 		if userID := strings.TrimSpace(c.GetHeader(runtimeproto.HeaderUserID)); userID != "" {
 			c.Set("user_id", userID)
