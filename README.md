@@ -10,6 +10,8 @@ fragment.
 
 Examples and scaffolds live in
 [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk).
+Private first-party extensions live in
+[`MoveBigRocks/private-extensions`](https://github.com/MoveBigRocks/private-extensions).
 
 It is licensed under the MBR Source Code Available License 1.0. Teams may use
 and modify it for their own company, use the first-party extensions, and build
@@ -29,7 +31,7 @@ on the same bounded Move Big Rocks runtime:
 
 ## Where The Source Lives
 
-This repo is the source of truth for the first-party extension source:
+This repo is the source of truth for the public first-party extension source:
 
 - `manifest.json`
 - extension-owned `assets/`
@@ -45,8 +47,6 @@ Source layout:
 - `ats/` contains the ATS bundle, skills, templates, and ATS-specific domain source
 - `ats/runtime/domain/` defines Go concepts like vacancies, vacancy catalogs,
   applicants, and applications
-- `enterprise-access/` contains the Enterprise Access manifest, admin skill,
-  and owned-schema migrations
 - `web-analytics/runtime/` contains the web analytics runtime source
 - `web-analytics/templates/` contains the analytics admin templates
 - `error-tracking/runtime/` contains the error tracking runtime source
@@ -75,7 +75,6 @@ It should not import anything from `github.com/movebigrocks/platform/...`.
 The point of this repo is simple:
 
 - use ATS without paying for a separate recruiting SaaS too early
-- run enterprise SSO from the same first-party extension base
 - run Sentry-compatible error tracking on infrastructure you control
 - get privacy-first website analytics without bolting on another silo
 - keep lightweight sales flow inside the same operating base
@@ -156,29 +155,6 @@ Good fit:
 
 - source: [`ats/`](./ats)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-ats:v<version>`
-
-### Enterprise Access
-
-Enterprise SSO for teams that want Move Big Rocks to authenticate against an
-existing IdP without breaking the shared extension model.
-
-What it gives you:
-
-- OIDC-first provider configuration
-- instance-scoped extension install and activation
-- admin settings and provider persistence in the extension-owned schema
-- OIDC start and callback flows backed by the same runtime model
-- runtime health and a guided setup skill for operators and agents
-
-Good fit:
-
-- teams that want first-party SSO on the same extension base
-- operators who want identity setup to stay inspectable and versioned
-- teams that want Enterprise Access source in the same repo as the other
-  first-party extensions
-
-- source: [`enterprise-access/`](./enterprise-access)
-- install from source during development: `mbr extensions install ./enterprise-access`
 
 ### Error Tracking
 
@@ -300,7 +276,6 @@ Or install directly from a checked-out source directory during development:
 ```bash
 mbr extensions install ./ats --workspace WORKSPACE_ID
 mbr extensions install ./community-feature-requests --workspace WORKSPACE_ID
-mbr extensions install ./enterprise-access
 mbr extensions install ./error-tracking --workspace WORKSPACE_ID
 mbr extensions install ./sales-pipeline --workspace WORKSPACE_ID
 mbr extensions install ./web-analytics --workspace WORKSPACE_ID
