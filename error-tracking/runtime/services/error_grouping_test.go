@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 )
 
 func TestSimilarityEngine_CalculateSimilarity(t *testing.T) {

@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	"github.com/movebigrocks/platform/pkg/logger"
+	"github.com/movebigrocks/extension-sdk/logger"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 )
 
 type stubSentryProjectStore struct {

@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
-	automationservices "github.com/movebigrocks/platform/pkg/extensionhost/automation/services"
-	sharedstore "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
-	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
-	platformservices "github.com/movebigrocks/platform/pkg/extensionhost/platform/services"
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
+	automationservices "github.com/movebigrocks/extension-sdk/extensionhost/automation/services"
+	sharedstore "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
+	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	platformservices "github.com/movebigrocks/extension-sdk/extensionhost/platform/services"
+	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
 )
 
 type attachmentUploader interface {

@@ -1,0 +1,104 @@
+MBR Source Code Available License 1.0
+
+Copyright (c) 2026 Move Big Rocks BV. All rights reserved.
+
+Licensor: Move Big Rocks BV
+Licensed Work: The contents of this repository, together with any associated
+source code, assets, documentation, and bundled materials distributed by the
+Licensor under this License.
+
+1. Definitions
+
+"Derivative Work" means any work based on, adapted from, or derived from the
+Licensed Work, including modifications and other works that would be treated as
+derivative works under applicable copyright law.
+
+"Extension" means any extension, plugin, bundle, pack, integration, connector,
+adapter, template, add-on, module, or other work designed for use with the
+Licensed Work, and any derivative work of such material.
+
+"Hosted Service" means any offering that gives third parties, other than your
+employees and contractors acting solely on your behalf, access to the
+functionality of the Licensed Work, a Derivative Work, or an Extension as
+software or as a service, whether operated by you or on your behalf.
+
+"Commercialize" means to sell, license, sublicense, distribute for a fee,
+charge for access to, or otherwise directly monetize the Licensed Work, a
+Derivative Work, or an Extension as software, a hosted or managed service, an
+add-on, a marketplace item, or a paid deliverable. For clarity,
+Commercialize includes selling or licensing a copied, modified, or derivative
+version of the Licensed Work or of any Extension. Commercialize does not
+include: (a) using, modifying, or deploying the Licensed Work, Derivative
+Works, and Extensions inside your own company or organization for your own
+internal business operations, including commercial internal operations; or (b)
+using the Licensed Work, Derivative Works, and Extensions in the course of
+providing your own non-platform goods or services, even when you are paid for
+those goods or services, provided that in each case you do not give customers
+or other third parties access to the Licensed Work, a Derivative Work, or an
+Extension as software or as a Hosted Service and you do not sell, license, or
+sublicense the Licensed Work, a Derivative Work, or an Extension themselves.
+
+2. License Grant
+
+Subject to this License, you may:
+
+For clarity, this License allows you to run the Licensed Work inside your own
+company or organization, modify it for your own needs, use the first-party
+Extensions, and build your own Extensions, including in support of your own
+commercial operations, so long as you do not sell the software, sell access to
+it, or offer it as a Hosted Service.
+
+a. use, copy, modify, create Derivative Works of, self-host, deploy, and run
+   the Licensed Work;
+b. use the Licensed Work, your Derivative Works, and Extensions for your own
+   internal business operations, including internal commercial operations;
+c. create, install, use, and modify your own Extensions and Derivative Works
+   with the Licensed Work, including for your own company or organization and
+   in providing your own non-platform goods or services; and
+d. redistribute the Licensed Work, Derivative Works, and Extensions, in source
+   or object form, only if you do not Commercialize them, you include this
+   License and all copyright, attribution, and license notices, and you do not
+   offer them as a Hosted Service.
+
+3. Restrictions
+
+Without the Licensor's prior written permission, you may not:
+
+a. Commercialize the Licensed Work, any Derivative Work, any copied, modified,
+   or derivative version of either, or access to any of them;
+b. Commercialize any Extension, any copied, modified, or derivative version of
+   any Extension, or access to any of them;
+c. offer the Licensed Work, any Derivative Work, or any Extension as a Hosted
+   Service or managed service;
+d. remove, alter, obscure, or replace this License or any copyright,
+   attribution, trademark, or license notice included with the Licensed Work,
+   including in any fork, redistribution, or derivative distribution; or
+e. use the Licensor's names, logos, or trademarks except for reasonable factual
+   reference.
+
+4. Reservation of Rights
+
+All rights not expressly granted by this License are reserved by the Licensor.
+
+5. Disclaimer of Warranty
+
+THE LICENSED WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. YOU BEAR THE
+RISK OF USING THE LICENSED WORK.
+
+6. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT WILL THE
+LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION
+WITH THE LICENSED WORK OR THE USE OF OR OTHER DEALINGS IN THE LICENSED WORK.
+
+7. Termination
+
+If you violate this License, your rights under it terminate automatically. The
+Licensor may reinstate those rights in writing.
+
+8. Source-Available Notice
+
+This License is source-available. It is not an open source license.

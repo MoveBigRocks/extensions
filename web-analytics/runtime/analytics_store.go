@@ -12,7 +12,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
+	analyticsdomain "github.com/movebigrocks/extensions/web-analytics/runtime/domain"
 )
 
 // AnalyticsStore implements analytics CRUD operations against the

@@ -9,15 +9,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/extension-sdk/extensionhost/shared/geoip"
+	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	sqlstore "github.com/movebigrocks/platform/extensions/web-analytics/runtime"
-	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
-	analyticshandlers "github.com/movebigrocks/platform/extensions/web-analytics/runtime/handlers"
-	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
-	webanalyticsui "github.com/movebigrocks/platform/extensions/web-analytics/runtimeui"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
-	"github.com/movebigrocks/platform/pkg/extensionhost/shared/geoip"
-	"github.com/movebigrocks/platform/pkg/logger"
+	sqlstore "github.com/movebigrocks/extensions/web-analytics/runtime"
+	analyticsdomain "github.com/movebigrocks/extensions/web-analytics/runtime/domain"
+	analyticshandlers "github.com/movebigrocks/extensions/web-analytics/runtime/handlers"
+	analyticsservices "github.com/movebigrocks/extensions/web-analytics/runtime/services"
+	webanalyticsui "github.com/movebigrocks/extensions/web-analytics/runtimeui"
 )
 
 const packageKey = "demandops/web-analytics"

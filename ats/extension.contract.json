@@ -22,17 +22,12 @@
     "general-applications",
     "talent-pool"
   ],
-  "seededForms": [],
   "seededAutomationRules": [
     "ext.demandops.ats.application_received_tag",
     "ext.demandops.ats.stage_change_followup"
   ],
   "publicPaths": [
     "/careers",
-    "/careers/apply",
-    "/careers/jobs/:slug",
-    "/careers/assets/:asset",
-    "/careers/assets/uploads/:asset",
     "/careers/applications",
     "/careers/attachments"
   ],
@@ -49,27 +44,27 @@
     "/extensions/ats/api/careers/site",
     "/extensions/ats/api/careers/team",
     "/extensions/ats/api/defaults",
-    "/extensions/ats/api/saved-views",
-    "/extensions/ats/api/stage-presets",
-    "/extensions/ats/api/jobs/:id",
     "/extensions/ats/api/jobs",
+    "/extensions/ats/api/jobs/:id",
     "/extensions/ats/api/jobs/:id/applications",
     "/extensions/ats/api/jobs/:id/close",
     "/extensions/ats/api/jobs/:id/publish",
     "/extensions/ats/api/jobs/:id/reopen",
-    "/extensions/ats/api/setup"
+    "/extensions/ats/api/saved-views",
+    "/extensions/ats/api/setup",
+    "/extensions/ats/api/stage-presets"
   ],
   "healthPaths": [
     "/extensions/ats/health"
   ],
   "commands": [
-    "ats.jobs.create",
-    "ats.candidates.stage.set",
+    "ats.candidates.note.add",
     "ats.candidates.route",
+    "ats.candidates.stage.set",
     "ats.jobs.close",
+    "ats.jobs.create",
     "ats.jobs.publish",
-    "ats.jobs.reopen",
-    "ats.candidates.note.add"
+    "ats.jobs.reopen"
   ],
   "agentSkills": [
     "publish-job",

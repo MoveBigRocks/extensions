@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	models "github.com/movebigrocks/extensions/error-tracking/sql-models"
 )
 
 func (s *ErrorMonitoringStore) GetErrorEventsByEmail(ctx context.Context, email string, since time.Time) ([]*observabilitydomain.ErrorEvent, error) {

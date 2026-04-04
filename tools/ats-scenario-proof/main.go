@@ -16,16 +16,16 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	automationdomain "github.com/movebigrocks/extension-sdk/extensionhost/automation/domain"
+	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	platformdomain "github.com/movebigrocks/extension-sdk/extensionhost/platform/domain"
+	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/id"
+	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	atsruntime "github.com/movebigrocks/platform/extensions/ats/runtime"
-	automationdomain "github.com/movebigrocks/platform/pkg/extensionhost/automation/domain"
-	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
-	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/id"
-	"github.com/movebigrocks/platform/pkg/logger"
+	atsruntime "github.com/movebigrocks/extensions/ats/runtime"
 )
 
 type proofResponse struct {

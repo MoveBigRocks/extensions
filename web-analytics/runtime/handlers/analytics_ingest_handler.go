@@ -15,9 +15,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/metrics"
-	"github.com/movebigrocks/platform/pkg/logger"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/metrics"
+	"github.com/movebigrocks/extension-sdk/logger"
+	analyticsservices "github.com/movebigrocks/extensions/web-analytics/runtime/services"
 )
 
 // analyticsRateLimiter tracks request counts for analytics ingest.

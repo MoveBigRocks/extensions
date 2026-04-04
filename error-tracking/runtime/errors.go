@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
 )
 
 func TranslateSqlxError(err error, table string) error {

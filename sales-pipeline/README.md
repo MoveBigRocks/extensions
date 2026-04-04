@@ -1,13 +1,10 @@
 # Sales Pipeline Extension
 
-This extension is currently a first-party public beta. Install pinned version tags
-like `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0` rather than relying
-on floating tags while the surface continues to tighten.
+This is the first-party public beta `sales-pipeline` extension for Move Big Rocks.
+Install pinned version tags such as
+`ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0`.
 
-This is the first-party `sales-pipeline` extension for Move Big Rocks.
-
-It turns the current sales spec into an installable service-backed extension that
-fits the platform as it exists today:
+It provides:
 
 - extension-owned deal and stage state in a dedicated Postgres schema
 - shared-primitives hooks through seeded forms, queues, and automation rules
@@ -15,23 +12,11 @@ fits the platform as it exists today:
 - a B2B/B2C mode switch driven by extension config rather than a brand-new core
   record type
 
-## First Slice
-
-The current implementation intentionally lands the smallest useful version:
-
 - stage-based opportunity board with totals by stage
 - quick create for new deals
 - stage movement through the board UI
 - default stage seeding on first use
 - seeded intake form and queue for shared-primitives workflow handoff
-
-Still intentionally left for later:
-
-- deep contact and organization linking beyond captured identifiers
-- activity timelines and attachments
-- reporting beyond board totals
-- stage-change automation driven from extension-owned events
-- richer configuration UI for stage editing
 
 ## Source Layout
 

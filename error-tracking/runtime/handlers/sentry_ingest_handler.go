@@ -14,11 +14,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/middleware"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/id"
-	"github.com/movebigrocks/platform/pkg/logger"
+	middleware "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/httpx"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/id"
+	"github.com/movebigrocks/extension-sdk/logger"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 )
 
 type sentryEventStore interface {

@@ -6,11 +6,11 @@ import (
 	"log"
 	"time"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
-	"github.com/movebigrocks/platform/pkg/eventbus"
-	"github.com/movebigrocks/platform/pkg/extensionhost/shared/contracts"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/eventbus"
+	"github.com/movebigrocks/extension-sdk/extensionhost/shared/contracts"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 )
 
 // ErrorGroupingService handles error event grouping using event-driven architecture

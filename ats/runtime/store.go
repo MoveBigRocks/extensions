@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
-	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
-	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
+	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
 )
 
 type Store struct {

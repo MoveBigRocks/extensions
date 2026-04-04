@@ -7,7 +7,7 @@ import (
 
 	"github.com/lib/pq"
 
-	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
+	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
 )
 
 const SchemaName = "ext_demandops_ats"

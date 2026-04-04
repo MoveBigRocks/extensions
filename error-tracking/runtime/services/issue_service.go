@@ -4,16 +4,16 @@ import (
 	"context"
 	"time"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
-	"github.com/movebigrocks/platform/pkg/eventbus"
-	apierrors "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/errors"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
-	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
-	"github.com/movebigrocks/platform/pkg/extensionhost/shared/authorization"
-	"github.com/movebigrocks/platform/pkg/extensionhost/shared/contracts"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/logger"
+	"github.com/movebigrocks/extension-sdk/eventbus"
+	apierrors "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/errors"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
+	platformdomain "github.com/movebigrocks/extension-sdk/extensionhost/platform/domain"
+	"github.com/movebigrocks/extension-sdk/extensionhost/shared/authorization"
+	"github.com/movebigrocks/extension-sdk/extensionhost/shared/contracts"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/logger"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 )
 
 // IssueService handles all issue-related business logic

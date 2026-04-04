@@ -6,8 +6,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/logger"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/logger"
 )
 
 func marshalJSONString(v interface{}, fieldName string) (string, error) {

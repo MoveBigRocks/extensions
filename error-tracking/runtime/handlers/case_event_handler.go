@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
-	"github.com/movebigrocks/platform/pkg/extensionhost/shared/contracts"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/logger"
+	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
+	"github.com/movebigrocks/extension-sdk/extensionhost/shared/contracts"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/logger"
 
-	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"
+	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
 )
 
 type issueCaseWriter interface {

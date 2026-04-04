@@ -12,7 +12,7 @@ extensions repo at `MoveBigRocks/extensions`.
 
 ## Runtime Source
 
-The public runtime source for `error-tracking` now lives in this directory:
+The public runtime source for `error-tracking` is in this directory:
 
 - contract assertions:
   [`extension.contract.json`](./extension.contract.json)
@@ -25,9 +25,9 @@ The public runtime source for `error-tracking` now lives in this directory:
 
 This directory is the runtime source that people should inspect and learn from.
 Platform-owned host contracts it depends on are exposed through public packages,
-not through `platform/internal/...`.
+not through core repo internals.
 
-Current package scope:
+Package scope:
 
 - Sentry-compatible public ingest routes
 - public ingest paths:
@@ -70,7 +70,7 @@ mbr extensions verify ./error-tracking --workspace WORKSPACE_ID --json
 Install from the published bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v<VERSION> --workspace WORKSPACE_ID
 ```
 
 Public signed bundle installs do not need a token. Keep `--license-token` for

@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 )
 
 // ErrorProcessor handles background processing of error events

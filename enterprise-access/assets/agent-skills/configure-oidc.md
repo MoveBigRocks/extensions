@@ -15,7 +15,7 @@ Use this skill when an operator wants to enable enterprise SSO with the `enterpr
    - `mbr extensions list --instance`
    - `mbr extensions show --id EXTENSION_ID`
 2. Open the settings surface:
-   - `/admin/extensions/enterprise-access`
+   - `/extensions/enterprise-access`
 3. Configure one OIDC provider in draft mode first.
 4. Test the callback flow.
 5. Verify at least one break-glass admin can still log in without the provider.

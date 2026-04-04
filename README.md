@@ -38,9 +38,9 @@ This repo is the source of truth for the first-party extension source:
 - templates and admin UI artifacts
 - release tags and published GHCR bundle refs
 
-Current source layout:
+Source layout:
 
-- every first-party extension now ships an `extension.contract.json` file that
+- every first-party extension ships an `extension.contract.json` file that
   captures its expected menu, routes, seeded resources, commands, and skills
 - `ats/` contains the ATS bundle, skills, templates, and ATS-specific domain source
 - `ats/runtime/domain/` defines Go concepts like vacancies, vacancy catalogs,
@@ -57,17 +57,18 @@ Current source layout:
 - `community-feature-requests/runtime/` contains the public idea-board runtime
 
 The service-backed runtime source that first-party and external authors should
-inspect now lives in this repo, with platform-owned host contracts exposed
-through public packages instead of hidden `platform/internal/...` imports.
+inspect is in this repo, with shared host-facing contracts exposed
+through the public SDK instead of borrowed from the core repo.
 
 First-party extension code in this repo should depend only on public extension
 surfaces:
 
-- `MoveBigRocks/extension-sdk` for runtime helpers like `runtimehttp` and `extdb`
-- `github.com/movebigrocks/platform/pkg/extensionhost/...` for host-owned
+- `MoveBigRocks/extension-sdk` for runtime helpers like `runtimehttp` and
+  `extdb`
+- `github.com/movebigrocks/extension-sdk/extensionhost/...` for host-facing
   public types and contracts
 
-It should not import `github.com/movebigrocks/platform/internal/...`.
+It should not import anything from `github.com/movebigrocks/platform/...`.
 
 ## Why This Repo Exists
 
@@ -103,7 +104,7 @@ contract file and review the diff:
 mbr extensions lint ./EXTENSION_DIR --write-contract --json
 ```
 
-For workspace-scoped admin UI, passing validation now also means the extension stays
+For workspace-scoped admin UI, passing validation also means the extension stays
 discoverable for an instance admin with no active workspace selection. The
 instance-level menu entry should still open a working page, and static admin
 pages that call workspace-bound APIs should preserve the `?workspace=...` hint.
@@ -250,8 +251,7 @@ Good fit:
 
 - source: [`sales-pipeline/`](./sales-pipeline)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v<version>`
-- beta guidance: pin an explicit version tag and expect iterative contract and
-  UX refinement while the extension stays in public beta
+- install guidance: pin an explicit version tag
 
 ### Community Feature Requests (Public Beta)
 
@@ -267,8 +267,7 @@ What it gives you:
 
 - source: [`community-feature-requests/`](./community-feature-requests)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<version>`
-- beta guidance: pin an explicit version tag and expect iterative public-board
-  and admin-surface changes while the extension stays in public beta
+- install guidance: pin an explicit version tag
 
 Good fit:
 
@@ -276,9 +275,9 @@ Good fit:
 - teams that want public roadmap conversation without another SaaS
 - builders who want a service-backed public-page extension example
 
-## Install The Current Public OCI Set
+## Install The Public OCI Set
 
-The current free public first-party bundle set is:
+The free public first-party bundle set is:
 
 - ATS
 - community feature requests
@@ -289,11 +288,11 @@ The current free public first-party bundle set is:
 Install them by OCI ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.30 --workspace WORKSPACE_ID
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0 --workspace WORKSPACE_ID
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21 --workspace WORKSPACE_ID
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0 --workspace WORKSPACE_ID
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.21 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v<VERSION> --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<VERSION> --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v<VERSION> --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v<VERSION> --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v<VERSION> --workspace WORKSPACE_ID
 ```
 
 Or install directly from a checked-out source directory during development:
@@ -330,7 +329,7 @@ free public signed bundle set installs without a token.
 
 This repo is the canonical source for every first-party extension.
 
-The current public OCI publication surface in this repo is:
+The public OCI publication surface in this repo is:
 
 - `ghcr.io/movebigrocks/mbr-ext-ats:v<version>`
 - `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<version>`

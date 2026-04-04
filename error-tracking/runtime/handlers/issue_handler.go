@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"
-	"github.com/movebigrocks/platform/pkg/eventbus"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/metrics"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/logger"
+	"github.com/movebigrocks/extension-sdk/eventbus"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/metrics"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/logger"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
 )
 
 // IssueEventHandler handles issue-related events (IssueCreated, IssueUpdated, IssueResolved)

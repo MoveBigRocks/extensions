@@ -8,10 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/movebigrocks/extension-sdk/extdb"
+	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	communityrequests "github.com/movebigrocks/platform/extensions/community-feature-requests/runtime"
-	communityrequestsui "github.com/movebigrocks/platform/extensions/community-feature-requests/runtimeui"
-	"github.com/movebigrocks/platform/pkg/logger"
+	communityrequests "github.com/movebigrocks/extensions/community-feature-requests/runtime"
+	communityrequestsui "github.com/movebigrocks/extensions/community-feature-requests/runtimeui"
 )
 
 const packageKey = "demandops/community-feature-requests"

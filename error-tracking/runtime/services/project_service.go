@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
-	apierrors "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/errors"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
-	"github.com/movebigrocks/platform/pkg/logger"
+	apierrors "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/errors"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
+	"github.com/movebigrocks/extension-sdk/logger"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 )
 
 // ProjectService handles all project-related business logic

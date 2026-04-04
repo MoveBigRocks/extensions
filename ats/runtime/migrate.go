@@ -9,8 +9,8 @@ import (
 
 	"github.com/lib/pq"
 
-	atsmigrations "github.com/movebigrocks/platform/extensions/ats/migrations"
-	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
+	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	atsmigrations "github.com/movebigrocks/extensions/ats/migrations"
 )
 
 func ApplyMigrations(ctx context.Context, db *platformsql.SqlxDB) error {

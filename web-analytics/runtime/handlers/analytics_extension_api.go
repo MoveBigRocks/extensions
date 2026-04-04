@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
 
-	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
-	analyticsservices "github.com/movebigrocks/platform/extensions/web-analytics/runtime/services"
+	analyticsdomain "github.com/movebigrocks/extensions/web-analytics/runtime/domain"
+	analyticsservices "github.com/movebigrocks/extensions/web-analytics/runtime/services"
 )
 
 const defaultAnalyticsPeriod = "LAST_28_DAYS"

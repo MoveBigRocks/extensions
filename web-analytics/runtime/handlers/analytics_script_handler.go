@@ -4,19 +4,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/movebigrocks/platform/web"
 )
 
 // AnalyticsScriptHandler serves the tracking script at GET /js/analytics.js.
 type AnalyticsScriptHandler struct {
 	scriptContent []byte
-}
-
-// NewAnalyticsScriptHandler creates a new script handler.
-func NewAnalyticsScriptHandler() *AnalyticsScriptHandler {
-	content, _ := web.Static.ReadFile("static/js/analytics.js")
-	return &AnalyticsScriptHandler{scriptContent: content}
 }
 
 func NewAnalyticsScriptHandlerWithContent(content []byte) *AnalyticsScriptHandler {

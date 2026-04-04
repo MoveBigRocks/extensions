@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	observabilitydomain "github.com/movebigrocks/platform/extensions/error-tracking/runtime/domain"
-	storecontracts "github.com/movebigrocks/platform/extensions/error-tracking/runtime/storecontracts"
-	models "github.com/movebigrocks/platform/extensions/error-tracking/sql-models"
-	shared "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
+	shared "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
+	models "github.com/movebigrocks/extensions/error-tracking/sql-models"
 )
 
 // =============================================================================

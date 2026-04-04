@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
-	"github.com/movebigrocks/platform/pkg/extensionhost/testutil"
-	"github.com/movebigrocks/platform/pkg/id"
+	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	"github.com/movebigrocks/extension-sdk/extensionhost/testutil"
+	"github.com/movebigrocks/extension-sdk/id"
 )
 
 func TestFormatIssueSubject(t *testing.T) {

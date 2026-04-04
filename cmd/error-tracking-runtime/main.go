@@ -10,17 +10,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/movebigrocks/extension-sdk/eventbus"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/outbox"
+	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	platformservices "github.com/movebigrocks/extension-sdk/extensionhost/platform/services"
+	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	errortrackingruntime "github.com/movebigrocks/platform/extensions/error-tracking/runtime"
-	observabilityhandlers "github.com/movebigrocks/platform/extensions/error-tracking/runtime/handlers"
-	observabilityservices "github.com/movebigrocks/platform/extensions/error-tracking/runtime/services"
-	errortrackingui "github.com/movebigrocks/platform/extensions/error-tracking/runtimeui"
-	"github.com/movebigrocks/platform/pkg/eventbus"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/container"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/outbox"
-	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
-	"github.com/movebigrocks/platform/pkg/logger"
+	errortrackingruntime "github.com/movebigrocks/extensions/error-tracking/runtime"
+	observabilityhandlers "github.com/movebigrocks/extensions/error-tracking/runtime/handlers"
+	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
+	errortrackingui "github.com/movebigrocks/extensions/error-tracking/runtimeui"
 )
 
 const packageKey = "demandops/error-tracking"
@@ -28,9 +29,11 @@ const packageKey = "demandops/error-tracking"
 type errorTrackingRuntime struct {
 	db             *platformsql.DB
 	store          *platformsql.Store
-	platform       *container.PlatformContainer
-	service        *container.ServiceContainer
 	outbox         *outbox.Service
+	workspace      *platformservices.WorkspaceManagementService
+	user           *platformservices.UserManagementService
+	extension      *platformservices.ExtensionService
+	caseService    *serviceapp.CaseService
 	issueService   *observabilityservices.IssueService
 	projectService *observabilityservices.ProjectService
 	processor      *observabilityservices.ErrorProcessor
@@ -97,22 +100,37 @@ func newErrorTrackingRuntime(cfg *config.Config, log *logger.Logger) (*errorTrac
 	}
 
 	outboxService := outbox.NewServiceWithConfig(store, eventbus.NewInMemoryBus(), log, cfg.Outbox)
-	platformServices := container.NewPlatformContainer(store, cfg, log)
-	serviceServices, err := container.NewServiceContainer(container.ServiceContainerDeps{
-		Store:  store,
-		Outbox: outboxService,
-		Config: cfg,
-		Logger: log,
-	})
-	if err != nil {
-		platformServices.Close()
-		_ = store.Close()
-		return nil, fmt.Errorf("create service container: %w", err)
-	}
+	workspaceService := platformservices.NewWorkspaceManagementService(
+		store.Workspaces(),
+		store.Cases(),
+		store.Users(),
+		store.Rules(),
+	)
+	userService := platformservices.NewUserManagementService(
+		store.Users(),
+		store.Workspaces(),
+	)
+	extensionService := platformservices.NewExtensionService(
+		store.Extensions(),
+		store.Workspaces(),
+		store.Queues(),
+		store.Forms(),
+		store.Rules(),
+		store,
+	)
+	caseService := serviceapp.NewCaseService(
+		store.Queues(),
+		store.Cases(),
+		store.Workspaces(),
+		outboxService,
+		serviceapp.WithQueueItemStore(store.QueueItems()),
+		serviceapp.WithTransactionRunner(store),
+		serviceapp.WithOutboundEmailStore(store.OutboundEmails()),
+		serviceapp.WithUserStore(store.Users()),
+	)
 
 	stdDB, err := db.GetSQLDB()
 	if err != nil {
-		platformServices.Close()
 		_ = store.Close()
 		return nil, fmt.Errorf("resolve sql db: %w", err)
 	}
@@ -129,7 +147,6 @@ func newErrorTrackingRuntime(cfg *config.Config, log *logger.Logger) (*errorTrac
 	errorGrouping := observabilityservices.NewErrorGroupingService(errorStore, errorStore, outboxService)
 	processor := observabilityservices.NewErrorProcessorFromConfig(errorGrouping, cfg.ErrorProcessing)
 	if err := processor.StartWorkers(context.Background(), cfg.ErrorProcessing.WorkerCount); err != nil {
-		platformServices.Close()
 		_ = store.Close()
 		return nil, fmt.Errorf("start error processor workers: %w", err)
 	}
@@ -137,9 +154,11 @@ func newErrorTrackingRuntime(cfg *config.Config, log *logger.Logger) (*errorTrac
 	return &errorTrackingRuntime{
 		db:             db,
 		store:          store,
-		platform:       platformServices,
-		service:        serviceServices,
 		outbox:         outboxService,
+		workspace:      workspaceService,
+		user:           userService,
+		extension:      extensionService,
+		caseService:    caseService,
 		issueService:   issueService,
 		projectService: projectService,
 		processor:      processor,
@@ -157,9 +176,6 @@ func (r *errorTrackingRuntime) Close() error {
 			firstErr = err
 		}
 	}
-	if r.platform != nil {
-		r.platform.Close()
-	}
 	if r.store != nil {
 		if err := r.store.Close(); err != nil && firstErr == nil {
 			firstErr = err
@@ -170,9 +186,9 @@ func (r *errorTrackingRuntime) Close() error {
 
 func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRuntime, apiBaseURL string) {
 	adminHandler := errortrackingruntime.NewErrorTrackingAdminHandler(
-		runtime.platform.Workspace,
-		runtime.platform.User,
-		runtime.platform.Extension,
+		runtime.workspace,
+		runtime.user,
+		runtime.extension,
 		runtime.issueService,
 		runtime.projectService,
 		apiBaseURL,
@@ -245,7 +261,7 @@ func newIssueConsumer(runtime *errorTrackingRuntime) func(context.Context, []byt
 func newCaseConsumer(runtime *errorTrackingRuntime) func(context.Context, []byte) error {
 	issueCaseService := observabilityservices.NewIssueCaseService(
 		runtime.store.Cases(),
-		runtime.service.Case,
+		runtime.caseService,
 	)
 	handler := observabilityhandlers.NewErrorTrackingCaseEventHandler(
 		issueCaseService,

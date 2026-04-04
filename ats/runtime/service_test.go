@@ -17,16 +17,16 @@ import (
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
+	automationdomain "github.com/movebigrocks/extension-sdk/extensionhost/automation/domain"
+	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	platformdomain "github.com/movebigrocks/extension-sdk/extensionhost/platform/domain"
+	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/extensionhost/testutil"
+	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	atsdomain "github.com/movebigrocks/platform/extensions/ats/runtime/domain"
-	automationdomain "github.com/movebigrocks/platform/pkg/extensionhost/automation/domain"
-	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
-	platformdomain "github.com/movebigrocks/platform/pkg/extensionhost/platform/domain"
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/extensionhost/testutil"
-	"github.com/movebigrocks/platform/pkg/logger"
+	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
 )
 
 func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {

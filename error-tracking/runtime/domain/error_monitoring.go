@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	shared "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/id"
+	shared "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/id"
 )
 
 // Application represents a monitored application/service
@@ -350,7 +350,7 @@ func NewIssue(projectID, title, culprit string, event *ErrorEvent) *Issue {
 		UserCount:     1,
 		Tags:          make(map[string]string),
 		ShortID:       shortID,
-		Permalink:     fmt.Sprintf("/admin/extensions/error-tracking/issues/%s", shortID),
+		Permalink:     fmt.Sprintf("/extensions/error-tracking/issues/%s", shortID),
 		Logger:        event.Logger,
 		Platform:      event.Platform,
 		LastEventID:   event.EventID,

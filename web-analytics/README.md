@@ -12,7 +12,7 @@ extensions repo at `MoveBigRocks/extensions`.
 
 ## Runtime Source
 
-The public runtime source for `web-analytics` now lives in this directory:
+The public runtime source for `web-analytics` is in this directory:
 
 - contract assertions:
   [`extension.contract.json`](./extension.contract.json)
@@ -23,13 +23,13 @@ The public runtime source for `web-analytics` now lives in this directory:
 
 This directory is the runtime source that people should inspect and learn from.
 Platform-owned host contracts it depends on are exposed through public packages,
-not through `platform/internal/...`.
+not through core repo internals.
 
-Current package scope:
+Package scope:
 
 - public tracking script at `/js/analytics.js`
 - public ingest endpoint at `/api/analytics/event`
-- admin pages under `/admin/extensions/web-analytics/*`
+- admin pages under `/extensions/web-analytics*`
 - owned PostgreSQL schema `ext_demandops_web_analytics`
 
 Canonical schema migrations:
@@ -70,7 +70,7 @@ mbr extensions verify ./web-analytics --workspace WORKSPACE_ID --json
 Install from the published bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.22 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v<VERSION> --workspace WORKSPACE_ID
 ```
 
 Public signed bundle installs do not need a token. Keep `--license-token` for

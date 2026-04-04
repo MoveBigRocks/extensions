@@ -6,15 +6,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	artifactservices "github.com/movebigrocks/platform/internal/artifacts/services"
-	"github.com/movebigrocks/platform/pkg/eventbus"
-	automationservices "github.com/movebigrocks/platform/pkg/extensionhost/automation/services"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/outbox"
-	platformsql "github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/sql"
-	platformservices "github.com/movebigrocks/platform/pkg/extensionhost/platform/services"
-	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
-	"github.com/movebigrocks/platform/pkg/logger"
+	artifactservices "github.com/movebigrocks/extension-sdk/artifacts/services"
+	"github.com/movebigrocks/extension-sdk/eventbus"
+	automationservices "github.com/movebigrocks/extension-sdk/extensionhost/automation/services"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/outbox"
+	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	platformservices "github.com/movebigrocks/extension-sdk/extensionhost/platform/services"
+	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	"github.com/movebigrocks/extension-sdk/logger"
 )
 
 type Runtime struct {

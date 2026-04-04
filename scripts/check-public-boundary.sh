@@ -6,10 +6,10 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${repo_root}"
 
-if rg -n 'github\.com/movebigrocks/platform/internal/' --glob '*.go' .; then
+if rg -n 'github\.com/movebigrocks/platform/' --glob '*.go' .; then
   echo >&2
-  echo "External extension repos must not import github.com/movebigrocks/platform/internal/..." >&2
-  echo "Use public SDK packages or github.com/movebigrocks/platform/pkg/extensionhost/... instead." >&2
+  echo "Extensions must not import github.com/movebigrocks/platform/..." >&2
+  echo "Use github.com/movebigrocks/extension-sdk/... or local extension packages instead." >&2
   exit 1
 fi
 

@@ -7,7 +7,7 @@ Its job is to let your Move Big Rocks instance authenticate against your company
 without turning Move Big Rocks into an identity product or moving ownership of users, sessions,
 memberships, or break-glass admin access out of core.
 
-Milestone 1 scope:
+Scope:
 
 - OIDC-first provider contract
 - instance-scoped installation
@@ -27,10 +27,8 @@ This extension is intentionally stricter than product extensions such as ATS or 
 - no public pages or public assets
 - health endpoint required
 
-The runtime and CLI can install, inspect, configure, and activate this extension today. Provider
-configuration now lives in the extension-owned PostgreSQL schema instead of the generic extension
-config blob. The current remaining work is hardening and dogfooding the provider flow so instances
-can sign in against an existing enterprise IdP, with future additions such as SAML and directory sync.
+The runtime and CLI install, inspect, configure, and activate this extension.
+Provider configuration lives in the extension-owned PostgreSQL schema.
 
 Canonical schema migrations for the owned `ext_*` schema live under:
 
@@ -68,4 +66,4 @@ sanitization. It is not a generic inbound webhook endpoint.
 Repository status:
 
 - first-party extension source lives in `MoveBigRocks/extensions`
-- not part of the current public OCI bundle catalog
+- not part of the public OCI bundle catalog

@@ -8,10 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/movebigrocks/extension-sdk/extdb"
+	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	salespipeline "github.com/movebigrocks/platform/extensions/sales-pipeline/runtime"
-	salespipelineui "github.com/movebigrocks/platform/extensions/sales-pipeline/runtimeui"
-	"github.com/movebigrocks/platform/pkg/logger"
+	salespipeline "github.com/movebigrocks/extensions/sales-pipeline/runtime"
+	salespipelineui "github.com/movebigrocks/extensions/sales-pipeline/runtimeui"
 )
 
 const packageKey = "demandops/sales-pipeline"

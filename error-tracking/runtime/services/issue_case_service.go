@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/stores/shared"
-	servicedomain "github.com/movebigrocks/platform/pkg/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/platform/pkg/extensionhost/service/services"
-	shareddomain "github.com/movebigrocks/platform/pkg/extensionhost/shared/domain"
-	"github.com/movebigrocks/platform/pkg/logger"
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
+	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
+	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/logger"
 )
 
 type CreateCaseForIssueParams struct {

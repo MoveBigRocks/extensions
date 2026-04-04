@@ -39,37 +39,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SIGNING_KEY_ID: demandops-public-1
-      SDK_REF: v0.8.23
-      PLATFORM_REF: main
+      GOFLAGS: -mod=vendor
     steps:
       - name: Checkout extension sources
         uses: actions/checkout@v4
-
-      - name: Checkout platform sources for runtime builds
-        uses: actions/checkout@v4
-        with:
-          repository: MoveBigRocks/platform
-          ref: ${{ env.PLATFORM_REF }}
-          path: platform
-
-      - name: Checkout extension SDK tooling
-        uses: actions/checkout@v4
-        with:
-          repository: MoveBigRocks/extension-sdk
-          ref: ${{ env.SDK_REF }}
-          path: mbr-sdk
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.0'
           cache: false
-
-      - name: Set up Go workspace
-        run: |
-          rm -f go.work go.work.sum
-          go work init .
-          go work use ./platform
 
       - name: Install ORAS
         run: |

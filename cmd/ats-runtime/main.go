@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	"github.com/movebigrocks/platform/extensions/ats/runtime"
-	"github.com/movebigrocks/platform/pkg/extensionhost/infrastructure/config"
-	"github.com/movebigrocks/platform/pkg/logger"
+	"github.com/movebigrocks/extensions/ats/runtime"
 )
 
 const packageKey = "demandops/ats"

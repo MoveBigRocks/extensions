@@ -4,12 +4,12 @@ import (
 	"embed"
 	"html/template"
 
-	platformhandlers "github.com/movebigrocks/platform/pkg/extensionhost/platform/handlers"
+	platformadmin "github.com/movebigrocks/extension-sdk/extensionhost/platform/adminui"
 )
 
 //go:embed templates/*.html templates/partials/*.html
 var Templates embed.FS
 
 func ParseTemplates() (*template.Template, error) {
-	return template.New("").Funcs(platformhandlers.AdminTemplateFuncMap()).ParseFS(Templates, "templates/partials/*.html", "templates/*.html")
+	return template.New("").Funcs(platformadmin.AdminTemplateFuncMap()).ParseFS(Templates, "templates/partials/*.html", "templates/*.html")
 }

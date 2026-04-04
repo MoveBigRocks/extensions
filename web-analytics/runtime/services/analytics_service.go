@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytics/runtime/domain"
-	"github.com/movebigrocks/platform/pkg/extensionhost/shared/geoip"
-	"github.com/movebigrocks/platform/pkg/logger"
+	"github.com/movebigrocks/extension-sdk/extensionhost/shared/geoip"
+	"github.com/movebigrocks/extension-sdk/logger"
+	analyticsdomain "github.com/movebigrocks/extensions/web-analytics/runtime/domain"
 )
 
 // IngestService handles event ingestion, visitor ID computation, and session management.
