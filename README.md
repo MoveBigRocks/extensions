@@ -81,6 +81,9 @@ The point of this repo is simple:
 - collect community roadmap feedback without another voting SaaS
 - inspect real extension source if you want to build your own
 
+Enterprise SSO remains a private first-party extension in the sibling
+`MoveBigRocks/private-extensions` repo.
+
 These extensions are meant to be compelling in their own right, and also good
 examples of how to build bounded products on the Move Big Rocks primitives.
 

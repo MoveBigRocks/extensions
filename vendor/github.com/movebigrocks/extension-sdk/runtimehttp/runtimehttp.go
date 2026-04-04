@@ -128,12 +128,6 @@ func BuildBasePageData(c *gin.Context, activePage, title, subtitle string) gin.H
 	if widgets, ok := c.Get("admin_extension_widgets"); ok {
 		data["ExtensionWidgets"] = widgets
 	}
-	if show, ok := c.Get("admin_feature_error_tracking"); ok {
-		data["ShowErrorTracking"] = show
-	}
-	if show, ok := c.Get("admin_feature_analytics"); ok {
-		data["ShowAnalytics"] = show
-	}
 	return data
 }
 
@@ -265,8 +259,6 @@ func ForwardedContextMiddleware() gin.HandlerFunc {
 		decodeExtensionConfigHeader(c, runtimeproto.HeaderExtensionConfigJSON, "extension_config")
 		decodeJSONHeader(c, runtimeproto.HeaderAdminExtensionNavJSON, "admin_extension_nav")
 		decodeJSONHeader(c, runtimeproto.HeaderAdminWidgetsJSON, "admin_extension_widgets")
-		decodeBoolHeader(c, runtimeproto.HeaderShowAnalytics, "admin_feature_analytics")
-		decodeBoolHeader(c, runtimeproto.HeaderShowErrorTracking, "admin_feature_error_tracking")
 		c.Next()
 	}
 }

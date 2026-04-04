@@ -73,12 +73,6 @@ func buildPageData(c *gin.Context, title, subtitle string) gin.H {
 	if widgets, ok := c.Get("admin_extension_widgets"); ok {
 		data["ExtensionWidgets"] = widgets
 	}
-	if showET, ok := c.Get("admin_feature_error_tracking"); ok {
-		data["ShowErrorTracking"] = showET
-	}
-	if showA, ok := c.Get("admin_feature_analytics"); ok {
-		data["ShowAnalytics"] = showA
-	}
 
 	return data
 }
