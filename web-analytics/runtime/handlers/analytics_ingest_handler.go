@@ -2,8 +2,12 @@ package analyticshandlers
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,9 +37,10 @@ var (
 )
 
 const (
-	ipRateLimit       = 100   // events per minute per IP
-	propertyRateLimit = 10000 // events per minute per property
-	rateLimitWindow   = time.Minute
+	ipRateLimit                 = 100   // events per minute per IP
+	propertyRateLimit           = 10000 // events per minute per property
+	rateLimitWindow             = time.Minute
+	analyticsIngestMaxBodyBytes = 64 * 1024
 )
 
 func (rl *analyticsRateLimiter) allow(key string, limit int) bool {
@@ -106,25 +111,38 @@ func NewAnalyticsIngestHandler(
 	}
 }
 
+type ingestRevenuePayload struct {
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"`
+}
+
+type ingestLocationPayload struct {
+	Country string `json:"country"`
+	Region  string `json:"region"`
+	City    string `json:"city"`
+}
+
 // ingestPayload represents the JSON body from the tracking script.
 type ingestPayload struct {
-	Name     string `json:"n"`
-	URL      string `json:"u"`
-	Domain   string `json:"d"`
-	Referrer string `json:"r"`
-	Honeypot string `json:"p"` // Undocumented honeypot field
+	Name     string                 `json:"n"`
+	URL      string                 `json:"u"`
+	Domain   string                 `json:"d"`
+	Referrer string                 `json:"r"`
+	Honeypot string                 `json:"p"` // Undocumented honeypot field
+	Props    map[string]interface{} `json:"h"`
+	Revenue  *ingestRevenuePayload  `json:"v"`
+	Location *ingestLocationPayload `json:"l"`
 }
 
 // HandleEvent handles POST /api/analytics/event.
 // Always returns 202 regardless of outcome to prevent domain enumeration.
 func (h *AnalyticsIngestHandler) HandleEvent(c *gin.Context) {
-	// Enforce 2KB max body
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2048)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, analyticsIngestMaxBodyBytes)
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		// Body too large or read error
-		if len(body) > 0 {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
 			c.Status(http.StatusRequestEntityTooLarge)
 			return
 		}
@@ -188,6 +206,10 @@ func (h *AnalyticsIngestHandler) HandleEvent(c *gin.Context) {
 	// Strip control characters from event name
 	payload.Name = stripControlChars(payload.Name)
 
+	customProps := normalizeAnalyticsProps(payload.Props)
+	revenueCurrency, revenueAmountCents := normalizeAnalyticsRevenue(payload.Revenue)
+	countryCode, region, city := normalizeAnalyticsLocation(payload.Location)
+
 	// Rate limit by property domain
 	if !propertyRateLimiter.allow("prop:"+payload.Domain, propertyRateLimit) {
 		h.logger.Info("analytics.ratelimit", "ip", clientIP, "domain", payload.Domain, "window", "60s", "scope", "property")
@@ -198,13 +220,19 @@ func (h *AnalyticsIngestHandler) HandleEvent(c *gin.Context) {
 
 	// Process the event
 	req := &analyticsservices.IngestRequest{
-		EventName:  payload.Name,
-		URL:        payload.URL,
-		Domain:     payload.Domain,
-		Referrer:   payload.Referrer,
-		UserAgent:  ua,
-		RemoteIP:   clientIP,
-		AcceptLang: c.GetHeader("Accept-Language"),
+		EventName:          payload.Name,
+		URL:                payload.URL,
+		Domain:             payload.Domain,
+		Referrer:           payload.Referrer,
+		UserAgent:          ua,
+		RemoteIP:           clientIP,
+		AcceptLang:         c.GetHeader("Accept-Language"),
+		CustomProperties:   customProps,
+		RevenueCurrency:    revenueCurrency,
+		RevenueAmountCents: revenueAmountCents,
+		CountryCode:        countryCode,
+		Region:             region,
+		City:               city,
 	}
 
 	if err := h.ingestService.Ingest(c.Request.Context(), req); err != nil {
@@ -235,4 +263,81 @@ func stripControlChars(s string) string {
 		}
 	}
 	return b.String()
+}
+
+func normalizeAnalyticsProps(raw map[string]interface{}) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	props := make(map[string]string, len(raw))
+	count := 0
+	for key, value := range raw {
+		if count >= 32 {
+			break
+		}
+		key = truncate(stripControlChars(strings.TrimSpace(key)), 64)
+		if key == "" {
+			continue
+		}
+
+		rendered := analyticsPropValueString(value)
+		rendered = truncate(stripControlChars(strings.TrimSpace(rendered)), 256)
+		if rendered == "" {
+			continue
+		}
+		props[key] = rendered
+		count++
+	}
+	if len(props) == 0 {
+		return nil
+	}
+	return props
+}
+
+func analyticsPropValueString(value interface{}) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case bool:
+		return strconv.FormatBool(typed)
+	case float64:
+		return strconv.FormatFloat(typed, 'f', -1, 64)
+	case float32:
+		return strconv.FormatFloat(float64(typed), 'f', -1, 32)
+	case int:
+		return strconv.Itoa(typed)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	case int32:
+		return strconv.FormatInt(int64(typed), 10)
+	case nil:
+		return ""
+	default:
+		return fmt.Sprint(typed)
+	}
+}
+
+func normalizeAnalyticsRevenue(payload *ingestRevenuePayload) (string, *int64) {
+	if payload == nil {
+		return "", nil
+	}
+	if math.IsNaN(payload.Amount) || math.IsInf(payload.Amount, 0) || payload.Amount < 0 {
+		return "", nil
+	}
+	currency := strings.ToUpper(truncate(stripControlChars(strings.TrimSpace(payload.Currency)), 16))
+	if currency == "" {
+		return "", nil
+	}
+	amountCents := int64(math.Round(payload.Amount * 100))
+	return currency, &amountCents
+}
+
+func normalizeAnalyticsLocation(payload *ingestLocationPayload) (string, string, string) {
+	if payload == nil {
+		return "", "", ""
+	}
+	country := strings.ToUpper(truncate(stripControlChars(strings.TrimSpace(payload.Country)), 8))
+	region := truncate(stripControlChars(strings.TrimSpace(payload.Region)), 120)
+	city := truncate(stripControlChars(strings.TrimSpace(payload.City)), 120)
+	return country, region, city
 }

@@ -1,0 +1,32 @@
+ALTER TABLE ${SCHEMA_NAME}.events
+    ADD COLUMN IF NOT EXISTS hostname TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS referrer TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS referrer_host TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS utm_term TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS utm_content TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS browser_version TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS os_version TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS props_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS revenue_currency TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS revenue_amount_cents BIGINT;
+
+ALTER TABLE ${SCHEMA_NAME}.sessions
+    ADD COLUMN IF NOT EXISTS hostname TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS referrer TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS referrer_host TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS utm_term TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS utm_content TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS browser_version TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS os_version TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS event_count INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_events_property_name_ts
+    ON ${SCHEMA_NAME}.events(property_id, name, timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_events_property_hostname_ts
+    ON ${SCHEMA_NAME}.events(property_id, hostname, timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_events_property_channel_ts
+    ON ${SCHEMA_NAME}.events(property_id, channel, timestamp DESC);

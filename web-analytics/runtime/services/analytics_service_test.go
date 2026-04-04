@@ -101,14 +101,18 @@ func TestParseUA(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			browser, os, device := ParseUA(tt.ua)
+			browser, browserVersion, os, osVersion, device := ParseUA(tt.ua)
 			if tt.ua == "" {
 				assert.Empty(t, browser)
+				assert.Empty(t, browserVersion)
 				assert.Empty(t, os)
+				assert.Empty(t, osVersion)
 				assert.Empty(t, device)
 			} else {
 				assert.NotEmpty(t, browser)
+				assert.NotEmpty(t, browserVersion)
 				assert.NotEmpty(t, os)
+				assert.NotEmpty(t, osVersion)
 				assert.Equal(t, tt.wantDevice, device)
 			}
 		})
@@ -146,7 +150,7 @@ func TestParseURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.rawURL, func(t *testing.T) {
-			pathname, utmSource, utmMedium, utmCampaign := parseURL(tt.rawURL)
+			_, pathname, utmSource, utmMedium, utmCampaign, _, _ := parseURL(tt.rawURL)
 			assert.Equal(t, tt.pathname, pathname)
 			assert.Equal(t, tt.utmSource, utmSource)
 			assert.Equal(t, tt.utmMedium, utmMedium)

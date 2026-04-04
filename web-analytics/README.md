@@ -36,6 +36,7 @@ Canonical schema migrations:
 
 - `migrations/000001_init.up.sql`
 - `migrations/000002_rls.up.sql`
+- `migrations/000003_event_visit_model_v2.up.sql`
 
 Those files are the canonical schema history for
 `ext_demandops_web_analytics`. Their applied versions are recorded in
@@ -69,7 +70,7 @@ mbr extensions verify ./web-analytics --workspace WORKSPACE_ID --json
 Install from the published bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.21 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.22 --workspace WORKSPACE_ID
 ```
 
 Public signed bundle installs do not need a token. Keep `--license-token` for

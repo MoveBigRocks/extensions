@@ -5,3 +5,7 @@ import analyticsdomain "github.com/movebigrocks/platform/extensions/web-analytic
 func ClassifySource(utmSource, referrer, propertyDomain string) string {
 	return analyticsdomain.ClassifySource(utmSource, referrer, propertyDomain)
 }
+
+func ClassifyChannel(utmSource, utmMedium, referrer, propertyDomain string) string {
+	return analyticsdomain.ClassifyChannel(utmSource, utmMedium, referrer, propertyDomain)
+}

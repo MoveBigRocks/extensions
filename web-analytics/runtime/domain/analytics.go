@@ -77,21 +77,32 @@ func (p *Property) SnippetHTML(baseURL string) string {
 
 // AnalyticsEvent represents one pageview or custom event row.
 type AnalyticsEvent struct {
-	PropertyID     string
-	VisitorID      int64
-	Name           string // "pageview" or custom event name
-	Pathname       string
-	ReferrerSource string
-	UTMSource      string
-	UTMMedium      string
-	UTMCampaign    string
-	CountryCode    string
-	Region         string
-	City           string
-	Browser        string
-	OS             string
-	DeviceType     string
-	Timestamp      time.Time
+	PropertyID         string
+	VisitorID          int64
+	Name               string // "pageview" or custom event name
+	Hostname           string
+	Pathname           string
+	Referrer           string
+	ReferrerHost       string
+	ReferrerSource     string
+	Channel            string
+	UTMSource          string
+	UTMMedium          string
+	UTMCampaign        string
+	UTMTerm            string
+	UTMContent         string
+	CountryCode        string
+	Region             string
+	City               string
+	Browser            string
+	BrowserVersion     string
+	OS                 string
+	OSVersion          string
+	DeviceType         string
+	Props              map[string]string
+	RevenueCurrency    string
+	RevenueAmountCents *int64
+	Timestamp          time.Time
 }
 
 // Goal defines a conversion for a property. Two types: event-based and page-based.
@@ -171,22 +182,31 @@ type Session struct {
 	SessionID      int64
 	PropertyID     string
 	VisitorID      int64
+	Hostname       string
 	EntryPage      string
 	ExitPage       string
+	Referrer       string
+	ReferrerHost   string
 	ReferrerSource string
+	Channel        string
 	UTMSource      string
 	UTMMedium      string
 	UTMCampaign    string
+	UTMTerm        string
+	UTMContent     string
 	CountryCode    string
 	Region         string
 	City           string
 	Browser        string
+	BrowserVersion string
 	OS             string
+	OSVersion      string
 	DeviceType     string
 	StartedAt      time.Time
 	LastActivity   time.Time
 	Duration       int // seconds
 	Pageviews      int
+	EventCount     int
 	IsBounce       int // 1 if pageviews == 1
 }
 

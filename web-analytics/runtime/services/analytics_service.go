@@ -47,13 +47,19 @@ func NewIngestService(store IngestStore, geo geoip.Service, log *logger.Logger) 
 
 // IngestRequest represents a parsed ingest request with server-side context.
 type IngestRequest struct {
-	EventName  string
-	URL        string
-	Domain     string
-	Referrer   string
-	UserAgent  string
-	RemoteIP   string
-	AcceptLang string
+	EventName          string
+	URL                string
+	Domain             string
+	Referrer           string
+	UserAgent          string
+	RemoteIP           string
+	AcceptLang         string
+	CustomProperties   map[string]string
+	RevenueCurrency    string
+	RevenueAmountCents *int64
+	CountryCode        string
+	Region             string
+	City               string
 }
 
 // Ingest processes an analytics event from the tracking script.
@@ -97,10 +103,15 @@ func (s *IngestService) Ingest(ctx context.Context, req *IngestRequest) error {
 	}
 
 	// Parse URL
-	pathname, utmSource, utmMedium, utmCampaign := parseURL(req.URL)
+	hostname, pathname, utmSource, utmMedium, utmCampaign, utmTerm, utmContent := parseURL(req.URL)
+	if hostname == "" {
+		hostname = req.Domain
+	}
+	referrerHost := extractHostname(req.Referrer)
 
 	// Classify referrer
 	referrerSource := ClassifySource(utmSource, req.Referrer, req.Domain)
+	channel := ClassifyChannel(utmSource, utmMedium, req.Referrer, req.Domain)
 
 	// Internal nav produces empty source — use Direct only if no referrer at all
 	if referrerSource == "" && req.Referrer != "" {
@@ -110,10 +121,21 @@ func (s *IngestService) Ingest(ctx context.Context, req *IngestRequest) error {
 	}
 
 	// Resolve location from IP via GeoIP database
-	loc := s.geoIP.Lookup(req.RemoteIP)
-	countryCode := loc.CountryCode
-	region := loc.Region
-	city := loc.City
+	countryCode := req.CountryCode
+	region := req.Region
+	city := req.City
+	if countryCode == "" || region == "" || city == "" {
+		loc := s.geoIP.Lookup(req.RemoteIP)
+		if countryCode == "" {
+			countryCode = loc.CountryCode
+		}
+		if region == "" {
+			region = loc.Region
+		}
+		if city == "" {
+			city = loc.City
+		}
+	}
 
 	// Fallback to Accept-Language if GeoIP returns no country
 	if countryCode == "" {
@@ -121,7 +143,7 @@ func (s *IngestService) Ingest(ctx context.Context, req *IngestRequest) error {
 	}
 
 	// Parse User-Agent
-	browser, os, deviceType := ParseUA(req.UserAgent)
+	browser, browserVersion, os, osVersion, deviceType := ParseUA(req.UserAgent)
 
 	now := time.Now().UTC()
 
@@ -141,16 +163,24 @@ func (s *IngestService) Ingest(ctx context.Context, req *IngestRequest) error {
 		newSession := analyticsdomain.NewSessionFromIngest(analyticsdomain.SessionParams{
 			PropertyID:     prop.ID,
 			VisitorID:      currentVisitorID,
+			Hostname:       hostname,
 			Pathname:       pathname,
+			Referrer:       req.Referrer,
+			ReferrerHost:   referrerHost,
 			ReferrerSource: referrerSource,
+			Channel:        channel,
 			UTMSource:      utmSource,
 			UTMMedium:      utmMedium,
 			UTMCampaign:    utmCampaign,
+			UTMTerm:        utmTerm,
+			UTMContent:     utmContent,
 			CountryCode:    countryCode,
 			Region:         region,
 			City:           city,
 			Browser:        browser,
+			BrowserVersion: browserVersion,
 			OS:             os,
+			OSVersion:      osVersion,
 			DeviceType:     deviceType,
 			StartedAt:      now,
 			EventName:      req.EventName,
@@ -162,21 +192,32 @@ func (s *IngestService) Ingest(ctx context.Context, req *IngestRequest) error {
 
 	// INSERT event
 	event := &analyticsdomain.AnalyticsEvent{
-		PropertyID:     prop.ID,
-		VisitorID:      currentVisitorID,
-		Name:           req.EventName,
-		Pathname:       pathname,
-		ReferrerSource: referrerSource,
-		UTMSource:      utmSource,
-		UTMMedium:      utmMedium,
-		UTMCampaign:    utmCampaign,
-		CountryCode:    countryCode,
-		Region:         region,
-		City:           city,
-		Browser:        browser,
-		OS:             os,
-		DeviceType:     deviceType,
-		Timestamp:      now,
+		PropertyID:         prop.ID,
+		VisitorID:          currentVisitorID,
+		Name:               req.EventName,
+		Hostname:           hostname,
+		Pathname:           pathname,
+		Referrer:           req.Referrer,
+		ReferrerHost:       referrerHost,
+		ReferrerSource:     referrerSource,
+		Channel:            channel,
+		UTMSource:          utmSource,
+		UTMMedium:          utmMedium,
+		UTMCampaign:        utmCampaign,
+		UTMTerm:            utmTerm,
+		UTMContent:         utmContent,
+		CountryCode:        countryCode,
+		Region:             region,
+		City:               city,
+		Browser:            browser,
+		BrowserVersion:     browserVersion,
+		OS:                 os,
+		OSVersion:          osVersion,
+		DeviceType:         deviceType,
+		Props:              req.CustomProperties,
+		RevenueCurrency:    req.RevenueCurrency,
+		RevenueAmountCents: req.RevenueAmountCents,
+		Timestamp:          now,
 	}
 	if err := s.store.InsertEvent(ctx, event); err != nil {
 		s.logger.Warn("Failed to insert event", "error", err)
@@ -285,7 +326,7 @@ func (s *IngestService) refreshSaltCache(ctx context.Context) {
 }
 
 // parseURL extracts pathname and UTM parameters from a URL string.
-func parseURL(rawURL string) (pathname, utmSource, utmMedium, utmCampaign string) {
+func parseURL(rawURL string) (hostname, pathname, utmSource, utmMedium, utmCampaign, utmTerm, utmContent string) {
 	return analyticsdomain.ParseTrackedURL(rawURL)
 }
 

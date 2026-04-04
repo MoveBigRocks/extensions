@@ -4,19 +4,21 @@ import (
 	"github.com/mssola/useragent"
 )
 
-// ParseUA extracts browser name, OS name, and device type from a User-Agent string.
-// No version numbers — "Chrome" not "Chrome 122.0".
-func ParseUA(uaString string) (browser, os, deviceType string) {
+// ParseUA extracts browser and OS names with versions, plus device type.
+func ParseUA(uaString string) (browser, browserVersion, os, osVersion, deviceType string) {
 	if uaString == "" {
-		return "", "", ""
+		return "", "", "", "", ""
 	}
 
 	ua := useragent.New(uaString)
 
-	browserName, _ := ua.Browser()
+	browserName, parsedBrowserVersion := ua.Browser()
 	browser = browserName
+	browserVersion = parsedBrowserVersion
 
 	os = ua.OS()
+	osInfo := ua.OSInfo()
+	osVersion = osInfo.Version
 
 	if ua.Mobile() {
 		deviceType = "Mobile"
@@ -34,5 +36,5 @@ func ParseUA(uaString string) (browser, os, deviceType string) {
 		}
 	}
 
-	return browser, os, deviceType
+	return browser, browserVersion, os, osVersion, deviceType
 }

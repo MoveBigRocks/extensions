@@ -8,6 +8,7 @@ Canonical migration files:
 
 - `migrations/000001_init.up.sql`
 - `migrations/000002_rls.up.sql`
+- `migrations/000003_event_visit_model_v2.up.sql`
 
 What belongs in these migrations:
 
@@ -17,6 +18,7 @@ What belongs in these migrations:
 - salts
 - raw events
 - sessions
+- v2 event metadata and visit attribution fields
 - indexes and RLS policies for the owned schema
 
 What does not belong in these migrations:

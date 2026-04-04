@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -98,35 +99,44 @@ type sessionRow struct {
 	SessionID      int64     `db:"session_id"`
 	PropertyID     string    `db:"property_id"`
 	VisitorID      int64     `db:"visitor_id"`
+	Hostname       string    `db:"hostname"`
 	EntryPage      string    `db:"entry_page"`
 	ExitPage       string    `db:"exit_page"`
+	Referrer       string    `db:"referrer"`
+	ReferrerHost   string    `db:"referrer_host"`
 	ReferrerSource string    `db:"referrer_source"`
+	Channel        string    `db:"channel"`
 	UTMSource      string    `db:"utm_source"`
 	UTMMedium      string    `db:"utm_medium"`
 	UTMCampaign    string    `db:"utm_campaign"`
+	UTMTerm        string    `db:"utm_term"`
+	UTMContent     string    `db:"utm_content"`
 	CountryCode    string    `db:"country_code"`
 	Region         string    `db:"region"`
 	City           string    `db:"city"`
 	Browser        string    `db:"browser"`
+	BrowserVersion string    `db:"browser_version"`
 	OS             string    `db:"os"`
+	OSVersion      string    `db:"os_version"`
 	DeviceType     string    `db:"device_type"`
 	StartedAt      time.Time `db:"started_at"`
 	LastActivity   time.Time `db:"last_activity"`
 	Duration       int       `db:"duration"`
 	Pageviews      int       `db:"pageviews"`
+	EventCount     int       `db:"event_count"`
 	IsBounce       bool      `db:"is_bounce"`
 }
 
 func (r *sessionRow) toDomain() *analyticsdomain.Session {
 	return &analyticsdomain.Session{
 		SessionID: r.SessionID, PropertyID: r.PropertyID, VisitorID: r.VisitorID,
-		EntryPage: r.EntryPage, ExitPage: r.ExitPage,
-		ReferrerSource: r.ReferrerSource, UTMSource: r.UTMSource,
-		UTMMedium: r.UTMMedium, UTMCampaign: r.UTMCampaign,
+		Hostname: r.Hostname, EntryPage: r.EntryPage, ExitPage: r.ExitPage,
+		Referrer: r.Referrer, ReferrerHost: r.ReferrerHost, ReferrerSource: r.ReferrerSource, Channel: r.Channel,
+		UTMSource: r.UTMSource, UTMMedium: r.UTMMedium, UTMCampaign: r.UTMCampaign, UTMTerm: r.UTMTerm, UTMContent: r.UTMContent,
 		CountryCode: r.CountryCode, Region: r.Region, City: r.City,
-		Browser: r.Browser, OS: r.OS, DeviceType: r.DeviceType,
+		Browser: r.Browser, BrowserVersion: r.BrowserVersion, OS: r.OS, OSVersion: r.OSVersion, DeviceType: r.DeviceType,
 		StartedAt: r.StartedAt, LastActivity: r.LastActivity,
-		Duration: r.Duration, Pageviews: r.Pageviews, IsBounce: boolToInt(r.IsBounce),
+		Duration: r.Duration, Pageviews: r.Pageviews, EventCount: r.EventCount, IsBounce: boolToInt(r.IsBounce),
 	}
 }
 
@@ -148,6 +158,17 @@ func boolToInt(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func marshalEventProps(props map[string]string) (string, error) {
+	if len(props) == 0 {
+		return "{}", nil
+	}
+	data, err := json.Marshal(props)
+	if err != nil {
+		return "", fmt.Errorf("marshal analytics properties: %w", err)
+	}
+	return string(data), nil
 }
 
 // --- Properties ---
@@ -262,11 +283,17 @@ func (s *AnalyticsStore) DeleteProperty(ctx context.Context, propertyID string) 
 // --- Events ---
 
 func (s *AnalyticsStore) InsertEvent(ctx context.Context, e *analyticsdomain.AnalyticsEvent) error {
+	propsJSON, err := marshalEventProps(e.Props)
+	if err != nil {
+		return err
+	}
 	result, err := s.execContext(ctx,
 		`INSERT INTO ${SCHEMA_NAME}.events (
-			workspace_id, extension_install_id, property_id, visitor_id, name, pathname,
-			referrer_source, utm_source, utm_medium, utm_campaign, country_code,
-			region, city, browser, os, device_type, timestamp
+			workspace_id, extension_install_id, property_id, visitor_id, name, hostname, pathname,
+			referrer, referrer_host, referrer_source, channel,
+			utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+			country_code, region, city, browser, browser_version, os, os_version, device_type,
+			props_json, revenue_currency, revenue_amount_cents, timestamp
 		)
 		SELECT
 			p.workspace_id,
@@ -285,12 +312,26 @@ func (s *AnalyticsStore) InsertEvent(ctx context.Context, e *analyticsdomain.Ana
 			?,
 			?,
 			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
 			?
 		FROM ${SCHEMA_NAME}.properties p
 		WHERE p.id = ?`,
-		e.VisitorID, e.Name, e.Pathname, e.ReferrerSource,
-		e.UTMSource, e.UTMMedium, e.UTMCampaign, e.CountryCode, e.Region, e.City,
-		e.Browser, e.OS, e.DeviceType, e.Timestamp, e.PropertyID)
+		e.VisitorID, e.Name, e.Hostname, e.Pathname,
+		e.Referrer, e.ReferrerHost, e.ReferrerSource, e.Channel,
+		e.UTMSource, e.UTMMedium, e.UTMCampaign, e.UTMTerm, e.UTMContent,
+		e.CountryCode, e.Region, e.City, e.Browser, e.BrowserVersion, e.OS, e.OSVersion, e.DeviceType,
+		propsJSON, e.RevenueCurrency, e.RevenueAmountCents, e.Timestamp, e.PropertyID)
 	if err != nil {
 		return err
 	}
@@ -331,10 +372,10 @@ func (s *AnalyticsStore) FindRecentSession(ctx context.Context, propertyID strin
 		return nil, fmt.Errorf("no visitor IDs provided")
 	}
 
-	query := `SELECT session_id, property_id, visitor_id, entry_page, exit_page,
-		referrer_source, utm_source, utm_medium, utm_campaign,
-		country_code, region, city, browser, os, device_type,
-		started_at, last_activity, duration, pageviews, is_bounce
+	query := `SELECT session_id, property_id, visitor_id, hostname, entry_page, exit_page,
+		referrer, referrer_host, referrer_source, channel, utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+		country_code, region, city, browser, browser_version, os, os_version, device_type,
+		started_at, last_activity, duration, pageviews, event_count, is_bounce
 		FROM ${SCHEMA_NAME}.sessions
 		WHERE property_id = ? AND visitor_id IN (?, ?) AND last_activity > ?
 		ORDER BY last_activity DESC LIMIT 1`
@@ -361,10 +402,11 @@ func (s *AnalyticsStore) FindRecentSession(ctx context.Context, propertyID strin
 func (s *AnalyticsStore) InsertSession(ctx context.Context, sess *analyticsdomain.Session) error {
 	result, err := s.execContext(ctx,
 		`INSERT INTO ${SCHEMA_NAME}.sessions (
-			session_id, workspace_id, extension_install_id, property_id, visitor_id, entry_page, exit_page,
-			referrer_source, utm_source, utm_medium, utm_campaign,
-			country_code, region, city, browser, os, device_type,
-			started_at, last_activity, duration, pageviews, is_bounce
+			session_id, workspace_id, extension_install_id, property_id, visitor_id, hostname, entry_page, exit_page,
+			referrer, referrer_host, referrer_source, channel,
+			utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+			country_code, region, city, browser, browser_version, os, os_version, device_type,
+			started_at, last_activity, duration, pageviews, event_count, is_bounce
 		)
 		SELECT
 			?,
@@ -388,13 +430,22 @@ func (s *AnalyticsStore) InsertSession(ctx context.Context, sess *analyticsdomai
 			?,
 			?,
 			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
 			?
 		FROM ${SCHEMA_NAME}.properties p
 		WHERE p.id = ?`,
-		sess.SessionID, sess.VisitorID, sess.EntryPage, sess.ExitPage,
-		sess.ReferrerSource, sess.UTMSource, sess.UTMMedium, sess.UTMCampaign,
-		sess.CountryCode, sess.Region, sess.City, sess.Browser, sess.OS, sess.DeviceType,
-		sess.StartedAt, sess.LastActivity, sess.Duration, sess.Pageviews, sess.IsBounce != 0, sess.PropertyID)
+		sess.SessionID, sess.VisitorID, sess.Hostname, sess.EntryPage, sess.ExitPage,
+		sess.Referrer, sess.ReferrerHost, sess.ReferrerSource, sess.Channel,
+		sess.UTMSource, sess.UTMMedium, sess.UTMCampaign, sess.UTMTerm, sess.UTMContent,
+		sess.CountryCode, sess.Region, sess.City, sess.Browser, sess.BrowserVersion, sess.OS, sess.OSVersion, sess.DeviceType,
+		sess.StartedAt, sess.LastActivity, sess.Duration, sess.Pageviews, sess.EventCount, sess.IsBounce != 0, sess.PropertyID)
 	if err != nil {
 		return err
 	}
@@ -407,9 +458,9 @@ func (s *AnalyticsStore) InsertSession(ctx context.Context, sess *analyticsdomai
 
 func (s *AnalyticsStore) UpdateSession(ctx context.Context, sess *analyticsdomain.Session) error {
 	_, err := s.execContext(ctx,
-		`UPDATE ${SCHEMA_NAME}.sessions SET exit_page = ?, last_activity = ?, duration = ?, pageviews = ?, is_bounce = ?
+		`UPDATE ${SCHEMA_NAME}.sessions SET exit_page = ?, last_activity = ?, duration = ?, pageviews = ?, event_count = ?, is_bounce = ?
 		 WHERE session_id = ? AND property_id = ?`,
-		sess.ExitPage, sess.LastActivity, sess.Duration, sess.Pageviews, sess.IsBounce != 0,
+		sess.ExitPage, sess.LastActivity, sess.Duration, sess.Pageviews, sess.EventCount, sess.IsBounce != 0,
 		sess.SessionID, sess.PropertyID)
 	return err
 }
