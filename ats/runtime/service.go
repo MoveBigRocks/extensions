@@ -2,6 +2,7 @@ package atsruntime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -218,6 +219,9 @@ func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*Vacancy
 	if err != nil {
 		return nil, err
 	}
+	if err := s.setSetupStepConfirmed(ctx, input.WorkspaceID, "jobs", true); err != nil {
+		return nil, err
+	}
 	if err := s.publishCareersSiteIfInstalled(ctx, input.WorkspaceID); err != nil {
 		return nil, err
 	}
@@ -285,6 +289,20 @@ func (s *Service) WorkspaceDefaults(ctx context.Context, workspaceID string) (*W
 	return s.ensureWorkspaceProvisioned(ctx, workspaceID)
 }
 
+func (s *Service) ReplaceStagePresets(ctx context.Context, workspaceID string, presets []StagePreset) ([]StagePreset, error) {
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	return s.store.ReplaceStagePresets(ctx, workspaceID, presets)
+}
+
+func (s *Service) ReplaceSavedViews(ctx context.Context, workspaceID string, filters []SavedFilter) ([]SavedFilter, error) {
+	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	return s.store.ReplaceSavedFilters(ctx, workspaceID, filters)
+}
+
 func (s *Service) SetupStatus(ctx context.Context, workspaceID string) (*SetupStatus, error) {
 	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
 		return nil, err
@@ -297,20 +315,31 @@ func (s *Service) SetupStatus(ctx context.Context, workspaceID string) (*SetupSt
 	if err != nil {
 		return nil, err
 	}
+	gallery, err := s.store.ListCareersGalleryItems(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
 	jobs, err := s.store.ListVacancies(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
-	return s.syncSetupStatus(ctx, workspaceID, site, team, jobs)
+	return s.syncSetupStatus(ctx, workspaceID, site, team, gallery, jobs)
 }
 
 func (s *Service) SaveSetupState(ctx context.Context, workspaceID, currentStep string) (*SetupStatus, error) {
 	if _, err := s.ensureWorkspaceProvisioned(ctx, workspaceID); err != nil {
 		return nil, err
 	}
+	existing, err := s.store.GetCareersSetupState(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
 	state, err := s.store.SaveCareersSetupState(ctx, CareersSetupState{
-		WorkspaceID: workspaceID,
-		CurrentStep: currentStep,
+		WorkspaceID:    workspaceID,
+		CurrentStep:    currentStep,
+		ConfirmedSteps: existing.ConfirmedSteps,
+		CompletedAt:    existing.CompletedAt,
+		CreatedAt:      existing.CreatedAt,
 	})
 	if err != nil {
 		return nil, err
@@ -323,11 +352,15 @@ func (s *Service) SaveSetupState(ctx context.Context, workspaceID, currentStep s
 	if err != nil {
 		return nil, err
 	}
+	gallery, err := s.store.ListCareersGalleryItems(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
 	jobs, err := s.store.ListVacancies(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
-	return s.syncSetupStatusWithState(ctx, state, site, team, jobs)
+	return s.syncSetupStatusWithState(ctx, state, site, team, gallery, jobs)
 }
 
 func (s *Service) CareersSiteBundle(ctx context.Context, workspaceID string) (*CareersSiteBundle, error) {
@@ -357,7 +390,7 @@ func (s *Service) CareersSiteBundle(ctx context.Context, workspaceID string) (*C
 	if err != nil {
 		return nil, err
 	}
-	setup, err := s.syncSetupStatus(ctx, workspaceID, site, team, jobs)
+	setup, err := s.syncSetupStatus(ctx, workspaceID, site, team, gallery, jobs)
 	if err != nil {
 		return nil, err
 	}
@@ -384,6 +417,9 @@ func (s *Service) SaveCareersSiteProfile(ctx context.Context, input UpsertCareer
 	if err != nil {
 		return nil, err
 	}
+	if err := s.updateSiteSetupConfirmations(ctx, input.WorkspaceID, profile); err != nil {
+		return nil, err
+	}
 	if err := s.publishCareersSiteIfInstalled(ctx, input.WorkspaceID); err != nil {
 		return nil, err
 	}
@@ -399,6 +435,13 @@ func (s *Service) ReplaceCareersTeamMembers(ctx context.Context, workspaceID str
 	}
 	saved, err := s.store.ReplaceCareersTeamMembers(ctx, workspaceID, members)
 	if err != nil {
+		return nil, err
+	}
+	gallery, err := s.store.ListCareersGalleryItems(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.updateTeamSetupConfirmation(ctx, workspaceID, saved, gallery); err != nil {
 		return nil, err
 	}
 	if err := s.publishCareersSiteIfInstalled(ctx, workspaceID); err != nil {
@@ -418,6 +461,13 @@ func (s *Service) ReplaceCareersGalleryItems(ctx context.Context, workspaceID st
 	if err != nil {
 		return nil, err
 	}
+	team, err := s.store.ListCareersTeamMembers(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.updateTeamSetupConfirmation(ctx, workspaceID, team, saved); err != nil {
+		return nil, err
+	}
 	if err := s.publishCareersSiteIfInstalled(ctx, workspaceID); err != nil {
 		return nil, err
 	}
@@ -425,7 +475,10 @@ func (s *Service) ReplaceCareersGalleryItems(ctx context.Context, workspaceID st
 }
 
 func (s *Service) PublishCareersSite(ctx context.Context, workspaceID string) error {
-	return s.publishCareersSite(ctx, workspaceID, false)
+	if err := s.publishCareersSite(ctx, workspaceID, false); err != nil {
+		return err
+	}
+	return s.setSetupStepConfirmed(ctx, workspaceID, "publish", true)
 }
 
 func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplicationInput) (*SubmissionResult, error) {
@@ -513,7 +566,7 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		caseObj, err := s.cases.CreateCase(txCtx, serviceapp.CreateCaseParams{
 			WorkspaceID:  vacancy.WorkspaceID,
 			Subject:      fmt.Sprintf("%s for %s", applicant.FullName, vacancy.Title),
-			Description:  applicant.CoverNote,
+			Description:  application.SubmissionCoverNote,
 			QueueID:      queue.ID,
 			ContactID:    contact.ID,
 			ContactName:  applicant.FullName,
@@ -525,7 +578,7 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 		if err != nil {
 			return fmt.Errorf("create candidate case: %w", err)
 		}
-		if err := s.linkSubmissionAttachments(txCtx, vacancy.WorkspaceID, caseObj.ID, applicant); err != nil {
+		if err := s.linkSubmissionAttachments(txCtx, vacancy.WorkspaceID, caseObj.ID, application); err != nil {
 			return err
 		}
 
@@ -631,12 +684,12 @@ func (s *Service) UploadCareersMediaAsset(ctx context.Context, workspaceID, purp
 	})
 }
 
-func (s *Service) linkSubmissionAttachments(ctx context.Context, workspaceID, caseID string, applicant *Applicant) error {
-	if s == nil || s.platformStore == nil || applicant == nil {
+func (s *Service) linkSubmissionAttachments(ctx context.Context, workspaceID, caseID string, application *Application) error {
+	if s == nil || s.platformStore == nil || application == nil {
 		return nil
 	}
 
-	resumeAttachmentID := strings.TrimSpace(applicant.ResumeAttachmentID)
+	resumeAttachmentID := strings.TrimSpace(application.SubmissionResumeAttachmentID)
 	if resumeAttachmentID == "" {
 		return nil
 	}
@@ -919,6 +972,16 @@ func (s *Service) enrichAndFilterCandidateProfiles(ctx context.Context, workspac
 			generalVacancyID = vacancy.ID
 		}
 	}
+	stagePresets, err := s.store.ListStagePresets(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	savedViews, err := s.store.ListSavedFilters(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	presetStages := stageSetForSlug(stagePresets, options.StagePresetSlug)
+	viewCriteria := savedViewCriteriaForSlug(savedViews, options.ViewSlug)
 
 	talentPoolQueueID := mustQueueID(ctx, s, workspaceID, talentPoolQueueSlug)
 	queueCache := map[string]*servicedomain.Queue{}
@@ -951,6 +1014,12 @@ func (s *Service) enrichAndFilterCandidateProfiles(ctx context.Context, workspac
 			if !profile.IsTalentPool {
 				continue
 			}
+		}
+		if len(presetStages) > 0 && !presetStages[string(profile.Application.Stage)] {
+			continue
+		}
+		if !matchesSavedViewCriteria(profile, vacancyByID[profile.Application.VacancyID], viewCriteria) {
+			continue
 		}
 		filtered = append(filtered, profile)
 	}
@@ -1041,19 +1110,19 @@ func mustQueueID(ctx context.Context, s *Service, workspaceID, slug string) stri
 	return queue.ID
 }
 
-func (s *Service) syncSetupStatus(ctx context.Context, workspaceID string, site *CareersSiteProfile, team []CareersTeamMember, jobs []Vacancy) (*SetupStatus, error) {
+func (s *Service) syncSetupStatus(ctx context.Context, workspaceID string, site *CareersSiteProfile, team []CareersTeamMember, gallery []CareersGalleryItem, jobs []Vacancy) (*SetupStatus, error) {
 	state, err := s.store.GetCareersSetupState(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
-	return s.syncSetupStatusWithState(ctx, state, site, team, jobs)
+	return s.syncSetupStatusWithState(ctx, state, site, team, gallery, jobs)
 }
 
-func (s *Service) syncSetupStatusWithState(ctx context.Context, state *CareersSetupState, site *CareersSiteProfile, team []CareersTeamMember, jobs []Vacancy) (*SetupStatus, error) {
+func (s *Service) syncSetupStatusWithState(ctx context.Context, state *CareersSetupState, site *CareersSiteProfile, team []CareersTeamMember, gallery []CareersGalleryItem, jobs []Vacancy) (*SetupStatus, error) {
 	if state == nil {
 		return nil, fmt.Errorf("careers setup state is required")
 	}
-	steps := buildSetupChecklist(site, team, jobs)
+	steps := buildSetupChecklist(site, team, gallery, jobs, state.ConfirmedSteps)
 	currentStep := strings.TrimSpace(strings.ToLower(state.CurrentStep))
 	if currentStep == "" {
 		currentStep = firstIncompleteSetupStep(steps)
@@ -1081,10 +1150,11 @@ func (s *Service) syncSetupStatusWithState(ctx context.Context, state *CareersSe
 
 	if currentStep != state.CurrentStep || !timesEqual(completedAt, state.CompletedAt) {
 		saved, err := s.store.SaveCareersSetupState(ctx, CareersSetupState{
-			WorkspaceID: state.WorkspaceID,
-			CurrentStep: currentStep,
-			CompletedAt: completedAt,
-			CreatedAt:   state.CreatedAt,
+			WorkspaceID:    state.WorkspaceID,
+			CurrentStep:    currentStep,
+			ConfirmedSteps: state.ConfirmedSteps,
+			CompletedAt:    completedAt,
+			CreatedAt:      state.CreatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -1102,22 +1172,8 @@ func (s *Service) syncSetupStatusWithState(ctx context.Context, state *CareersSe
 	}, nil
 }
 
-func buildSetupChecklist(site *CareersSiteProfile, team []CareersTeamMember, jobs []Vacancy) []SetupChecklistStep {
-	brandComplete := site != nil &&
-		strings.TrimSpace(site.CompanyName) != "" &&
-		strings.TrimSpace(site.SiteTitle) != "" &&
-		strings.TrimSpace(site.PrimaryColor) != ""
-
-	companyComplete := site != nil &&
-		strings.TrimSpace(site.Tagline) != "" &&
-		strings.TrimSpace(site.HeroTitle) != "" &&
-		strings.TrimSpace(site.HeroBody) != "" &&
-		strings.TrimSpace(site.StoryBody) != "" &&
-		strings.TrimSpace(site.ContactEmail) != ""
-
-	teamComplete := len(team) > 0
-	jobsComplete := len(filterPrimaryJobs(jobs)) > 0
-	publishComplete := site != nil && site.PublishedAt != nil && !site.PublishedAt.IsZero()
+func buildSetupChecklist(site *CareersSiteProfile, team []CareersTeamMember, gallery []CareersGalleryItem, jobs []Vacancy, confirmedSteps []string) []SetupChecklistStep {
+	completions := stepCompletions(site, team, gallery, jobs, confirmedSteps)
 
 	return []SetupChecklistStep{
 		{
@@ -1125,36 +1181,53 @@ func buildSetupChecklist(site *CareersSiteProfile, team []CareersTeamMember, job
 			Title:       "Brand",
 			Description: "Set the company name, site title, colors, and visible brand markers.",
 			ActionLabel: "Edit site profile",
-			Completed:   brandComplete,
+			Completed:   completions["brand"],
 		},
 		{
 			Key:         "company",
 			Title:       "Company Story",
 			Description: "Fill in the hero, company story, contact details, and core public copy.",
 			ActionLabel: "Finish company profile",
-			Completed:   companyComplete,
+			Completed:   completions["company"],
 		},
 		{
 			Key:         "team",
 			Title:       "Team & Gallery",
 			Description: "Show the people and moments that make the public site feel credible.",
 			ActionLabel: "Add people and visuals",
-			Completed:   teamComplete,
+			Completed:   completions["team"],
 		},
 		{
 			Key:         "jobs",
 			Title:       "Jobs",
 			Description: "Create at least one structured job so the generator has something real to publish.",
 			ActionLabel: "Create a job",
-			Completed:   jobsComplete,
+			Completed:   completions["jobs"],
 		},
 		{
 			Key:         "publish",
 			Title:       "Publish",
 			Description: "Publish the careers site once the structure and content are in place.",
 			ActionLabel: "Publish careers site",
-			Completed:   publishComplete,
+			Completed:   completions["publish"],
 		},
+	}
+}
+
+func stepCompletions(site *CareersSiteProfile, team []CareersTeamMember, gallery []CareersGalleryItem, jobs []Vacancy, confirmedSteps []string) map[string]bool {
+	confirmed := normalizedStepSet(confirmedSteps)
+	brandReady := siteProfileHasRealBrandContent(site)
+	companyReady := siteProfileHasRealCompanyContent(site)
+	teamReady := teamHasRealContent(team) && galleryHasRealContent(gallery)
+	jobsReady := len(filterPrimaryJobs(jobs)) > 0
+	publishReady := site != nil && site.PublishedAt != nil && !site.PublishedAt.IsZero()
+
+	return map[string]bool{
+		"brand":   brandReady && confirmed["brand"],
+		"company": companyReady && confirmed["company"],
+		"team":    teamReady && confirmed["team"],
+		"jobs":    jobsReady && confirmed["jobs"],
+		"publish": publishReady && confirmed["publish"],
 	}
 }
 
@@ -1175,6 +1248,269 @@ func setupStepCompleted(key string, steps []SetupChecklistStep) bool {
 	for _, step := range steps {
 		if step.Key == key {
 			return step.Completed
+		}
+	}
+	return false
+}
+
+func (s *Service) updateSiteSetupConfirmations(ctx context.Context, workspaceID string, site *CareersSiteProfile) error {
+	if err := s.setSetupStepConfirmed(ctx, workspaceID, "brand", siteProfileHasRealBrandContent(site)); err != nil {
+		return err
+	}
+	return s.setSetupStepConfirmed(ctx, workspaceID, "company", siteProfileHasRealCompanyContent(site))
+}
+
+func (s *Service) updateTeamSetupConfirmation(ctx context.Context, workspaceID string, team []CareersTeamMember, gallery []CareersGalleryItem) error {
+	return s.setSetupStepConfirmed(ctx, workspaceID, "team", teamHasRealContent(team) && galleryHasRealContent(gallery))
+}
+
+func (s *Service) setSetupStepConfirmed(ctx context.Context, workspaceID, step string, confirmed bool) error {
+	state, err := s.store.GetCareersSetupState(ctx, workspaceID)
+	if err != nil {
+		return err
+	}
+	next := updateConfirmedSteps(state.ConfirmedSteps, step, confirmed)
+	if stringSlicesEqual([]string(state.ConfirmedSteps), next) {
+		return nil
+	}
+	_, err = s.store.SaveCareersSetupState(ctx, CareersSetupState{
+		WorkspaceID:    state.WorkspaceID,
+		CurrentStep:    state.CurrentStep,
+		ConfirmedSteps: next,
+		CompletedAt:    state.CompletedAt,
+		CreatedAt:      state.CreatedAt,
+	})
+	return err
+}
+
+func updateConfirmedSteps(existing []string, step string, confirmed bool) []string {
+	step = strings.TrimSpace(strings.ToLower(step))
+	if step == "" {
+		return normalizeSteps(existing)
+	}
+	normalized := normalizedStepSet(existing)
+	if confirmed {
+		normalized[step] = true
+	} else {
+		delete(normalized, step)
+	}
+	steps := make([]string, 0, len(normalized))
+	for _, candidate := range []string{"brand", "company", "team", "jobs", "publish"} {
+		if normalized[candidate] {
+			steps = append(steps, candidate)
+		}
+	}
+	return steps
+}
+
+func normalizedStepSet(steps []string) map[string]bool {
+	set := map[string]bool{}
+	for _, step := range steps {
+		step = strings.TrimSpace(strings.ToLower(step))
+		if step == "" {
+			continue
+		}
+		set[step] = true
+	}
+	return set
+}
+
+func normalizeSteps(steps []string) []string {
+	normalized := normalizedStepSet(steps)
+	ordered := make([]string, 0, len(normalized))
+	for _, candidate := range []string{"brand", "company", "team", "jobs", "publish"} {
+		if normalized[candidate] {
+			ordered = append(ordered, candidate)
+		}
+	}
+	return ordered
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if strings.TrimSpace(left[index]) != strings.TrimSpace(right[index]) {
+			return false
+		}
+	}
+	return true
+}
+
+func siteProfileHasRealBrandContent(site *CareersSiteProfile) bool {
+	if site == nil {
+		return false
+	}
+	seed := defaultCareersSiteProfile(site.WorkspaceID)
+	required := strings.TrimSpace(site.CompanyName) != "" &&
+		strings.TrimSpace(site.SiteTitle) != "" &&
+		strings.TrimSpace(site.PrimaryColor) != ""
+	if !required {
+		return false
+	}
+	return strings.TrimSpace(site.CompanyName) != strings.TrimSpace(seed.CompanyName) ||
+		strings.TrimSpace(site.SiteTitle) != strings.TrimSpace(seed.SiteTitle) ||
+		strings.TrimSpace(site.PrimaryColor) != strings.TrimSpace(seed.PrimaryColor) ||
+		strings.TrimSpace(site.LogoURL) != "" ||
+		strings.TrimSpace(site.HeroImageURL) != "" ||
+		strings.TrimSpace(site.OgImageURL) != ""
+}
+
+func siteProfileHasRealCompanyContent(site *CareersSiteProfile) bool {
+	if site == nil {
+		return false
+	}
+	seed := defaultCareersSiteProfile(site.WorkspaceID)
+	required := strings.TrimSpace(site.Tagline) != "" &&
+		strings.TrimSpace(site.HeroTitle) != "" &&
+		strings.TrimSpace(site.HeroBody) != "" &&
+		strings.TrimSpace(site.StoryBody) != "" &&
+		strings.TrimSpace(site.ContactEmail) != ""
+	if !required {
+		return false
+	}
+	return strings.TrimSpace(site.Tagline) != strings.TrimSpace(seed.Tagline) ||
+		strings.TrimSpace(site.HeroTitle) != strings.TrimSpace(seed.HeroTitle) ||
+		strings.TrimSpace(site.HeroBody) != strings.TrimSpace(seed.HeroBody) ||
+		strings.TrimSpace(site.StoryBody) != strings.TrimSpace(seed.StoryBody) ||
+		strings.TrimSpace(site.ContactEmail) != strings.TrimSpace(seed.ContactEmail) ||
+		strings.TrimSpace(site.WebsiteURL) != strings.TrimSpace(seed.WebsiteURL)
+}
+
+func teamHasRealContent(team []CareersTeamMember) bool {
+	if len(team) == 0 {
+		return false
+	}
+	firstWorkspaceID := ""
+	for _, member := range team {
+		if strings.TrimSpace(member.WorkspaceID) != "" {
+			firstWorkspaceID = member.WorkspaceID
+			break
+		}
+	}
+	defaults := defaultCareersTeamMembers(firstWorkspaceID)
+	return !sameTeamContent(team, defaults)
+}
+
+func galleryHasRealContent(gallery []CareersGalleryItem) bool {
+	if len(gallery) == 0 {
+		return false
+	}
+	firstWorkspaceID := ""
+	for _, item := range gallery {
+		if strings.TrimSpace(item.WorkspaceID) != "" {
+			firstWorkspaceID = item.WorkspaceID
+			break
+		}
+	}
+	defaults := defaultCareersGalleryItems(firstWorkspaceID)
+	return !sameGalleryContent(gallery, defaults)
+}
+
+func sameTeamContent(left, right []CareersTeamMember) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if normalizeCareersTeamMember(left[index]).Name != normalizeCareersTeamMember(right[index]).Name ||
+			normalizeCareersTeamMember(left[index]).Role != normalizeCareersTeamMember(right[index]).Role ||
+			normalizeCareersTeamMember(left[index]).Bio != normalizeCareersTeamMember(right[index]).Bio ||
+			strings.TrimSpace(left[index].ImageURL) != strings.TrimSpace(right[index].ImageURL) ||
+			strings.TrimSpace(left[index].LinkedInURL) != strings.TrimSpace(right[index].LinkedInURL) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameGalleryContent(left, right []CareersGalleryItem) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		leftItem := normalizeCareersGalleryItem(left[index])
+		rightItem := normalizeCareersGalleryItem(right[index])
+		if leftItem.Section != rightItem.Section ||
+			leftItem.AltText != rightItem.AltText ||
+			leftItem.Caption != rightItem.Caption ||
+			leftItem.ImageURL != rightItem.ImageURL {
+			return false
+		}
+	}
+	return true
+}
+
+func stageSetForSlug(presets []StagePreset, slug string) map[string]bool {
+	slug = strings.TrimSpace(strings.ToLower(slug))
+	if slug == "" {
+		return nil
+	}
+	for _, preset := range presets {
+		if strings.TrimSpace(strings.ToLower(preset.Slug)) != slug {
+			continue
+		}
+		set := map[string]bool{}
+		for _, stage := range preset.Stages {
+			stage = strings.TrimSpace(strings.ToLower(stage))
+			if stage != "" {
+				set[stage] = true
+			}
+		}
+		return set
+	}
+	return nil
+}
+
+func savedViewCriteriaForSlug(filters []SavedFilter, slug string) SavedViewCriteria {
+	slug = strings.TrimSpace(strings.ToLower(slug))
+	if slug == "" {
+		return SavedViewCriteria{}
+	}
+	for _, filter := range filters {
+		if strings.TrimSpace(strings.ToLower(filter.Slug)) != slug {
+			continue
+		}
+		var criteria SavedViewCriteria
+		if err := json.Unmarshal(filter.Criteria, &criteria); err == nil {
+			criteria.Stages = normalizeStringList(criteria.Stages)
+			criteria.SourceKinds = normalizeStringList(criteria.SourceKinds)
+			criteria.QueueSlugs = normalizeStringList(criteria.QueueSlugs)
+			criteria.VacancyStatuses = normalizeStringList(criteria.VacancyStatuses)
+			criteria.VacancyKinds = normalizeStringList(criteria.VacancyKinds)
+			return criteria
+		}
+	}
+	return SavedViewCriteria{}
+}
+
+func matchesSavedViewCriteria(profile CandidateProfile, vacancy Vacancy, criteria SavedViewCriteria) bool {
+	if len(criteria.Stages) > 0 && !containsNormalized(criteria.Stages, string(profile.Application.Stage)) {
+		return false
+	}
+	if len(criteria.SourceKinds) > 0 && !containsNormalized(criteria.SourceKinds, string(profile.Application.SourceKind)) {
+		return false
+	}
+	if len(criteria.QueueSlugs) > 0 && !containsNormalized(criteria.QueueSlugs, profile.CaseQueueSlug) {
+		return false
+	}
+	if len(criteria.VacancyStatuses) > 0 && !containsNormalized(criteria.VacancyStatuses, string(vacancy.Status)) {
+		return false
+	}
+	if len(criteria.VacancyKinds) > 0 && !containsNormalized(criteria.VacancyKinds, string(vacancy.Kind)) {
+		return false
+	}
+	if criteria.TalentPoolOnly && !profile.IsTalentPool {
+		return false
+	}
+	return true
+}
+
+func containsNormalized(values []string, target string) bool {
+	target = strings.TrimSpace(strings.ToLower(target))
+	for _, value := range values {
+		if strings.TrimSpace(strings.ToLower(value)) == target {
+			return true
 		}
 	}
 	return false

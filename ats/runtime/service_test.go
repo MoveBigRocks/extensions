@@ -154,7 +154,7 @@ func TestATSServiceCreatesOwnedWorkflowAndStageAutomation(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, candidateCase.Tags, "ats-stage-review")
 	require.Contains(t, candidateCase.Tags, "job:"+job.Slug)
-	resumeAttachmentField, ok := candidateCase.CustomFields.GetString("ats_applicant_resume_attachment_id")
+	resumeAttachmentField, ok := candidateCase.CustomFields.GetString("ats_application_resume_attachment_id")
 	require.True(t, ok)
 	require.Equal(t, resumeAttachment.ID, resumeAttachmentField)
 	portfolioField, ok := candidateCase.CustomFields.GetString("ats_applicant_portfolio_url")
@@ -624,6 +624,226 @@ func TestATSCareersMediaUploadPublishesManagedAsset(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join(artifactRoot, "workspaces", workspace.ID, "extensions", "ats", "surfaces", "website", "site", "assets", "uploads", "*-brand-mark.png"))
 	require.NoError(t, err)
 	require.NotEmpty(t, files)
+}
+
+func TestATSPublicSubmitIgnoresSpoofedSourceMetadata(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	runtime, err := NewRuntime(store)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+
+	job, err := runtime.Service.CreateJob(ctx, CreateJobInput{
+		WorkspaceID: workspace.ID,
+		Slug:        "designer",
+		Title:       "Designer",
+		Summary:     "Shape the product.",
+		Description: "Design calm systems.",
+	})
+	require.NoError(t, err)
+	_, err = runtime.Service.PublishJob(ctx, workspace.ID, job.ID, time.Now().UTC())
+	require.NoError(t, err)
+
+	engine := runtimehttp.DefaultEngine()
+	RegisterRoutes(engine, runtime.Handler)
+	server := httptest.NewServer(engine)
+	defer server.Close()
+
+	payload, err := json.Marshal(map[string]any{
+		"vacancySlug":      "designer",
+		"fullName":         "Taylor Swift",
+		"email":            "taylor@example.com",
+		"sourceKind":       "api",
+		"source":           "spoofed",
+		"sourceRefId":      "spoofed-ref",
+		"formSubmissionId": "spoofed-form",
+	})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, server.URL+"/careers/applications", bytes.NewReader(payload))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-MBR-Workspace-ID", workspace.ID)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	var decoded map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&decoded))
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	application := decoded["application"].(map[string]any)
+	require.Equal(t, string(atsdomain.ApplicationSourceKindATSPublic), application["sourceKind"])
+	require.Equal(t, "careers_site", application["source"])
+	require.Equal(t, "", application["sourceRefId"])
+	require.Equal(t, "", application["formSubmissionId"])
+}
+
+func TestATSSetupStatusRequiresRealOperatorConfiguration(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	runtime, err := NewRuntime(store)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+
+	status, err := runtime.Service.SetupStatus(ctx, workspace.ID)
+	require.NoError(t, err)
+	require.False(t, status.IsCompleted)
+
+	completed := map[string]bool{}
+	for _, step := range status.Steps {
+		completed[step.Key] = step.Completed
+	}
+	require.False(t, completed["brand"])
+	require.False(t, completed["company"])
+	require.False(t, completed["team"])
+	require.False(t, completed["jobs"])
+	require.False(t, completed["publish"])
+}
+
+func TestATSApplicationSnapshotsPreservePerJobSubmissionData(t *testing.T) {
+	storeIface, cleanup := testutil.SetupTestSQLStore(t)
+	defer cleanup()
+
+	store := storeIface.(*platformsql.Store)
+	ctx := context.Background()
+	require.NoError(t, ApplyMigrations(ctx, store.SqlxDB()))
+
+	runtime, err := NewRuntime(store)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		runtime.RulesEngine.Stop()
+	})
+
+	workspace := testutil.NewIsolatedWorkspace(t)
+	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
+
+	firstJob, err := runtime.Service.CreateJob(ctx, CreateJobInput{
+		WorkspaceID: workspace.ID,
+		Slug:        "engineer-one",
+		Title:       "Engineer One",
+		Summary:     "First role.",
+		Description: "First role description.",
+	})
+	require.NoError(t, err)
+	secondJob, err := runtime.Service.CreateJob(ctx, CreateJobInput{
+		WorkspaceID: workspace.ID,
+		Slug:        "engineer-two",
+		Title:       "Engineer Two",
+		Summary:     "Second role.",
+		Description: "Second role description.",
+	})
+	require.NoError(t, err)
+	_, err = runtime.Service.PublishJob(ctx, workspace.ID, firstJob.ID, time.Now().UTC())
+	require.NoError(t, err)
+	_, err = runtime.Service.PublishJob(ctx, workspace.ID, secondJob.ID, time.Now().UTC())
+	require.NoError(t, err)
+
+	firstResume := createUploadedAttachment(t, ctx, store, workspace.ID, "candidate-first.pdf", []byte("%PDF-1.4 first"))
+	secondResume := createUploadedAttachment(t, ctx, store, workspace.ID, "candidate-second.pdf", []byte("%PDF-1.4 second"))
+
+	_, err = runtime.Service.SubmitApplication(ctx, SubmitApplicationInput{
+		WorkspaceID: workspace.ID,
+		VacancySlug: firstJob.Slug,
+		Submission: atsdomain.CandidateSubmission{
+			FullName:           "Jordan Example",
+			Email:              "jordan@example.com",
+			CoverNote:          "First application note.",
+			ResumeAttachmentID: firstResume.ID,
+		},
+	})
+	require.NoError(t, err)
+	_, err = runtime.Service.SubmitApplication(ctx, SubmitApplicationInput{
+		WorkspaceID: workspace.ID,
+		VacancySlug: secondJob.Slug,
+		Submission: atsdomain.CandidateSubmission{
+			FullName:           "Jordan Example",
+			Email:              "jordan@example.com",
+			CoverNote:          "Second application note.",
+			ResumeAttachmentID: secondResume.ID,
+		},
+	})
+	require.NoError(t, err)
+
+	profiles, err := runtime.Service.ListCandidates(ctx, workspace.ID, CandidateListOptions{})
+	require.NoError(t, err)
+	require.Len(t, profiles, 2)
+
+	notesByVacancy := map[string]CandidateProfile{}
+	for _, profile := range profiles {
+		notesByVacancy[profile.Application.VacancyID] = profile
+	}
+	require.Equal(t, "First application note.", notesByVacancy[firstJob.ID].Application.SubmissionCoverNote)
+	require.Equal(t, firstResume.ID, notesByVacancy[firstJob.ID].Application.SubmissionResumeAttachmentID)
+	require.Equal(t, "Second application note.", notesByVacancy[secondJob.ID].Application.SubmissionCoverNote)
+	require.Equal(t, secondResume.ID, notesByVacancy[secondJob.ID].Application.SubmissionResumeAttachmentID)
+}
+
+func TestRenderCareersSiteHidesDraftJobsAndTombstonesClosedJobs(t *testing.T) {
+	now := time.Now().UTC()
+	publishedAt := now.Add(-24 * time.Hour)
+	bundle := &CareersSiteBundle{
+		Site: CareersSiteProfile{
+			CompanyName: "Move Big Rocks",
+			SiteTitle:   "Careers at Move Big Rocks",
+			WebsiteURL:  "https://example.com",
+		},
+		Jobs: []Vacancy{
+			{
+				Slug:        "open-role",
+				Title:       "Open Role",
+				Status:      atsdomain.VacancyStatusOpen,
+				Kind:        atsdomain.VacancyKindJob,
+				PublishedAt: &publishedAt,
+				CreatedAt:   now,
+			},
+			{
+				Slug:      "draft-role",
+				Title:     "Draft Role",
+				Status:    atsdomain.VacancyStatusDraft,
+				Kind:      atsdomain.VacancyKindJob,
+				CreatedAt: now,
+			},
+			{
+				Slug:        "closed-role",
+				Title:       "Closed Role",
+				Status:      atsdomain.VacancyStatusClosed,
+				Kind:        atsdomain.VacancyKindJob,
+				PublishedAt: &publishedAt,
+				CreatedAt:   now,
+			},
+		},
+	}
+
+	files, err := renderCareersSite(bundle)
+	require.NoError(t, err)
+	require.Contains(t, string(files["site/index.html"]), "Open Role")
+	require.NotContains(t, string(files["site/index.html"]), "Draft Role")
+	require.NotContains(t, string(files["site/index.html"]), "Closed Role")
+	_, ok := files["site/jobs/draft-role"]
+	require.False(t, ok)
+	require.Contains(t, string(files["site/jobs/closed-role"]), "not currently published")
 }
 
 type testS3Server struct {

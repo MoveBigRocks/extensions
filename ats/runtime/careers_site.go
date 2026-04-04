@@ -36,6 +36,14 @@ type careersJobPageData struct {
 	JobPostingJSON        template.JS
 }
 
+type careersUnavailableJobPageData struct {
+	Site         CareersSiteProfile
+	Job          Vacancy
+	OpenJobs     []Vacancy
+	HasCustomCSS bool
+	PageURL      string
+}
+
 func renderCareersSite(bundle *CareersSiteBundle) (map[string][]byte, error) {
 	if bundle == nil {
 		return nil, fmt.Errorf("careers site bundle is required")
@@ -89,18 +97,34 @@ func renderCareersSite(bundle *CareersSiteBundle) (map[string][]byte, error) {
 		if !job.IsListedPublicly() {
 			continue
 		}
-		jobHTML, err := renderTemplate("careers_job", careersJobTemplate, careersJobPageData{
-			Site:                  bundle.Site,
-			Job:                   job,
-			Team:                  bundle.Team,
-			Gallery:               filterGallery(bundle.Gallery, "jobs"),
-			OpenJobs:              openJobs,
-			AcceptingApplications: job.Status == atsdomain.VacancyStatusOpen,
-			ResumeUploadsEnabled:  bundle.ResumeUploadsEnabled,
-			HasCustomCSS:          bundle.Site.CustomCSSEnabled && strings.TrimSpace(bundle.Site.CustomCSS) != "",
-			PageURL:               absoluteURL(bundle.Site.WebsiteURL, "/careers/jobs/"+job.Slug),
-			JobPostingJSON:        marshalJSONLD(buildJobPostingJSONLD(bundle.Site, job)),
-		})
+		var (
+			jobHTML []byte
+			err     error
+		)
+		if job.Status == atsdomain.VacancyStatusOpen {
+			jobHTML, err = renderTemplate("careers_job", careersJobTemplate, careersJobPageData{
+				Site:                  bundle.Site,
+				Job:                   job,
+				Team:                  bundle.Team,
+				Gallery:               filterGallery(bundle.Gallery, "jobs"),
+				OpenJobs:              openJobs,
+				AcceptingApplications: true,
+				ResumeUploadsEnabled:  bundle.ResumeUploadsEnabled,
+				HasCustomCSS:          bundle.Site.CustomCSSEnabled && strings.TrimSpace(bundle.Site.CustomCSS) != "",
+				PageURL:               absoluteURL(bundle.Site.WebsiteURL, "/careers/jobs/"+job.Slug),
+				JobPostingJSON:        marshalJSONLD(buildJobPostingJSONLD(bundle.Site, job)),
+			})
+		} else if job.PublishedAt != nil && !job.PublishedAt.IsZero() {
+			jobHTML, err = renderTemplate("careers_job_unavailable", careersUnavailableJobTemplate, careersUnavailableJobPageData{
+				Site:         bundle.Site,
+				Job:          job,
+				OpenJobs:     openJobs,
+				HasCustomCSS: bundle.Site.CustomCSSEnabled && strings.TrimSpace(bundle.Site.CustomCSS) != "",
+				PageURL:      absoluteURL(bundle.Site.WebsiteURL, "/careers/jobs/"+job.Slug),
+			})
+		} else {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -730,6 +754,41 @@ const careersJobTemplate = `<!doctype html>
         </section>
         {{ end }}
       </aside>
+    </main>
+  </body>
+</html>`
+
+const careersUnavailableJobTemplate = `<!doctype html>
+<html lang="{{ nonBlank .Job.PublicLanguage "en" }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .Site.CompanyName }} Careers</title>
+    <meta name="robots" content="noindex">
+    {{ if .PageURL }}<link rel="canonical" href="{{ .PageURL }}">{{ end }}
+    <link rel="stylesheet" href="/careers/assets/site.css">
+    {{ if .HasCustomCSS }}<link rel="stylesheet" href="/careers/assets/custom.css">{{ end }}
+  </head>
+  <body>
+    <header class="site-shell">
+      <div class="site-nav">
+        <a class="brand" href="/careers">
+          {{ if .Site.LogoURL }}<img src="{{ .Site.LogoURL }}" alt="{{ .Site.CompanyName }} logo">{{ end }}
+          <span>{{ .Site.CompanyName }}</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="site-shell job-layout">
+      <section class="copy-block">
+        <div class="section-heading">{{ jobStatusLabel .Job.Status }}</div>
+        <h1>This role is not currently published.</h1>
+        <p>Draft, paused, and closed jobs are not shown as active public openings. You can browse the live careers site for roles that are currently open.</p>
+        <div class="hero-actions">
+          <a class="button-primary" href="/careers#open-roles">See open roles</a>
+          {{ if .Site.ContactEmail }}<a class="button-secondary" href="mailto:{{ .Site.ContactEmail }}">Contact hiring</a>{{ end }}
+        </div>
+      </section>
     </main>
   </body>
 </html>`

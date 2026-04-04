@@ -99,11 +99,12 @@ type CareersSiteProfile struct {
 }
 
 type CareersSetupState struct {
-	WorkspaceID string     `db:"workspace_id" json:"workspaceId"`
-	CurrentStep string     `db:"current_step" json:"currentStep"`
-	CompletedAt *time.Time `db:"completed_at" json:"completedAt,omitempty"`
-	CreatedAt   time.Time  `db:"created_at" json:"createdAt"`
-	UpdatedAt   time.Time  `db:"updated_at" json:"updatedAt"`
+	WorkspaceID    string         `db:"workspace_id" json:"workspaceId"`
+	CurrentStep    string         `db:"current_step" json:"currentStep"`
+	ConfirmedSteps pq.StringArray `db:"confirmed_steps" json:"confirmedSteps"`
+	CompletedAt    *time.Time     `db:"completed_at" json:"completedAt,omitempty"`
+	CreatedAt      time.Time      `db:"created_at" json:"createdAt"`
+	UpdatedAt      time.Time      `db:"updated_at" json:"updatedAt"`
 }
 
 type CareersTeamMember struct {
@@ -162,26 +163,35 @@ type Applicant struct {
 }
 
 type Application struct {
-	ID                 string                          `db:"id" json:"id"`
-	WorkspaceID        string                          `db:"workspace_id" json:"workspaceId"`
-	VacancyID          string                          `db:"vacancy_id" json:"vacancyId"`
-	ApplicantID        string                          `db:"applicant_id" json:"applicantId"`
-	CaseID             string                          `db:"case_id" json:"caseId"`
-	ContactID          string                          `db:"contact_id" json:"contactId"`
-	FormSubmissionID   string                          `db:"form_submission_id" json:"formSubmissionId"`
-	SourceKind         atsdomain.ApplicationSourceKind `db:"source_kind" json:"sourceKind"`
-	SourceRefID        string                          `db:"source_ref_id" json:"sourceRefId"`
-	Source             string                          `db:"source" json:"source"`
-	Stage              atsdomain.ApplicationStage      `db:"stage" json:"stage"`
-	AppliedAt          time.Time                       `db:"applied_at" json:"appliedAt"`
-	LastStageChangedAt time.Time                       `db:"last_stage_changed_at" json:"lastStageChangedAt"`
-	ReviewedAt         *time.Time                      `db:"reviewed_at" json:"reviewedAt,omitempty"`
-	HiredAt            *time.Time                      `db:"hired_at" json:"hiredAt,omitempty"`
-	RejectedAt         *time.Time                      `db:"rejected_at" json:"rejectedAt,omitempty"`
-	WithdrawnAt        *time.Time                      `db:"withdrawn_at" json:"withdrawnAt,omitempty"`
-	RejectionReason    string                          `db:"rejection_reason" json:"rejectionReason"`
-	CreatedAt          time.Time                       `db:"created_at" json:"createdAt"`
-	UpdatedAt          time.Time                       `db:"updated_at" json:"updatedAt"`
+	ID                              string                          `db:"id" json:"id"`
+	WorkspaceID                     string                          `db:"workspace_id" json:"workspaceId"`
+	VacancyID                       string                          `db:"vacancy_id" json:"vacancyId"`
+	ApplicantID                     string                          `db:"applicant_id" json:"applicantId"`
+	CaseID                          string                          `db:"case_id" json:"caseId"`
+	ContactID                       string                          `db:"contact_id" json:"contactId"`
+	FormSubmissionID                string                          `db:"form_submission_id" json:"formSubmissionId"`
+	SourceKind                      atsdomain.ApplicationSourceKind `db:"source_kind" json:"sourceKind"`
+	SourceRefID                     string                          `db:"source_ref_id" json:"sourceRefId"`
+	Source                          string                          `db:"source" json:"source"`
+	SubmissionFullName              string                          `db:"submission_full_name" json:"submissionFullName"`
+	SubmissionEmail                 string                          `db:"submission_email" json:"submissionEmail"`
+	SubmissionPhone                 string                          `db:"submission_phone" json:"submissionPhone"`
+	SubmissionLocation              string                          `db:"submission_location" json:"submissionLocation"`
+	SubmissionLinkedInURL           string                          `db:"submission_linkedin_url" json:"submissionLinkedInUrl"`
+	SubmissionPortfolioURL          string                          `db:"submission_portfolio_url" json:"submissionPortfolioUrl"`
+	SubmissionCoverNote             string                          `db:"submission_cover_note" json:"submissionCoverNote"`
+	SubmissionResumeAttachmentID    string                          `db:"submission_resume_attachment_id" json:"submissionResumeAttachmentId"`
+	SubmissionCoverLetterAttachment string                          `db:"submission_cover_letter_attachment" json:"submissionCoverLetterAttachment"`
+	Stage                           atsdomain.ApplicationStage      `db:"stage" json:"stage"`
+	AppliedAt                       time.Time                       `db:"applied_at" json:"appliedAt"`
+	LastStageChangedAt              time.Time                       `db:"last_stage_changed_at" json:"lastStageChangedAt"`
+	ReviewedAt                      *time.Time                      `db:"reviewed_at" json:"reviewedAt,omitempty"`
+	HiredAt                         *time.Time                      `db:"hired_at" json:"hiredAt,omitempty"`
+	RejectedAt                      *time.Time                      `db:"rejected_at" json:"rejectedAt,omitempty"`
+	WithdrawnAt                     *time.Time                      `db:"withdrawn_at" json:"withdrawnAt,omitempty"`
+	RejectionReason                 string                          `db:"rejection_reason" json:"rejectionReason"`
+	CreatedAt                       time.Time                       `db:"created_at" json:"createdAt"`
+	UpdatedAt                       time.Time                       `db:"updated_at" json:"updatedAt"`
 }
 
 type RecruiterNote struct {
@@ -335,8 +345,19 @@ const (
 )
 
 type CandidateListOptions struct {
-	VacancyID string
-	Scope     CandidateListScope
+	VacancyID       string
+	Scope           CandidateListScope
+	ViewSlug        string
+	StagePresetSlug string
+}
+
+type SavedViewCriteria struct {
+	Stages          []string `json:"stages,omitempty"`
+	SourceKinds     []string `json:"sourceKinds,omitempty"`
+	QueueSlugs      []string `json:"queueSlugs,omitempty"`
+	VacancyStatuses []string `json:"vacancyStatuses,omitempty"`
+	VacancyKinds    []string `json:"vacancyKinds,omitempty"`
+	TalentPoolOnly  bool     `json:"talentPoolOnly,omitempty"`
 }
 
 type StageChangeInput struct {

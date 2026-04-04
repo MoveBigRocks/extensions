@@ -27,6 +27,18 @@ const vacancySelectColumns = `
 	application_form_slug, case_queue_id, case_queue_slug, careers_path,
 	published_at, closed_at, created_at, updated_at`
 
+const applicantSelectColumns = `
+	id, workspace_id, contact_id, full_name, email, phone, location, linkedin_url,
+	portfolio_url, cover_note, resume_attachment_id, cover_letter_attachment, created_at, updated_at`
+
+const applicationSelectColumns = `
+	id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
+	source_kind, source_ref_id, source, submission_full_name, submission_email, submission_phone,
+	submission_location, submission_linkedin_url, submission_portfolio_url, submission_cover_note,
+	submission_resume_attachment_id, submission_cover_letter_attachment, stage, applied_at,
+	last_stage_changed_at, reviewed_at, hired_at, rejected_at, withdrawn_at, rejection_reason,
+	created_at, updated_at`
+
 func NewStore(db *platformsql.SqlxDB) (*Store, error) {
 	store := &Store{db: db}
 	if err := store.ensureSchemaAvailable(context.Background()); err != nil {
@@ -318,8 +330,7 @@ func (s *Store) UpsertApplicant(ctx context.Context, applicant *Applicant) (*App
 
 	var existing Applicant
 	err := s.db.Get(ctx).GetContext(ctx, &existing, s.query(`
-		SELECT id, workspace_id, contact_id, full_name, email, phone, location, linkedin_url,
-			portfolio_url, cover_note, resume_attachment_id, cover_letter_attachment, created_at, updated_at
+		SELECT `+applicantSelectColumns+`
 		FROM ${SCHEMA_NAME}.applicants
 		WHERE workspace_id = ? AND email = ?
 	`), applicant.WorkspaceID, applicant.Email)
@@ -333,10 +344,9 @@ func (s *Store) UpsertApplicant(ctx context.Context, applicant *Applicant) (*App
 		if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 			UPDATE ${SCHEMA_NAME}.applicants
 			SET contact_id = ?, full_name = ?, phone = ?, location = ?, linkedin_url = ?,
-				portfolio_url = ?, cover_note = ?, resume_attachment_id = ?, cover_letter_attachment = ?, updated_at = ?
+				portfolio_url = ?, updated_at = ?
 			WHERE workspace_id = ? AND id = ?
-			RETURNING id, workspace_id, contact_id, full_name, email, phone, location, linkedin_url,
-				portfolio_url, cover_note, resume_attachment_id, cover_letter_attachment, created_at, updated_at
+			RETURNING `+applicantSelectColumns+`
 		`),
 			applicant.ContactID,
 			applicant.FullName,
@@ -344,9 +354,6 @@ func (s *Store) UpsertApplicant(ctx context.Context, applicant *Applicant) (*App
 			applicant.Location,
 			applicant.LinkedInURL,
 			applicant.PortfolioURL,
-			applicant.CoverNote,
-			applicant.ResumeAttachmentID,
-			applicant.CoverLetterAttachment,
 			applicant.UpdatedAt,
 			applicant.WorkspaceID,
 			applicant.ID,
@@ -368,8 +375,7 @@ func (s *Store) UpsertApplicant(ctx context.Context, applicant *Applicant) (*App
 			portfolio_url, cover_note, resume_attachment_id, cover_letter_attachment, created_at, updated_at
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING id, workspace_id, contact_id, full_name, email, phone, location, linkedin_url,
-			portfolio_url, cover_note, resume_attachment_id, cover_letter_attachment, created_at, updated_at
+		RETURNING `+applicantSelectColumns+`
 	`),
 		applicant.ID,
 		applicant.WorkspaceID,
@@ -414,13 +420,13 @@ func (s *Store) CreateApplication(ctx context.Context, application *Application)
 	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 		INSERT INTO ${SCHEMA_NAME}.applications (
 			id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
-			withdrawn_at, rejection_reason, created_at, updated_at
+			source_kind, source_ref_id, source, submission_full_name, submission_email, submission_phone,
+			submission_location, submission_linkedin_url, submission_portfolio_url, submission_cover_note,
+			submission_resume_attachment_id, submission_cover_letter_attachment, stage, applied_at, last_stage_changed_at,
+			reviewed_at, hired_at, rejected_at, withdrawn_at, rejection_reason, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
-			withdrawn_at, rejection_reason, created_at, updated_at
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		RETURNING `+applicationSelectColumns+`
 	`),
 		application.ID,
 		application.WorkspaceID,
@@ -432,6 +438,15 @@ func (s *Store) CreateApplication(ctx context.Context, application *Application)
 		string(application.SourceKind),
 		application.SourceRefID,
 		application.Source,
+		application.SubmissionFullName,
+		application.SubmissionEmail,
+		application.SubmissionPhone,
+		application.SubmissionLocation,
+		application.SubmissionLinkedInURL,
+		application.SubmissionPortfolioURL,
+		application.SubmissionCoverNote,
+		application.SubmissionResumeAttachmentID,
+		application.SubmissionCoverLetterAttachment,
 		string(application.Stage),
 		application.AppliedAt,
 		application.LastStageChangedAt,
@@ -451,9 +466,7 @@ func (s *Store) CreateApplication(ctx context.Context, application *Application)
 func (s *Store) GetApplication(ctx context.Context, workspaceID, applicationID string) (*Application, error) {
 	application := &Application{}
 	if err := s.db.Get(ctx).GetContext(ctx, application, s.query(`
-		SELECT id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
-			withdrawn_at, rejection_reason, created_at, updated_at
+		SELECT `+applicationSelectColumns+`
 		FROM ${SCHEMA_NAME}.applications
 		WHERE workspace_id = ? AND id = ?
 	`), workspaceID, applicationID); err != nil {
@@ -473,13 +486,14 @@ func (s *Store) SaveApplication(ctx context.Context, application *Application) (
 	saved := &Application{}
 	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 		UPDATE ${SCHEMA_NAME}.applications
-		SET case_id = ?, contact_id = ?, form_submission_id = ?, source_kind = ?, source_ref_id = ?, source = ?, stage = ?,
-			applied_at = ?, last_stage_changed_at = ?, reviewed_at = ?, hired_at = ?, rejected_at = ?,
-			withdrawn_at = ?, rejection_reason = ?, updated_at = ?
+		SET case_id = ?, contact_id = ?, form_submission_id = ?, source_kind = ?, source_ref_id = ?, source = ?,
+			submission_full_name = ?, submission_email = ?, submission_phone = ?, submission_location = ?,
+			submission_linkedin_url = ?, submission_portfolio_url = ?, submission_cover_note = ?,
+			submission_resume_attachment_id = ?, submission_cover_letter_attachment = ?, stage = ?, applied_at = ?,
+			last_stage_changed_at = ?, reviewed_at = ?, hired_at = ?, rejected_at = ?, withdrawn_at = ?,
+			rejection_reason = ?, updated_at = ?
 		WHERE workspace_id = ? AND id = ?
-		RETURNING id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
-			withdrawn_at, rejection_reason, created_at, updated_at
+		RETURNING `+applicationSelectColumns+`
 	`),
 		application.CaseID,
 		application.ContactID,
@@ -487,6 +501,15 @@ func (s *Store) SaveApplication(ctx context.Context, application *Application) (
 		string(application.SourceKind),
 		application.SourceRefID,
 		application.Source,
+		application.SubmissionFullName,
+		application.SubmissionEmail,
+		application.SubmissionPhone,
+		application.SubmissionLocation,
+		application.SubmissionLinkedInURL,
+		application.SubmissionPortfolioURL,
+		application.SubmissionCoverNote,
+		application.SubmissionResumeAttachmentID,
+		application.SubmissionCoverLetterAttachment,
 		string(application.Stage),
 		application.AppliedAt,
 		application.LastStageChangedAt,
@@ -510,8 +533,7 @@ func (s *Store) SaveApplication(ctx context.Context, application *Application) (
 func (s *Store) GetApplicant(ctx context.Context, workspaceID, applicantID string) (*Applicant, error) {
 	applicant := &Applicant{}
 	if err := s.db.Get(ctx).GetContext(ctx, applicant, s.query(`
-		SELECT id, workspace_id, contact_id, full_name, email, phone, location, linkedin_url,
-			portfolio_url, cover_note, resume_attachment_id, cover_letter_attachment, created_at, updated_at
+		SELECT `+applicantSelectColumns+`
 		FROM ${SCHEMA_NAME}.applicants
 		WHERE workspace_id = ? AND id = ?
 	`), workspaceID, applicantID); err != nil {
@@ -526,9 +548,7 @@ func (s *Store) GetApplicant(ctx context.Context, workspaceID, applicantID strin
 func (s *Store) ListApplications(ctx context.Context, workspaceID, vacancyID string) ([]Application, error) {
 	args := []any{workspaceID}
 	query := `
-		SELECT id, workspace_id, vacancy_id, applicant_id, case_id, contact_id, form_submission_id,
-			source_kind, source_ref_id, source, stage, applied_at, last_stage_changed_at, reviewed_at, hired_at, rejected_at,
-			withdrawn_at, rejection_reason, created_at, updated_at
+		SELECT ` + applicationSelectColumns + `
 		FROM ${SCHEMA_NAME}.applications
 		WHERE workspace_id = ?
 	`
@@ -645,6 +665,126 @@ func (s *Store) ListSavedFilters(ctx context.Context, workspaceID string) ([]Sav
 		return nil, fmt.Errorf("list saved filters: %w", err)
 	}
 	return filters, nil
+}
+
+func (s *Store) ReplaceStagePresets(ctx context.Context, workspaceID string, presets []StagePreset) ([]StagePreset, error) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("workspace ID is required")
+	}
+	now := time.Now().UTC()
+	normalized := make([]StagePreset, 0, len(presets))
+	defaultAssigned := false
+	for index, preset := range presets {
+		preset.WorkspaceID = workspaceID
+		preset.Slug = normalizedSlugOrDefault(preset.Slug, preset.Name, fmt.Sprintf("preset-%d", index+1))
+		preset.Name = strings.TrimSpace(preset.Name)
+		if preset.Name == "" {
+			preset.Name = strings.ReplaceAll(strings.Title(strings.ReplaceAll(preset.Slug, "-", " ")), "_", " ")
+		}
+		preset.Stages = normalizeStageValues(preset.Stages)
+		if preset.ID == "" {
+			preset.ID = uuid.NewString()
+		}
+		if preset.CreatedAt.IsZero() {
+			preset.CreatedAt = now
+		}
+		preset.UpdatedAt = now
+		if preset.IsDefault && !defaultAssigned {
+			defaultAssigned = true
+		} else {
+			preset.IsDefault = false
+		}
+		normalized = append(normalized, preset)
+	}
+	if len(normalized) > 0 && !defaultAssigned {
+		normalized[0].IsDefault = true
+	}
+	if err := s.db.Transaction(ctx, func(txCtx context.Context) error {
+		if _, err := s.db.Get(txCtx).ExecContext(txCtx, s.query(`
+			DELETE FROM ${SCHEMA_NAME}.stage_presets WHERE workspace_id = ?
+		`), workspaceID); err != nil {
+			return fmt.Errorf("clear stage presets: %w", err)
+		}
+		for _, preset := range normalized {
+			if _, err := s.db.Get(txCtx).ExecContext(txCtx, s.query(`
+				INSERT INTO ${SCHEMA_NAME}.stage_presets (
+					id, workspace_id, slug, name, stages, is_default, created_at, updated_at
+				)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`),
+				preset.ID,
+				preset.WorkspaceID,
+				preset.Slug,
+				preset.Name,
+				pq.Array([]string(preset.Stages)),
+				preset.IsDefault,
+				preset.CreatedAt,
+				preset.UpdatedAt,
+			); err != nil {
+				return fmt.Errorf("insert stage preset %s: %w", preset.Slug, err)
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return s.ListStagePresets(ctx, workspaceID)
+}
+
+func (s *Store) ReplaceSavedFilters(ctx context.Context, workspaceID string, filters []SavedFilter) ([]SavedFilter, error) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return nil, fmt.Errorf("workspace ID is required")
+	}
+	now := time.Now().UTC()
+	normalized := make([]SavedFilter, 0, len(filters))
+	for index, filter := range filters {
+		filter.WorkspaceID = workspaceID
+		filter.Slug = normalizedSlugOrDefault(filter.Slug, filter.Name, fmt.Sprintf("view-%d", index+1))
+		filter.Name = strings.TrimSpace(filter.Name)
+		if filter.Name == "" {
+			filter.Name = strings.Title(strings.ReplaceAll(filter.Slug, "-", " "))
+		}
+		filter.Criteria = normalizeSavedFilterCriteria(filter.Criteria)
+		if filter.ID == "" {
+			filter.ID = uuid.NewString()
+		}
+		if filter.CreatedAt.IsZero() {
+			filter.CreatedAt = now
+		}
+		filter.UpdatedAt = now
+		normalized = append(normalized, filter)
+	}
+	if err := s.db.Transaction(ctx, func(txCtx context.Context) error {
+		if _, err := s.db.Get(txCtx).ExecContext(txCtx, s.query(`
+			DELETE FROM ${SCHEMA_NAME}.saved_filters WHERE workspace_id = ?
+		`), workspaceID); err != nil {
+			return fmt.Errorf("clear saved filters: %w", err)
+		}
+		for _, filter := range normalized {
+			if _, err := s.db.Get(txCtx).ExecContext(txCtx, s.query(`
+				INSERT INTO ${SCHEMA_NAME}.saved_filters (
+					id, workspace_id, slug, name, criteria, created_at, updated_at
+				)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`),
+				filter.ID,
+				filter.WorkspaceID,
+				filter.Slug,
+				filter.Name,
+				filter.Criteria,
+				filter.CreatedAt,
+				filter.UpdatedAt,
+			); err != nil {
+				return fmt.Errorf("insert saved filter %s: %w", filter.Slug, err)
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return s.ListSavedFilters(ctx, workspaceID)
 }
 
 func (s *Store) ensureStagePresets(ctx context.Context, workspaceID string) error {
@@ -780,6 +920,73 @@ func defaultSavedFilters(workspaceID string, now time.Time) []SavedFilter {
 	}
 }
 
+func normalizedSlugOrDefault(slug, name, fallback string) string {
+	slug = strings.TrimSpace(strings.ToLower(slug))
+	if slug == "" {
+		slug = strings.TrimSpace(strings.ToLower(name))
+	}
+	slug = strings.ReplaceAll(slug, "_", "-")
+	slug = strings.ReplaceAll(slug, " ", "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		slug = fallback
+	}
+	return slug
+}
+
+func normalizeStageValues(stages []string) pq.StringArray {
+	seen := map[string]struct{}{}
+	normalized := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		stage = strings.TrimSpace(strings.ToLower(stage))
+		if stage == "" {
+			continue
+		}
+		if _, ok := seen[stage]; ok {
+			continue
+		}
+		seen[stage] = struct{}{}
+		normalized = append(normalized, stage)
+	}
+	return pq.StringArray(normalized)
+}
+
+func normalizeSavedFilterCriteria(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		encoded, _ := json.Marshal(SavedViewCriteria{})
+		return encoded
+	}
+	var criteria SavedViewCriteria
+	if err := json.Unmarshal(raw, &criteria); err != nil {
+		encoded, _ := json.Marshal(SavedViewCriteria{})
+		return encoded
+	}
+	criteria.Stages = normalizeStringList(criteria.Stages)
+	criteria.SourceKinds = normalizeStringList(criteria.SourceKinds)
+	criteria.QueueSlugs = normalizeStringList(criteria.QueueSlugs)
+	criteria.VacancyStatuses = normalizeStringList(criteria.VacancyStatuses)
+	criteria.VacancyKinds = normalizeStringList(criteria.VacancyKinds)
+	encoded, _ := json.Marshal(criteria)
+	return encoded
+}
+
+func normalizeStringList(values []string) []string {
+	seen := map[string]struct{}{}
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(strings.ToLower(value))
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	return normalized
+}
+
 func vacancyFromDomain(v *atsdomain.Vacancy) *Vacancy {
 	if v == nil {
 		return nil
@@ -878,24 +1085,33 @@ func applicantFromDomain(a *atsdomain.Applicant) *Applicant {
 
 func (a Application) toDomain() *atsdomain.Application {
 	return &atsdomain.Application{
-		ID:                 a.ID,
-		WorkspaceID:        a.WorkspaceID,
-		VacancyID:          a.VacancyID,
-		ApplicantID:        a.ApplicantID,
-		CaseID:             a.CaseID,
-		ContactID:          a.ContactID,
-		FormSubmissionID:   a.FormSubmissionID,
-		SourceKind:         a.SourceKind,
-		SourceRefID:        a.SourceRefID,
-		Source:             a.Source,
-		Stage:              a.Stage,
-		AppliedAt:          a.AppliedAt,
-		LastStageChangedAt: a.LastStageChangedAt,
-		ReviewedAt:         a.ReviewedAt,
-		HiredAt:            a.HiredAt,
-		RejectedAt:         a.RejectedAt,
-		WithdrawnAt:        a.WithdrawnAt,
-		RejectionReason:    a.RejectionReason,
+		ID:                              a.ID,
+		WorkspaceID:                     a.WorkspaceID,
+		VacancyID:                       a.VacancyID,
+		ApplicantID:                     a.ApplicantID,
+		CaseID:                          a.CaseID,
+		ContactID:                       a.ContactID,
+		FormSubmissionID:                a.FormSubmissionID,
+		SourceKind:                      a.SourceKind,
+		SourceRefID:                     a.SourceRefID,
+		Source:                          a.Source,
+		SubmissionFullName:              a.SubmissionFullName,
+		SubmissionEmail:                 a.SubmissionEmail,
+		SubmissionPhone:                 a.SubmissionPhone,
+		SubmissionLocation:              a.SubmissionLocation,
+		SubmissionLinkedInURL:           a.SubmissionLinkedInURL,
+		SubmissionPortfolioURL:          a.SubmissionPortfolioURL,
+		SubmissionCoverNote:             a.SubmissionCoverNote,
+		SubmissionResumeAttachmentID:    a.SubmissionResumeAttachmentID,
+		SubmissionCoverLetterAttachment: a.SubmissionCoverLetterAttachment,
+		Stage:                           a.Stage,
+		AppliedAt:                       a.AppliedAt,
+		LastStageChangedAt:              a.LastStageChangedAt,
+		ReviewedAt:                      a.ReviewedAt,
+		HiredAt:                         a.HiredAt,
+		RejectedAt:                      a.RejectedAt,
+		WithdrawnAt:                     a.WithdrawnAt,
+		RejectionReason:                 a.RejectionReason,
 	}
 }
 
@@ -912,26 +1128,35 @@ func applicationFromDomain(a *atsdomain.Application) *Application {
 	}
 	now := time.Now().UTC()
 	return &Application{
-		ID:                 a.ID,
-		WorkspaceID:        a.WorkspaceID,
-		VacancyID:          a.VacancyID,
-		ApplicantID:        a.ApplicantID,
-		CaseID:             a.CaseID,
-		ContactID:          a.ContactID,
-		FormSubmissionID:   a.FormSubmissionID,
-		SourceKind:         a.SourceKind,
-		SourceRefID:        a.SourceRefID,
-		Source:             a.Source,
-		Stage:              a.Stage,
-		AppliedAt:          a.AppliedAt,
-		LastStageChangedAt: a.LastStageChangedAt,
-		ReviewedAt:         a.ReviewedAt,
-		HiredAt:            a.HiredAt,
-		RejectedAt:         a.RejectedAt,
-		WithdrawnAt:        a.WithdrawnAt,
-		RejectionReason:    a.RejectionReason,
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		ID:                              a.ID,
+		WorkspaceID:                     a.WorkspaceID,
+		VacancyID:                       a.VacancyID,
+		ApplicantID:                     a.ApplicantID,
+		CaseID:                          a.CaseID,
+		ContactID:                       a.ContactID,
+		FormSubmissionID:                a.FormSubmissionID,
+		SourceKind:                      a.SourceKind,
+		SourceRefID:                     a.SourceRefID,
+		Source:                          a.Source,
+		SubmissionFullName:              a.SubmissionFullName,
+		SubmissionEmail:                 a.SubmissionEmail,
+		SubmissionPhone:                 a.SubmissionPhone,
+		SubmissionLocation:              a.SubmissionLocation,
+		SubmissionLinkedInURL:           a.SubmissionLinkedInURL,
+		SubmissionPortfolioURL:          a.SubmissionPortfolioURL,
+		SubmissionCoverNote:             a.SubmissionCoverNote,
+		SubmissionResumeAttachmentID:    a.SubmissionResumeAttachmentID,
+		SubmissionCoverLetterAttachment: a.SubmissionCoverLetterAttachment,
+		Stage:                           a.Stage,
+		AppliedAt:                       a.AppliedAt,
+		LastStageChangedAt:              a.LastStageChangedAt,
+		ReviewedAt:                      a.ReviewedAt,
+		HiredAt:                         a.HiredAt,
+		RejectedAt:                      a.RejectedAt,
+		WithdrawnAt:                     a.WithdrawnAt,
+		RejectionReason:                 a.RejectionReason,
+		CreatedAt:                       now,
+		UpdatedAt:                       now,
 	}
 }
 

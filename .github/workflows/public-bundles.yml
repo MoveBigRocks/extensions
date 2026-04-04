@@ -21,11 +21,11 @@ on:
           - sales-pipeline
           - web-analytics
       publish_tag:
-        description: Optional OCI tag override (defaults to sha-<commit>)
+        description: Optional OCI tag override for preview builds only (defaults to sha-<commit>)
         required: false
         type: string
       publish_latest:
-        description: Also tag the pushed artifact as latest
+        description: Also tag the pushed artifact as latest (preview builds should leave this false)
         required: false
         default: false
         type: boolean
@@ -197,6 +197,26 @@ jobs:
           echo "needs_runtime=${needs_runtime}" >> "${GITHUB_OUTPUT}"
           echo "publish_tag=${publish_tag}" >> "${GITHUB_OUTPUT}"
           echo "publish_latest=${publish_latest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Guard release publication semantics
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          publish_tag="${{ steps.target.outputs.publish_tag }}"
+          publish_latest="${{ steps.target.outputs.publish_latest }}"
+
+          if [[ "${publish_tag}" =~ ^v[0-9] ]]; then
+            echo "workflow_dispatch is only for preview tags such as sha-<commit> or preview-<name>." >&2
+            echo "Push a matching git release tag for semver publication instead." >&2
+            exit 1
+          fi
+
+          if [[ "${publish_latest}" == "true" ]]; then
+            echo "workflow_dispatch preview publications must not retag latest." >&2
+            exit 1
+          fi
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3

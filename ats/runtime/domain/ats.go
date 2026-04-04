@@ -354,24 +354,33 @@ func (a Applicant) CaseCustomFields() map[string]any {
 }
 
 type Application struct {
-	ID                 string
-	WorkspaceID        string
-	VacancyID          string
-	ApplicantID        string
-	CaseID             string
-	ContactID          string
-	FormSubmissionID   string
-	SourceKind         ApplicationSourceKind
-	SourceRefID        string
-	Source             string
-	Stage              ApplicationStage
-	AppliedAt          time.Time
-	LastStageChangedAt time.Time
-	ReviewedAt         *time.Time
-	HiredAt            *time.Time
-	RejectedAt         *time.Time
-	WithdrawnAt        *time.Time
-	RejectionReason    string
+	ID                              string
+	WorkspaceID                     string
+	VacancyID                       string
+	ApplicantID                     string
+	CaseID                          string
+	ContactID                       string
+	FormSubmissionID                string
+	SourceKind                      ApplicationSourceKind
+	SourceRefID                     string
+	Source                          string
+	SubmissionFullName              string
+	SubmissionEmail                 string
+	SubmissionPhone                 string
+	SubmissionLocation              string
+	SubmissionLinkedInURL           string
+	SubmissionPortfolioURL          string
+	SubmissionCoverNote             string
+	SubmissionResumeAttachmentID    string
+	SubmissionCoverLetterAttachment string
+	Stage                           ApplicationStage
+	AppliedAt                       time.Time
+	LastStageChangedAt              time.Time
+	ReviewedAt                      *time.Time
+	HiredAt                         *time.Time
+	RejectedAt                      *time.Time
+	WithdrawnAt                     *time.Time
+	RejectionReason                 string
 }
 
 func NewApplication(workspaceID, vacancyID, applicantID string, sourceKind ApplicationSourceKind, source, sourceRefID string) (*Application, error) {
@@ -492,6 +501,15 @@ func (a *Application) Validate() error {
 	a.SourceKind = normalizeApplicationSourceKind(a.SourceKind)
 	a.SourceRefID = strings.TrimSpace(a.SourceRefID)
 	a.Source = strings.TrimSpace(a.Source)
+	a.SubmissionFullName = strings.TrimSpace(a.SubmissionFullName)
+	a.SubmissionEmail = normalizeEmail(a.SubmissionEmail)
+	a.SubmissionPhone = strings.TrimSpace(a.SubmissionPhone)
+	a.SubmissionLocation = strings.TrimSpace(a.SubmissionLocation)
+	a.SubmissionLinkedInURL = strings.TrimSpace(a.SubmissionLinkedInURL)
+	a.SubmissionPortfolioURL = strings.TrimSpace(a.SubmissionPortfolioURL)
+	a.SubmissionCoverNote = strings.TrimSpace(a.SubmissionCoverNote)
+	a.SubmissionResumeAttachmentID = strings.TrimSpace(a.SubmissionResumeAttachmentID)
+	a.SubmissionCoverLetterAttachment = strings.TrimSpace(a.SubmissionCoverLetterAttachment)
 	a.RejectionReason = strings.TrimSpace(a.RejectionReason)
 	if a.WorkspaceID == "" {
 		return fmt.Errorf("workspace_id is required")
@@ -522,18 +540,29 @@ func (a Application) IsTerminal() bool {
 
 func (a Application) CaseCustomFields() map[string]any {
 	fields := map[string]any{
-		"ats_application_id":               strings.TrimSpace(a.ID),
-		"ats_application_vacancy_id":       a.VacancyID,
-		"ats_application_applicant_id":     a.ApplicantID,
-		"ats_application_stage":            string(a.Stage),
-		"ats_application_source":           a.Source,
-		"ats_application_source_kind":      string(a.SourceKind),
-		"ats_application_source_ref_id":    a.SourceRefID,
-		"ats_application_form_submission":  a.FormSubmissionID,
-		"ats_application_rejection_reason": a.RejectionReason,
+		"ats_application_id":                   strings.TrimSpace(a.ID),
+		"ats_application_vacancy_id":           a.VacancyID,
+		"ats_application_applicant_id":         a.ApplicantID,
+		"ats_application_stage":                string(a.Stage),
+		"ats_application_source":               a.Source,
+		"ats_application_source_kind":          string(a.SourceKind),
+		"ats_application_source_ref_id":        a.SourceRefID,
+		"ats_application_form_submission":      a.FormSubmissionID,
+		"ats_application_full_name":            a.SubmissionFullName,
+		"ats_application_email":                a.SubmissionEmail,
+		"ats_application_phone":                a.SubmissionPhone,
+		"ats_application_location":             a.SubmissionLocation,
+		"ats_application_linkedin_url":         a.SubmissionLinkedInURL,
+		"ats_application_portfolio_url":        a.SubmissionPortfolioURL,
+		"ats_application_cover_note":           a.SubmissionCoverNote,
+		"ats_application_resume_attachment_id": a.SubmissionResumeAttachmentID,
+		"ats_application_rejection_reason":     a.RejectionReason,
 	}
 	if !a.AppliedAt.IsZero() {
 		fields["ats_application_applied_at"] = a.AppliedAt.UTC().Format(time.RFC3339)
+	}
+	if a.SubmissionCoverLetterAttachment != "" {
+		fields["ats_application_cover_letter_attachment"] = a.SubmissionCoverLetterAttachment
 	}
 	return fields
 }
@@ -575,12 +604,6 @@ func BuildCandidateRecord(workspaceID string, vacancy *Vacancy, submission Candi
 	applicant.Location = strings.TrimSpace(submission.Location)
 	applicant.LinkedInURL = strings.TrimSpace(submission.LinkedInURL)
 	applicant.PortfolioURL = strings.TrimSpace(submission.PortfolioURL)
-	applicant.CoverNote = strings.TrimSpace(submission.CoverNote)
-	if strings.TrimSpace(submission.ResumeAttachmentID) != "" {
-		if err := applicant.AttachResume(submission.ResumeAttachmentID); err != nil {
-			return nil, nil, err
-		}
-	}
 
 	sourceKind := normalizeApplicationSourceKind(submission.SourceKind)
 	if sourceKind == "" {
@@ -600,6 +623,15 @@ func BuildCandidateRecord(workspaceID string, vacancy *Vacancy, submission Candi
 		return nil, nil, err
 	}
 	application.FormSubmissionID = strings.TrimSpace(submission.FormSubmissionID)
+	application.SubmissionFullName = applicant.FullName
+	application.SubmissionEmail = applicant.Email
+	application.SubmissionPhone = strings.TrimSpace(submission.Phone)
+	application.SubmissionLocation = strings.TrimSpace(submission.Location)
+	application.SubmissionLinkedInURL = strings.TrimSpace(submission.LinkedInURL)
+	application.SubmissionPortfolioURL = strings.TrimSpace(submission.PortfolioURL)
+	application.SubmissionCoverNote = strings.TrimSpace(submission.CoverNote)
+	application.SubmissionResumeAttachmentID = strings.TrimSpace(submission.ResumeAttachmentID)
+	application.SubmissionCoverLetterAttachment = ""
 	return applicant, application, nil
 }
 

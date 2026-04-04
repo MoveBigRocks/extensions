@@ -25,7 +25,7 @@ That workflow:
 - publishes it to GHCR
 - uploads the signed bundle and publisher-key snippet as artifacts
 
-The current pinned SDK tooling ref is `MoveBigRocks/extension-sdk@v0.8.22`.
+The current pinned SDK tooling ref is `MoveBigRocks/extension-sdk@v0.8.23`.
 When the SDK tooling changes, cut a new SDK tag first and then update the
 workflow pin in this repo.
 
@@ -53,7 +53,12 @@ For the public first-party catalog, the repo-level proof loop is:
 
 ```bash
 MBR_BIN=/path/to/mbr bash ./scripts/validate-first-party.sh
+bash ./scripts/report-first-party-release-state.sh
 ```
+
+Only cut a semver release tag when the manifest version you want to publish is
+already in source and the release-state report shows that the matching tag does
+not yet exist on `origin`.
 
 ## Prerequisites
 
@@ -90,18 +95,22 @@ Then:
 ## First Publish
 
 From a checkout of this repo, cut tags that match the manifest versions in the
-extension directories. For the current ATS source that means `ats-v0.8.29`:
+extension directories. Publish only the extensions you are intentionally
+releasing. For the current ATS source that means `ats-v0.8.30`:
 
 ```bash
-git tag ats-v0.8.29
-git tag community-feature-requests-v0.1.0
-git tag error-tracking-v0.8.21
-git tag sales-pipeline-v0.1.0
-git tag web-analytics-v0.8.21
-git push origin ats-v0.8.29 community-feature-requests-v0.1.0 error-tracking-v0.8.21 sales-pipeline-v0.1.0 web-analytics-v0.8.21
+git tag ats-v0.8.30
+git push origin ats-v0.8.30
 ```
 
-That should trigger five workflow runs and create five GHCR packages.
+That should trigger one workflow run and create the ATS GHCR package for that
+version. Use `bash ./scripts/report-first-party-release-state.sh` to see which
+other publishable extensions have manifest versions that still need matching
+release tags.
+
+Do not use `workflow_dispatch` to publish semver tags. Manual dispatch is for
+preview refs such as `sha-<commit>` only. Versioned public refs should always
+come from matching git tags so the bundle provenance is obvious.
 
 ## After The First Publish
 
@@ -114,13 +123,14 @@ For each package, open GitHub Packages and set visibility to `Public`:
 - `mbr-ext-web-analytics`
 
 Then verify that the install refs you expect to use are the real published
-ones:
+ones. For ATS that means:
 
-- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.29`
-- `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0`
-- `ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21`
-- `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0`
-- `ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.21`
+- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.30`
+
+For other first-party extensions, use the version that is both:
+
+- present in the extension manifest
+- confirmed as tagged on `origin` by `bash ./scripts/report-first-party-release-state.sh`
 
 ## Install Into DemandOps
 
@@ -141,20 +151,20 @@ mbr workspaces list --url https://mbr.demandops.com
 
 The current DemandOps desired-state mapping is:
 
-- ATS -> `people`
+- ATS -> `default`
 - web analytics -> `marketing`
 - error tracking -> `engineering`
 
 Install, validate, and activate with the real workspace IDs:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.29 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_PEOPLE --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.30 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_DEFAULT --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.21 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_MARKETING --json
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.22 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_MARKETING --json
 mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
 mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
@@ -166,6 +176,13 @@ mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
 ```
 
 Public signed bundles do not need `--license-token`.
+
+Before changing an instance repo to a new extension ref, validate the desired
+state there first:
+
+```bash
+scripts/validate-extension-desired-state.sh extensions/desired-state.yaml
+```
 
 ## ATS Dedicated Workspace Option
 

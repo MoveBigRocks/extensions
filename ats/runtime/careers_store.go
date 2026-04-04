@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 func (s *Store) GetCareersSiteProfile(ctx context.Context, workspaceID string) (*CareersSiteProfile, error) {
@@ -222,7 +223,7 @@ func (s *Store) MarkCareersSitePublished(ctx context.Context, workspaceID string
 func (s *Store) GetCareersSetupState(ctx context.Context, workspaceID string) (*CareersSetupState, error) {
 	state := &CareersSetupState{}
 	if err := s.db.Get(ctx).GetContext(ctx, state, s.query(`
-		SELECT workspace_id, current_step, completed_at, created_at, updated_at
+		SELECT workspace_id, current_step, confirmed_steps, completed_at, created_at, updated_at
 		FROM ${SCHEMA_NAME}.careers_setup_states
 		WHERE workspace_id = ?
 	`), strings.TrimSpace(workspaceID)); err != nil {
@@ -237,6 +238,7 @@ func (s *Store) GetCareersSetupState(ctx context.Context, workspaceID string) (*
 func (s *Store) SaveCareersSetupState(ctx context.Context, state CareersSetupState) (*CareersSetupState, error) {
 	state.WorkspaceID = strings.TrimSpace(state.WorkspaceID)
 	state.CurrentStep = strings.TrimSpace(strings.ToLower(state.CurrentStep))
+	state.ConfirmedSteps = normalizeSetupSteps(state.ConfirmedSteps)
 	if state.CurrentStep == "" {
 		state.CurrentStep = "brand"
 	}
@@ -249,17 +251,19 @@ func (s *Store) SaveCareersSetupState(ctx context.Context, state CareersSetupSta
 	saved := &CareersSetupState{}
 	if err := s.db.Get(ctx).GetContext(ctx, saved, s.query(`
 		INSERT INTO ${SCHEMA_NAME}.careers_setup_states (
-			workspace_id, current_step, completed_at, created_at, updated_at
+			workspace_id, current_step, confirmed_steps, completed_at, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT (workspace_id) DO UPDATE
 		SET current_step = EXCLUDED.current_step,
+			confirmed_steps = EXCLUDED.confirmed_steps,
 			completed_at = EXCLUDED.completed_at,
 			updated_at = EXCLUDED.updated_at
-		RETURNING workspace_id, current_step, completed_at, created_at, updated_at
+		RETURNING workspace_id, current_step, confirmed_steps, completed_at, created_at, updated_at
 	`),
 		state.WorkspaceID,
 		state.CurrentStep,
+		state.ConfirmedSteps,
 		state.CompletedAt,
 		state.CreatedAt,
 		state.UpdatedAt,
@@ -652,6 +656,26 @@ func normalizeMediaPurpose(value string) string {
 	default:
 		return "other"
 	}
+}
+
+func normalizeSetupSteps(steps []string) pq.StringArray {
+	if len(steps) == 0 {
+		return pq.StringArray{}
+	}
+	seen := map[string]struct{}{}
+	normalized := make([]string, 0, len(steps))
+	for _, step := range steps {
+		step = strings.TrimSpace(strings.ToLower(step))
+		if step == "" {
+			continue
+		}
+		if _, ok := seen[step]; ok {
+			continue
+		}
+		seen[step] = struct{}{}
+		normalized = append(normalized, step)
+	}
+	return pq.StringArray(normalized)
 }
 
 func defaultCareersSiteProfile(workspaceID string) UpsertCareersSiteInput {

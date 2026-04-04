@@ -29,6 +29,10 @@ func RegisterRoutes(engine *gin.Engine, handler *Handler) {
 	engine.GET("/extensions/ats/api/jobs/:id/applications", handler.ListApplications)
 	engine.GET("/extensions/ats/api/applications", handler.ListAllApplications)
 	engine.GET("/extensions/ats/api/defaults", handler.GetWorkspaceDefaults)
+	engine.GET("/extensions/ats/api/stage-presets", handler.ListStagePresets)
+	engine.PUT("/extensions/ats/api/stage-presets", handler.SaveStagePresets)
+	engine.GET("/extensions/ats/api/saved-views", handler.ListSavedViews)
+	engine.PUT("/extensions/ats/api/saved-views", handler.SaveSavedViews)
 	engine.GET("/extensions/ats/api/careers", handler.GetCareersBundle)
 	engine.PUT("/extensions/ats/api/careers/site", handler.SaveCareersSiteProfile)
 	engine.PUT("/extensions/ats/api/careers/team", handler.SaveCareersTeam)
@@ -200,8 +204,10 @@ func (h *Handler) ListApplications(c *gin.Context) {
 		return
 	}
 	profiles, err := h.service.ListCandidates(c.Request.Context(), workspaceID, CandidateListOptions{
-		VacancyID: c.Param("id"),
-		Scope:     CandidateListScopeJob,
+		VacancyID:       c.Param("id"),
+		Scope:           CandidateListScopeJob,
+		ViewSlug:        strings.TrimSpace(c.Query("view")),
+		StagePresetSlug: strings.TrimSpace(c.Query("preset")),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -220,8 +226,10 @@ func (h *Handler) ListAllApplications(c *gin.Context) {
 		scope = CandidateListScopeAll
 	}
 	profiles, err := h.service.ListCandidates(c.Request.Context(), workspaceID, CandidateListOptions{
-		VacancyID: strings.TrimSpace(c.Query("jobId")),
-		Scope:     scope,
+		VacancyID:       strings.TrimSpace(c.Query("jobId")),
+		Scope:           scope,
+		ViewSlug:        strings.TrimSpace(c.Query("view")),
+		StagePresetSlug: strings.TrimSpace(c.Query("preset")),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -241,6 +249,72 @@ func (h *Handler) GetWorkspaceDefaults(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, defaults)
+}
+
+func (h *Handler) ListStagePresets(c *gin.Context) {
+	workspaceID, ok := h.workspaceID(c)
+	if !ok {
+		return
+	}
+	defaults, err := h.service.WorkspaceDefaults(c.Request.Context(), workspaceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"stagePresets": defaults.StagePresets})
+}
+
+func (h *Handler) SaveStagePresets(c *gin.Context) {
+	workspaceID, ok := h.workspaceID(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		StagePresets []StagePreset `json:"stagePresets"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	stagePresets, err := h.service.ReplaceStagePresets(c.Request.Context(), workspaceID, request.StagePresets)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"stagePresets": stagePresets})
+}
+
+func (h *Handler) ListSavedViews(c *gin.Context) {
+	workspaceID, ok := h.workspaceID(c)
+	if !ok {
+		return
+	}
+	defaults, err := h.service.WorkspaceDefaults(c.Request.Context(), workspaceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"savedViews": defaults.SavedFilters})
+}
+
+func (h *Handler) SaveSavedViews(c *gin.Context) {
+	workspaceID, ok := h.workspaceID(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		SavedViews []SavedFilter `json:"savedViews"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	savedViews, err := h.service.ReplaceSavedViews(c.Request.Context(), workspaceID, request.SavedViews)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"savedViews": savedViews})
 }
 
 func (h *Handler) GetCareersBundle(c *gin.Context) {
@@ -500,9 +574,7 @@ func (h *Handler) SubmitApplication(c *gin.Context) {
 			CoverNote:          strings.TrimSpace(c.PostForm("coverNote")),
 			ResumeAttachmentID: strings.TrimSpace(c.PostForm("resumeAttachmentId")),
 			SourceKind:         atsdomain.ApplicationSourceKindATSPublic,
-			Source:             "careers_runtime",
-			SourceRefID:        strings.TrimSpace(c.PostForm("sourceRefId")),
-			FormSubmissionID:   strings.TrimSpace(c.PostForm("formSubmissionId")),
+			Source:             "careers_site",
 		},
 	}
 	input.VacancySlug = strings.TrimSpace(c.PostForm("vacancySlug"))
@@ -521,10 +593,6 @@ func (h *Handler) SubmitApplication(c *gin.Context) {
 			PortfolioURL       string `json:"portfolioUrl"`
 			CoverNote          string `json:"coverNote"`
 			ResumeAttachmentID string `json:"resumeAttachmentId"`
-			SourceKind         string `json:"sourceKind"`
-			Source             string `json:"source"`
-			SourceRefID        string `json:"sourceRefId"`
-			FormSubmissionID   string `json:"formSubmissionId"`
 		}
 		if err := c.ShouldBindJSON(&request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
@@ -540,10 +608,8 @@ func (h *Handler) SubmitApplication(c *gin.Context) {
 			PortfolioURL:       request.PortfolioURL,
 			CoverNote:          request.CoverNote,
 			ResumeAttachmentID: request.ResumeAttachmentID,
-			SourceKind:         atsdomain.ApplicationSourceKind(firstNonBlank(request.SourceKind, string(atsdomain.ApplicationSourceKindATSPublic))),
-			Source:             firstNonBlank(request.Source, "careers_runtime"),
-			SourceRefID:        request.SourceRefID,
-			FormSubmissionID:   request.FormSubmissionID,
+			SourceKind:         atsdomain.ApplicationSourceKindATSPublic,
+			Source:             "careers_site",
 		}
 	}
 	result, err := h.service.SubmitApplication(c.Request.Context(), input)

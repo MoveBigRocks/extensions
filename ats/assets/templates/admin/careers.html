@@ -118,6 +118,12 @@
         gap: 1rem;
         margin-bottom: 1rem;
       }
+      .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(160px, 1fr));
+        gap: 0.7rem;
+        width: min(100%, 720px);
+      }
       .section-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -158,6 +164,29 @@
       .setup-list, .candidate-list, .asset-list {
         display: grid;
         gap: 0.8rem;
+      }
+      .candidate-toolbar {
+        display: grid;
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+        padding: 0.9rem 1rem;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.82);
+      }
+      .candidate-toolbar-actions,
+      .pill-row,
+      .timeline-list,
+      .candidate-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+      .candidate-toolbar-actions {
+        align-items: end;
+      }
+      .candidate-toolbar .checkbox-line {
+        margin-top: 0.2rem;
       }
       .repeater-item, .job-card {
         border: 1px solid var(--border);
@@ -205,6 +234,14 @@
         align-items: start;
         margin-bottom: 0.7rem;
       }
+      .candidate-header-main {
+        display: grid;
+        gap: 0.3rem;
+      }
+      .checkbox-input {
+        width: auto;
+        margin: 0;
+      }
       .candidate-meta {
         color: var(--muted);
         font-size: 0.88rem;
@@ -225,6 +262,36 @@
         grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
         gap: 0.7rem;
         margin-top: 0.75rem;
+      }
+      .candidate-detail {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 0.9rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid var(--border);
+      }
+      .detail-grid,
+      .criteria-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+      .detail-card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 0.85rem 0.95rem;
+        background: rgba(255, 255, 255, 0.72);
+      }
+      .detail-card strong {
+        display: block;
+        margin-bottom: 0.35rem;
+      }
+      .timeline-list {
+        flex-direction: column;
+      }
+      .timeline-item {
+        border-left: 2px solid rgba(15, 118, 110, 0.18);
+        padding-left: 0.8rem;
       }
       .asset-card {
         border: 1px solid var(--border);
@@ -297,7 +364,7 @@
         .hero-actions {
           justify-content: flex-start;
         }
-        .section-grid, .inline-grid {
+        .section-grid, .inline-grid, .filter-grid, .detail-grid, .criteria-grid, .candidate-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -454,12 +521,72 @@
                 <h2>Candidates</h2>
                 <p>Review ATS-native applications, move stages, and add recruiter notes without leaving the builder.</p>
               </div>
-              <label style="min-width: 220px;">
-                <span>Filter by job</span>
-                <select id="application-job-filter"></select>
-              </label>
+              <div class="filter-grid">
+                <label>
+                  <span>Saved view</span>
+                  <select id="application-view-filter"></select>
+                </label>
+                <label>
+                  <span>Stage preset</span>
+                  <select id="application-preset-filter"></select>
+                </label>
+                <label>
+                  <span>Filter by job</span>
+                  <select id="application-job-filter"></select>
+                </label>
+              </div>
+            </div>
+            <div class="candidate-toolbar" id="candidate-toolbar">
+              <div class="candidate-toolbar-actions">
+                <label class="checkbox-line">
+                  <input class="checkbox-input" id="candidate-select-all" type="checkbox">
+                  <span>Select visible candidates</span>
+                </label>
+                <label>
+                  <span>Bulk stage</span>
+                  <select id="bulk-stage-select"></select>
+                </label>
+                <button class="button-secondary" id="bulk-stage-button" type="button">Apply stage</button>
+                <label>
+                  <span>Bulk route</span>
+                  <select id="bulk-route-select">
+                    <option value="talent_pool">Move to talent pool</option>
+                    <option value="job_queue">Return to job queue</option>
+                  </select>
+                </label>
+                <button class="button-secondary" id="bulk-route-button" type="button">Route selected</button>
+              </div>
+              <p class="muted-note" id="candidate-selection-summary">No candidates selected.</p>
             </div>
             <div class="candidate-list" id="candidate-list"></div>
+          </section>
+
+          <section class="panel" id="views-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Saved views</h2>
+                <p>Save reusable ATS inbox filters for recruiters and hiring leads.</p>
+              </div>
+            </div>
+            <div class="team-list" id="saved-view-list"></div>
+            <div class="section-actions">
+              <button class="button-secondary" id="add-saved-view-button" type="button">Add saved view</button>
+              <button class="button-primary" id="save-saved-views-button" type="button">Save views</button>
+            </div>
+          </section>
+
+          <section class="panel" id="stage-presets-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Stage presets</h2>
+                <p>Define named stage groupings for the inbox and common review moments.</p>
+              </div>
+            </div>
+            <div class="team-list" id="stage-preset-list"></div>
+            <div class="section-actions">
+              <button class="button-secondary" id="add-stage-preset-button" type="button">Add stage preset</button>
+              <button class="button-primary" id="save-stage-presets-button" type="button">Save presets</button>
+            </div>
           </section>
 
           <section class="panel" id="jobs-panel">
@@ -559,9 +686,41 @@
       </article>
     </template>
 
+    <template id="saved-view-item-template">
+      <article class="repeater-item saved-view-item">
+        <div class="criteria-grid">
+          <label><span>Name</span><input data-field="name"></label>
+          <label><span>Slug</span><input data-field="slug"></label>
+          <label><span>Stages (comma-separated)</span><input data-field="stages"></label>
+          <label><span>Source kinds</span><input data-field="sourceKinds" placeholder="ats_public, api"></label>
+          <label><span>Queue slugs</span><input data-field="queueSlugs" placeholder="backend-engineer-candidates"></label>
+          <label><span>Job statuses</span><input data-field="vacancyStatuses" placeholder="open, paused"></label>
+          <label><span>Job kinds</span><input data-field="vacancyKinds" placeholder="job, general_application"></label>
+          <label class="checkbox-line"><input class="checkbox-input" data-field="talentPoolOnly" type="checkbox"><span>Only talent-pool candidates</span></label>
+        </div>
+        <div class="section-actions">
+          <button class="button-danger" data-remove type="button">Remove</button>
+        </div>
+      </article>
+    </template>
+
+    <template id="stage-preset-item-template">
+      <article class="repeater-item stage-preset-item">
+        <div class="criteria-grid">
+          <label><span>Name</span><input data-field="name"></label>
+          <label><span>Slug</span><input data-field="slug"></label>
+          <label class="full"><span>Stages (comma-separated)</span><input data-field="stages"></label>
+          <label class="checkbox-line"><input class="checkbox-input" data-field="isDefault" type="checkbox"><span>Default preset</span></label>
+        </div>
+        <div class="section-actions">
+          <button class="button-danger" data-remove type="button">Remove</button>
+        </div>
+      </article>
+    </template>
+
     <script>
       (function() {
-        var state = { bundle: null, applications: [], editingJobId: "" };
+        var state = { bundle: null, defaults: null, applications: [], editingJobId: "", selectedApplications: {} };
         var bannerEl = document.getElementById("banner");
         var setupListEl = document.getElementById("setup-list");
         var siteForm = document.getElementById("site-form");
@@ -569,7 +728,15 @@
         var teamListEl = document.getElementById("team-list");
         var galleryListEl = document.getElementById("gallery-list");
         var candidateListEl = document.getElementById("candidate-list");
+        var candidateSelectionSummaryEl = document.getElementById("candidate-selection-summary");
+        var candidateSelectAllEl = document.getElementById("candidate-select-all");
+        var bulkStageSelectEl = document.getElementById("bulk-stage-select");
+        var bulkRouteSelectEl = document.getElementById("bulk-route-select");
         var applicationJobFilterEl = document.getElementById("application-job-filter");
+        var applicationViewFilterEl = document.getElementById("application-view-filter");
+        var applicationPresetFilterEl = document.getElementById("application-preset-filter");
+        var savedViewListEl = document.getElementById("saved-view-list");
+        var stagePresetListEl = document.getElementById("stage-preset-list");
         var jobListEl = document.getElementById("job-list");
         var jobForm = document.getElementById("job-form");
         var jobFormTitle = document.getElementById("job-form-title");
@@ -608,6 +775,18 @@
             .split("\n")
             .map(function(item) { return item.trim(); })
             .filter(Boolean);
+        }
+
+        function splitCommaList(value) {
+          return String(value || "")
+            .split(",")
+            .map(function(item) { return item.trim(); })
+            .filter(Boolean);
+        }
+
+        function labelForStage(stage) {
+          stage = String(stage || "received").replace(/_/g, " ");
+          return stage.charAt(0).toUpperCase() + stage.slice(1);
         }
 
         function fillSiteForm(site) {
@@ -673,6 +852,32 @@
           }
         }
 
+        function renderSavedViewOptions(savedViews) {
+          var currentValue = applicationViewFilterEl.value || "";
+          var options = ['<option value="">All views</option>'];
+          (savedViews || []).forEach(function(view) {
+            options.push('<option value="' + escapeAttr(view.slug || "") + '">' + escapeHTML(view.name || view.slug || "Saved view") + "</option>");
+          });
+          applicationViewFilterEl.innerHTML = options.join("");
+          applicationViewFilterEl.value = currentValue;
+          if (applicationViewFilterEl.value !== currentValue) {
+            applicationViewFilterEl.value = "";
+          }
+        }
+
+        function renderStagePresetOptions(stagePresets) {
+          var currentValue = applicationPresetFilterEl.value || "";
+          var options = ['<option value="">All stages</option>'];
+          (stagePresets || []).forEach(function(preset) {
+            options.push('<option value="' + escapeAttr(preset.slug || "") + '">' + escapeHTML(preset.name || preset.slug || "Preset") + "</option>");
+          });
+          applicationPresetFilterEl.innerHTML = options.join("");
+          applicationPresetFilterEl.value = currentValue;
+          if (applicationPresetFilterEl.value !== currentValue) {
+            applicationPresetFilterEl.value = "";
+          }
+        }
+
         function stageOptions(selected) {
           return [
             "received",
@@ -711,6 +916,7 @@
         function renderApplications(applications) {
           if (!applications || !applications.length) {
             candidateListEl.innerHTML = '<div class="empty">No applications yet. Published jobs will start filling this inbox.</div>';
+            renderSelectionSummary();
             return;
           }
           candidateListEl.innerHTML = applications.map(function(profile) {
@@ -720,19 +926,21 @@
             var latestNote = notes.length ? notes[notes.length - 1].body : "No recruiter notes yet.";
             var routeButtonLabel = profile.isTalentPool ? "Return to job queue" : "Move to talent pool";
             var routeDestination = profile.isTalentPool ? "job_queue" : "talent_pool";
+            var coverNote = application.submissionCoverNote || applicant.coverNote || "No cover note provided.";
+            var selected = Boolean(state.selectedApplications[application.id || ""]);
             return [
               '<article class="candidate-card" data-application-id="' + escapeAttr(application.id || "") + '">',
               '  <div class="candidate-header">',
-              '    <div><strong>' + escapeHTML(applicant.fullName || "Candidate") + '</strong><p>' + escapeHTML(jobTitleByVacancyID(application.vacancyId)) + "</p></div>",
-              '    <span class="status-pill">' + escapeHTML(application.stage || "received") + "</span>",
+              '    <div class="candidate-header-main"><label class="checkbox-line"><input class="checkbox-input" data-candidate-select type="checkbox"' + (selected ? " checked" : "") + '><span>Select</span></label><strong>' + escapeHTML(application.submissionFullName || applicant.fullName || "Candidate") + '</strong><p>' + escapeHTML(jobTitleByVacancyID(application.vacancyId)) + "</p></div>",
+              '    <span class="status-pill">' + escapeHTML(labelForStage(application.stage || "received")) + "</span>",
               "  </div>",
               '  <div class="candidate-meta">',
-              '    <span>' + escapeHTML(applicant.email || "No email") + "</span>",
-              '    <span>' + escapeHTML(applicant.location || "No location") + "</span>",
+              '    <span>' + escapeHTML(application.submissionEmail || applicant.email || "No email") + "</span>",
+              '    <span>' + escapeHTML(application.submissionLocation || applicant.location || "No location") + "</span>",
               '    <span>' + escapeHTML(application.sourceKind || application.source || "ats_public") + "</span>",
               '    <span>' + escapeHTML(profile.caseQueueName || profile.caseQueueSlug || "No queue") + "</span>",
               "  </div>",
-              '  <p>' + escapeHTML(applicant.coverNote || "No cover note provided.") + "</p>",
+              '  <p>' + escapeHTML(coverNote) + "</p>",
               '  <div class="candidate-grid">',
               '    <label><span>Stage</span><select data-candidate-stage>' + stageOptions(application.stage || "received") + "</select></label>",
               '    <label><span>Add note</span><textarea data-candidate-note placeholder="Add recruiter context, decisions, or follow-up details."></textarea></label>',
@@ -742,25 +950,44 @@
               '    <button class="button-secondary" type="button" data-candidate-action="route" data-route-destination="' + escapeAttr(routeDestination) + '">' + routeButtonLabel + "</button>",
               '    <button class="button-primary" type="button" data-candidate-action="add-note">Add note</button>',
               "  </div>",
+              '  <div class="candidate-detail">',
+              '    <div class="detail-grid">',
+              '      <div class="detail-card"><strong>Submission</strong><div class="pill-row"><span>' + escapeHTML(application.submissionPhone || applicant.phone || "No phone") + '</span><span>' + escapeHTML(application.submissionLocation || applicant.location || "No location") + '</span><span>' + escapeHTML(application.appliedAt ? new Date(application.appliedAt).toLocaleString() : "Unknown") + "</span></div></div>",
+              '      <div class="detail-card"><strong>Routing</strong><div class="pill-row"><span>' + escapeHTML(profile.caseQueueName || profile.caseQueueSlug || "No queue") + '</span><span>' + escapeHTML(application.sourceKind || application.source || "ats_public") + "</span></div></div>",
+              (application.submissionResumeAttachmentId ? '      <div class="detail-card"><strong>Resume attachment</strong><p>' + escapeHTML(application.submissionResumeAttachmentId) + "</p></div>" : ""),
+              ((application.submissionLinkedInUrl || application.submissionPortfolioUrl) ? '      <div class="detail-card"><strong>Links</strong><div class="candidate-links">' + (application.submissionLinkedInUrl ? '<a class="button-secondary" href="' + escapeAttr(application.submissionLinkedInUrl) + '" target="_blank" rel="noreferrer">LinkedIn</a>' : "") + (application.submissionPortfolioUrl ? '<a class="button-secondary" href="' + escapeAttr(application.submissionPortfolioUrl) + '" target="_blank" rel="noreferrer">Portfolio</a>' : "") + "</div></div>" : ""),
+              "    </div>",
+              '    <div class="detail-card"><strong>Recruiter notes</strong><div class="timeline-list">' + (notes.length ? notes.map(function(note) {
+                return '<div class="timeline-item"><strong>' + escapeHTML(note.authorName || note.authorType || "Recruiter") + '</strong><p>' + escapeHTML(note.body || "") + '</p><p class="muted-note">' + escapeHTML(note.createdAt ? new Date(note.createdAt).toLocaleString() : "") + "</p></div>";
+              }).join("") : '<p class="muted-note">No recruiter notes yet.</p>') + "</div></div>",
+              "  </div>",
               '  <p class="muted-note">Latest note: ' + escapeHTML(latestNote) + "</p>",
               "</article>"
             ].join("");
           }).join("");
+          renderSelectionSummary();
         }
 
         function loadApplications() {
           var selection = applicationJobFilterEl.value || "all";
-          var query = "";
+          var params = [];
           if (selection === "general") {
-            query = "?scope=general";
+            params.push("scope=general");
           } else if (selection === "talent_pool") {
-            query = "?scope=talent_pool";
+            params.push("scope=talent_pool");
           } else if (selection.indexOf("job:") === 0) {
-            query = "?jobId=" + encodeURIComponent(selection.slice(4));
+            params.push("jobId=" + encodeURIComponent(selection.slice(4)));
           }
-          return fetchJSON("/extensions/ats/api/applications" + query)
+          if (applicationViewFilterEl.value) {
+            params.push("view=" + encodeURIComponent(applicationViewFilterEl.value));
+          }
+          if (applicationPresetFilterEl.value) {
+            params.push("preset=" + encodeURIComponent(applicationPresetFilterEl.value));
+          }
+          return fetchJSON("/extensions/ats/api/applications" + (params.length ? "?" + params.join("&") : ""))
             .then(function(payload) {
               state.applications = payload.applications || [];
+              pruneSelection();
               renderApplications(state.applications);
             })
             .catch(function(error) {
@@ -781,7 +1008,11 @@
             root.dataset.id = item.id || "";
             root.querySelectorAll("[data-field]").forEach(function(field) {
               var key = field.getAttribute("data-field");
-              field.value = item[key] != null ? item[key] : defaults[key] || "";
+              if (field.type === "checkbox") {
+                field.checked = Boolean(item[key]);
+              } else {
+                field.value = item[key] != null ? item[key] : defaults[key] || "";
+              }
             });
             root.querySelector("[data-remove]").addEventListener("click", function() {
               root.remove();
@@ -796,10 +1027,70 @@
             .map(function(node) {
               var item = { id: node.dataset.id || "" };
               node.querySelectorAll("[data-field]").forEach(function(field) {
-                item[field.getAttribute("data-field")] = field.value;
+                item[field.getAttribute("data-field")] = field.type === "checkbox" ? field.checked : field.value;
               });
               return item;
             });
+        }
+
+        function renderSavedViews(savedViews) {
+          var currentValue = applicationViewFilterEl.value || "";
+          applicationViewFilterEl.innerHTML = ['<option value="">All views</option>'].concat((savedViews || []).map(function(view) {
+            return '<option value="' + escapeAttr(view.slug || "") + '">' + escapeHTML(view.name || view.slug || "Saved view") + "</option>";
+          })).join("");
+          if (currentValue) applicationViewFilterEl.value = currentValue;
+          renderRepeater(savedViewListEl, "saved-view-item-template", (savedViews || []).map(function(view) {
+            var criteria = view.criteria || {};
+            return {
+              id: view.id || "",
+              name: view.name || "",
+              slug: view.slug || "",
+              stages: Array.isArray(criteria.stages) ? criteria.stages.join(", ") : "",
+              sourceKinds: Array.isArray(criteria.sourceKinds) ? criteria.sourceKinds.join(", ") : "",
+              queueSlugs: Array.isArray(criteria.queueSlugs) ? criteria.queueSlugs.join(", ") : "",
+              vacancyStatuses: Array.isArray(criteria.vacancyStatuses) ? criteria.vacancyStatuses.join(", ") : "",
+              vacancyKinds: Array.isArray(criteria.vacancyKinds) ? criteria.vacancyKinds.join(", ") : "",
+              talentPoolOnly: Boolean(criteria.talentPoolOnly)
+            };
+          }), {});
+        }
+
+        function renderStagePresets(stagePresets) {
+          var currentValue = applicationPresetFilterEl.value || "";
+          applicationPresetFilterEl.innerHTML = ['<option value="">All stages</option>'].concat((stagePresets || []).map(function(preset) {
+            return '<option value="' + escapeAttr(preset.slug || "") + '">' + escapeHTML(preset.name || preset.slug || "Preset") + "</option>";
+          })).join("");
+          if (currentValue) applicationPresetFilterEl.value = currentValue;
+          renderRepeater(stagePresetListEl, "stage-preset-item-template", (stagePresets || []).map(function(preset) {
+            return {
+              id: preset.id || "",
+              name: preset.name || "",
+              slug: preset.slug || "",
+              stages: Array.isArray(preset.stages) ? preset.stages.join(", ") : "",
+              isDefault: Boolean(preset.isDefault)
+            };
+          }), {});
+          bulkStageSelectEl.innerHTML = stageOptions("");
+        }
+
+        function pruneSelection() {
+          var visible = {};
+          (state.applications || []).forEach(function(profile) {
+            var applicationID = profile.application && profile.application.id;
+            if (applicationID) visible[applicationID] = true;
+          });
+          Object.keys(state.selectedApplications).forEach(function(applicationID) {
+            if (!visible[applicationID]) {
+              delete state.selectedApplications[applicationID];
+            }
+          });
+          renderSelectionSummary();
+        }
+
+        function renderSelectionSummary() {
+          var selectedCount = Object.keys(state.selectedApplications).length;
+          candidateSelectionSummaryEl.textContent = selectedCount ? selectedCount + " candidate" + (selectedCount === 1 ? "" : "s") + " selected." : "No candidates selected.";
+          candidateSelectAllEl.checked = Boolean(state.applications && state.applications.length && selectedCount === state.applications.length);
         }
 
         function renderJobs(jobs) {
@@ -903,7 +1194,15 @@
               if (!state.editingJobId) {
                 fillJobForm(null);
               }
-              return loadApplications();
+              return fetchJSON("/extensions/ats/api/defaults").then(function(defaults) {
+                state.defaults = {
+                  stagePresets: defaults.stagePresets || [],
+                  savedViews: defaults.savedFilters || []
+                };
+                renderStagePresets(state.defaults.stagePresets);
+                renderSavedViews(state.defaults.savedViews);
+                return loadApplications();
+              });
             })
             .catch(function(error) {
               showBanner(error.message || "Could not load the ATS careers builder.", "error");
@@ -1034,6 +1333,132 @@
         applicationJobFilterEl.addEventListener("change", function() {
           loadApplications();
         });
+        applicationViewFilterEl.addEventListener("change", function() {
+          loadApplications();
+        });
+        applicationPresetFilterEl.addEventListener("change", function() {
+          loadApplications();
+        });
+
+        document.getElementById("add-saved-view-button").addEventListener("click", function() {
+          renderRepeater(savedViewListEl, "saved-view-item-template", readRepeater(savedViewListEl).concat([{}]), {});
+        });
+        document.getElementById("save-saved-views-button").addEventListener("click", function() {
+          var payload = readRepeater(savedViewListEl).map(function(view) {
+            return {
+              id: view.id || "",
+              name: view.name || "",
+              slug: view.slug || "",
+              criteria: {
+                stages: splitCommaList(view.stages),
+                sourceKinds: splitCommaList(view.sourceKinds),
+                queueSlugs: splitCommaList(view.queueSlugs),
+                vacancyStatuses: splitCommaList(view.vacancyStatuses),
+                vacancyKinds: splitCommaList(view.vacancyKinds),
+                talentPoolOnly: Boolean(view.talentPoolOnly)
+              }
+            };
+          });
+          fetchJSON("/extensions/ats/api/saved-views", {
+            method: "PUT",
+            body: JSON.stringify({ savedViews: payload })
+          })
+            .then(function() {
+              showBanner("Saved views updated.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not save ATS views.", "error");
+            });
+        });
+
+        document.getElementById("add-stage-preset-button").addEventListener("click", function() {
+          renderRepeater(stagePresetListEl, "stage-preset-item-template", readRepeater(stagePresetListEl).concat([{ isDefault: false }]), {});
+        });
+        document.getElementById("save-stage-presets-button").addEventListener("click", function() {
+          var payload = readRepeater(stagePresetListEl).map(function(preset) {
+            return {
+              id: preset.id || "",
+              name: preset.name || "",
+              slug: preset.slug || "",
+              stages: splitCommaList(preset.stages),
+              isDefault: Boolean(preset.isDefault)
+            };
+          });
+          fetchJSON("/extensions/ats/api/stage-presets", {
+            method: "PUT",
+            body: JSON.stringify({ stagePresets: payload })
+          })
+            .then(function() {
+              showBanner("Stage presets updated.");
+              return loadBundle();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not save stage presets.", "error");
+            });
+        });
+
+        candidateSelectAllEl.addEventListener("change", function() {
+          if (candidateSelectAllEl.checked) {
+            (state.applications || []).forEach(function(profile) {
+              if (profile.application && profile.application.id) {
+                state.selectedApplications[profile.application.id] = true;
+              }
+            });
+          } else {
+            state.selectedApplications = {};
+          }
+          renderApplications(state.applications);
+        });
+
+        document.getElementById("bulk-stage-button").addEventListener("click", function() {
+          var applicationIDs = Object.keys(state.selectedApplications);
+          if (!applicationIDs.length) {
+            showBanner("Select at least one candidate first.", "error");
+            return;
+          }
+          var stage = bulkStageSelectEl.value;
+          if (!stage) {
+            showBanner("Choose a stage for the bulk action.", "error");
+            return;
+          }
+          Promise.all(applicationIDs.map(function(applicationID) {
+            return fetchJSON("/extensions/ats/api/applications/" + applicationID + "/stage", {
+              method: "POST",
+              body: JSON.stringify({ stage: stage, actorName: "ATS Admin" })
+            });
+          }))
+            .then(function() {
+              state.selectedApplications = {};
+              showBanner("Bulk stage update complete.");
+              return loadApplications();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not apply the bulk stage update.", "error");
+            });
+        });
+
+        document.getElementById("bulk-route-button").addEventListener("click", function() {
+          var applicationIDs = Object.keys(state.selectedApplications);
+          if (!applicationIDs.length) {
+            showBanner("Select at least one candidate first.", "error");
+            return;
+          }
+          Promise.all(applicationIDs.map(function(applicationID) {
+            return fetchJSON("/extensions/ats/api/applications/" + applicationID + "/route", {
+              method: "POST",
+              body: JSON.stringify({ destination: bulkRouteSelectEl.value || "talent_pool", actorName: "ATS Admin" })
+            });
+          }))
+            .then(function() {
+              state.selectedApplications = {};
+              showBanner("Bulk routing complete.");
+              return loadApplications();
+            })
+            .catch(function(error) {
+              showBanner(error.message || "Could not apply the bulk routing action.", "error");
+            });
+        });
 
         document.getElementById("upload-asset-button").addEventListener("click", function() {
           var fileInput = document.getElementById("asset-file");
@@ -1095,9 +1520,11 @@
 
         candidateListEl.addEventListener("click", function(event) {
           var action = event.target.getAttribute("data-candidate-action");
-          if (!action) return;
           var card = event.target.closest(".candidate-card");
           if (!card) return;
+          if (!action) {
+            return;
+          }
           var applicationID = card.getAttribute("data-application-id");
           if (!applicationID) return;
           var stage = card.querySelector("[data-candidate-stage]").value;
@@ -1165,6 +1592,26 @@
                 showBanner(error.message || "Could not add recruiter note.", "error");
               });
           }
+        });
+
+        candidateListEl.addEventListener("change", function(event) {
+          if (event.target.getAttribute("data-candidate-select") == null) {
+            return;
+          }
+          var card = event.target.closest(".candidate-card");
+          if (!card) {
+            return;
+          }
+          var applicationID = card.getAttribute("data-application-id");
+          if (!applicationID) {
+            return;
+          }
+          if (event.target.checked) {
+            state.selectedApplications[applicationID] = true;
+          } else {
+            delete state.selectedApplications[applicationID];
+          }
+          renderSelectionSummary();
         });
 
         jobListEl.addEventListener("click", function(event) {

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "ats",
   "name": "Applicant Tracking",
-  "version": "0.8.29",
+  "version": "0.8.30",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "workspace",
@@ -12,12 +12,12 @@
   "schema": {
     "name": "ext_demandops_ats",
     "packageKey": "demandops/ats",
-    "targetVersion": "000005",
+    "targetVersion": "000006",
     "migrationEngine": "postgres_sql"
   },
   "runtime": {
     "protocol": "unix_socket_http",
-    "ociReference": "ghcr.io/movebigrocks/mbr-ext-ats-runtime:v0.8.29",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-ats-runtime:v0.8.30",
     "digest": "sha256:pending"
   },
   "description": "Set up a branded careers site, publish jobs, intake candidate applications, and manage applicant stages on Move Big Rocks cases, contacts, queues, attachments, tags, automations, and ATS-owned recruiting state.",
@@ -34,6 +34,8 @@
     "contact:write",
     "attachment:read",
     "attachment:write",
+    "queue:read",
+    "queue:write",
     "automation:write"
   ],
   "queues": [
@@ -258,6 +260,36 @@
       "auth": "session",
       "workspaceBinding": "workspace_from_session",
       "serviceTarget": "ats.api.applications"
+    },
+    {
+      "name": "ats-api-stage-presets",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/stage-presets",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.stage-presets",
+      "contentTypes": [
+        "application/json"
+      ]
+    },
+    {
+      "name": "ats-api-saved-views",
+      "class": "extension_api",
+      "mountPath": "/extensions/ats/api/saved-views",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "ats.api.saved-views",
+      "contentTypes": [
+        "application/json"
+      ]
     },
     {
       "name": "ats-api-workspace-defaults",
@@ -494,10 +526,9 @@
   ],
   "customizableAssets": [],
   "defaultConfig": {
-    "brand": "Acme",
+    "companyName": "Acme",
     "siteTitle": "Careers at Acme",
     "primaryColor": "#0f766e",
-    "resumeField": "resume_attachment_id",
     "vacancyStatuses": [
       "draft",
       "open",
@@ -506,12 +537,13 @@
       "archived"
     ],
     "stages": [
-      "applied",
+      "received",
       "screening",
       "interview",
       "offer",
       "hired",
-      "rejected"
+      "rejected",
+      "withdrawn"
     ]
   }
 }

@@ -79,8 +79,8 @@ func TestBuildCandidateRecord(t *testing.T) {
 	if applicant.Email != "ada@example.com" {
 		t.Fatalf("expected normalized applicant email, got %q", applicant.Email)
 	}
-	if applicant.ResumeAttachmentID != "att_resume_123" {
-		t.Fatalf("expected resume attachment to be preserved")
+	if applicant.ResumeAttachmentID != "" {
+		t.Fatalf("expected applicant profile to stay free of application-specific resume state")
 	}
 
 	if application.VacancyID != "vac_123" {
@@ -91,6 +91,12 @@ func TestBuildCandidateRecord(t *testing.T) {
 	}
 	if application.FormSubmissionID != "sub_123" {
 		t.Fatalf("expected form submission id, got %q", application.FormSubmissionID)
+	}
+	if application.SubmissionResumeAttachmentID != "att_resume_123" {
+		t.Fatalf("expected application resume attachment snapshot to be preserved")
+	}
+	if application.SubmissionCoverNote != "I care about product craft." {
+		t.Fatalf("expected application cover note snapshot to be preserved")
 	}
 	if application.SourceKind != ApplicationSourceKindFormSubmission {
 		t.Fatalf("expected form submission source kind, got %q", application.SourceKind)

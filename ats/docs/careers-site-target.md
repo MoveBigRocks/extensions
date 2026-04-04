@@ -5,13 +5,15 @@ folder actually contains, how that compares to the current ATS extension, and
 what the ATS extension needs in order to generate a comparable careers site
 from structured ATS data instead of hard-coded demo HTML.
 
-Status on April 3, 2026:
+Status on April 4, 2026:
 
-- the ATS source in this repo now renders a real `/careers` homepage and
+- the ATS source in this repo renders a real `/careers` homepage and
   `/careers/jobs/:slug` detail pages from ATS-owned SQL data
-- the extension now owns site profile, team, gallery, managed media assets,
+- the extension owns site profile, team, gallery, managed media assets,
   privacy/custom CSS settings, general-application intake, and talent-pool
   routing
+- only open jobs render as active public job pages; draft jobs are omitted and
+  previously published closed or paused jobs are replaced with unavailable pages
 - the remaining gaps are mostly parity-plus product areas such as richer public
   filtering/catalog controls, multilingual support, custom domains, and the
   broader recruiter-suite features tracked in the roadmap docs

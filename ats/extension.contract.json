@@ -29,6 +29,7 @@
   ],
   "publicPaths": [
     "/careers",
+    "/careers/apply",
     "/careers/jobs/:slug",
     "/careers/assets/:asset",
     "/careers/assets/uploads/:asset",
@@ -48,6 +49,8 @@
     "/extensions/ats/api/careers/site",
     "/extensions/ats/api/careers/team",
     "/extensions/ats/api/defaults",
+    "/extensions/ats/api/saved-views",
+    "/extensions/ats/api/stage-presets",
     "/extensions/ats/api/jobs/:id",
     "/extensions/ats/api/jobs",
     "/extensions/ats/api/jobs/:id/applications",

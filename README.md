@@ -113,7 +113,13 @@ To re-run the strict first-party catalog proof locally, use:
 ```bash
 ./scripts/check-public-boundary.sh
 MBR_BIN=/path/to/mbr bash ./scripts/validate-first-party.sh
+bash ./scripts/report-first-party-release-state.sh
 ```
+
+The release-state report shows whether each extension manifest version already
+has a matching git release tag locally and on `origin`. Versioned public bundle
+publishes should come from matching git tags, not ad hoc workflow-dispatch
+semver strings.
 
 ## First-Party Catalog
 
@@ -129,6 +135,7 @@ What it gives you:
 - a public job and general-application flow that creates candidate cases
 - ATS-owned vacancy lifecycle and application-stage logic in Go
 - ATS-owned branding, content, and managed careers media for the public site
+- saved views, stage presets, and a guided setup checklist in the ATS admin
 - recruiting queues and workflow tags on the same operational base
 - candidate evaluation built on Move Big Rocks cases, contacts, queues,
   attachments, automation, and other shared primitives
@@ -281,11 +288,8 @@ The current free public first-party bundle set is:
 
 Install them by OCI ref:
 
-The latest published ATS bundle is currently `v0.8.25`. The source in this
-repo is ahead of that release and is prepared for the next ATS publish cut.
-
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.25 --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.30 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v0.1.0 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21 --workspace WORKSPACE_ID
 mbr extensions install ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v0.1.0 --workspace WORKSPACE_ID

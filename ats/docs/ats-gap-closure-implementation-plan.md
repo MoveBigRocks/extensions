@@ -14,15 +14,18 @@ See also:
 - [`ats-v1-requirements-and-roadmap.md`](./ats-v1-requirements-and-roadmap.md)
 - [`careers-site-target.md`](./careers-site-target.md)
 
-Status on April 3, 2026:
+Status on April 4, 2026:
 
-- the source in this repo has now implemented the original coherence baseline:
-  ATS-native public intake, durable ATS-owned careers-site state, generated
-  `/careers` pages, managed media publishing, general applications, and
-  talent-pool routing
+- the source in this repo now implements the original coherence baseline plus
+  the first operator productization pass: ATS-native public intake, durable
+  ATS-owned careers-site state, generated `/careers` pages, managed media
+  publishing, general applications, talent-pool routing, saved views, stage
+  presets, candidate detail, bulk candidate actions, truthful setup-state
+  tracking, and per-application submission snapshots
 - the sections below still describe the execution model and milestone ordering,
-  but the remaining gaps are now the deeper operator, setup, analytics, and
-  governance layers rather than the first public-site foundation
+  but the remaining gaps are now the deeper setup-wizard, analytics,
+  scheduling, structured-hiring, and governance layers rather than the first
+  public-site and operator baseline
 
 ## 1. Objective
 
@@ -74,6 +77,8 @@ The runtime currently supports:
 - jobs CRUD and status transitions
 - generated `/careers`
 - generated `/careers/jobs/:slug`
+- draft jobs omitted from public rendering and previously published closed jobs
+  replaced with unavailable pages
 - public application ingest via `/careers/applications`
 - public resume upload via `/careers/attachments`
 - public general-application intake via a hidden ATS-owned intake role
@@ -81,6 +86,7 @@ The runtime currently supports:
 - candidate routing between job queues and the shared talent pool
 - careers site regeneration on ATS content changes
 - managed careers-media upload and publication
+- application submission snapshots stored on ATS application records
 
 ### Shared MBR primitives already reused
 
@@ -102,15 +108,14 @@ The current admin surface lets operators edit:
 - gallery
 - jobs
 - setup checklist state
-- candidate inbox with stage, note, and routing actions
+- candidate inbox with stage, note, routing, detail, and bulk actions
+- saved views
+- stage presets
 
 ## 2.2 What is missing now
 
 - fully guided setup wizard UX
-- dedicated candidate-detail timeline and richer linked-case surface
-- saved views UI
-- stage-preset UI
-- structured hiring entities and workflows
+- deeper structured-hiring entities and workflows
 - scheduling flows
 - analytics UI and APIs
 - governance/audit/retention features
@@ -123,8 +128,6 @@ These are the highest-risk inconsistencies in the current model:
 - the ATS-to-case projection contract now exists, but it still needs to be
   tightened into a stable operator-facing contract and surfaced consistently in
   the UI
-- saved views, stage presets, and setup state exist in ATS-owned storage, but
-  are not yet fully productized as polished operator surfaces
 - broader recruiter-suite features like scheduling, analytics, and governance
   remain outside the current baseline
 
@@ -219,9 +222,9 @@ static public assets for the generated careers site.
 | Branding source of truth | ATS SQL plus overlapping extension config | ATS SQL canonical, config seeds only | M1/M2 |
 | Managed media | URL-only inputs | uploaded managed assets | M2 |
 | Public careers quality | good but basic | inspiration-grade, configurable, complete | M2 |
-| Candidate ops UI | backend support only | real inbox/detail workflow | M3 |
+| Candidate ops UI | inbox, detail, notes, routing, and bulk actions are live | deeper recruiter workflow polish | M3/M4 |
 | Talent pool/general applications | seeded queues only | real ATS workflow surfaces | M3 |
-| Saved views/stage presets | backend support only | usable admin UI | M3 |
+| Saved views/stage presets | usable admin UI is live | richer recruiter workflow integration | M3/M4 |
 | Structured hiring | minimal stage model | interview plans and feedback foundations | M4 |
 | Scheduling | none | first-class scheduling workflow | M4 |
 | Analytics | minimal or absent | recruiter and hiring reporting | M5 |

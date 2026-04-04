@@ -8,16 +8,20 @@ Greenhouse.
 It is intended to be the working blueprint for implementing the ATS extension as
 a real first-party product, not a demo bundle.
 
-Status on April 3, 2026:
+Status on April 4, 2026:
 
-- the ATS source now implements the core careers-site baseline from this
-  roadmap: generated public careers pages, ATS-owned site/team/gallery/media
-  content, ATS-native intake, public resume uploads, general applications,
-  talent-pool routing, setup-state tracking, and a recruiter inbox surface
-- this document still matters as the parity and differentiation roadmap, but
-  the remaining work is now concentrated in full setup-wizard UX, saved
-  views/stage-presets productization, structured interviewing, scheduling,
-  analytics, governance, and multi-brand or multilingual expansion
+- the ATS source now implements the coherent V1 baseline from this roadmap:
+  generated public careers pages, ATS-owned site/team/gallery/media content,
+  ATS-native public intake, public resume uploads, general applications,
+  talent-pool routing, saved views, stage presets, candidate detail with bulk
+  actions, truthful setup-state tracking, and per-application submission
+  snapshots
+- draft jobs are not rendered as public job pages, and previously published
+  closed or paused jobs are replaced with unavailable pages instead of staying
+  live as stale public listings
+- the remaining work is now concentrated in deeper parity layers such as a
+  dedicated setup wizard flow, structured interviewing, scheduling, analytics,
+  governance, and multi-brand or multilingual expansion
 
 ## 1. Product Goal
 
@@ -881,13 +885,9 @@ Must provide:
 
 ### Work items
 
-- build candidates inbox
-- build candidate detail view
-- build notes and stage UI
-- expose talent pool and general applications
-- build saved views UI
-- add bulk actions
+- keep improving the candidate inbox and detail workflow
 - add duplicate-candidate handling
+- deepen linked-case and recruiter timeline context
 
 ### Exit criteria
 
