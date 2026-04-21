@@ -123,6 +123,18 @@ func registerAnalyticsRoutes(engine *gin.Engine, cfg *config.Config, runtime *an
 	engine.GET("/extensions/web-analytics/api/properties/:id", apiHandler.GetProperty)
 	engine.PATCH("/extensions/web-analytics/api/properties/:id", apiHandler.UpdateProperty)
 	engine.DELETE("/extensions/web-analytics/api/properties/:id", apiHandler.DeleteProperty)
+
+	// Agent-callable surface. The platform proxies the original URL to the
+	// runtime, so handlers for auth: agent_token endpoints must be registered
+	// here in addition to their session-authed siblings above. The handlers
+	// are auth-mode-agnostic: they read workspace_id from the gin context,
+	// which the platform populates identically for workspace_from_session and
+	// workspace_from_agent_token bindings. See RFC-0015 and ADR 0028.
+	engine.GET("/extensions/web-analytics/api/agent/properties", apiHandler.ListProperties)
+	engine.POST("/extensions/web-analytics/api/agent/properties", apiHandler.CreateProperty)
+	engine.GET("/extensions/web-analytics/api/agent/properties/:id", apiHandler.GetProperty)
+	engine.PATCH("/extensions/web-analytics/api/agent/properties/:id", apiHandler.UpdateProperty)
+	engine.DELETE("/extensions/web-analytics/api/agent/properties/:id", apiHandler.DeleteProperty)
 	engine.POST("/extensions/web-analytics/api/properties/:id/reset", apiHandler.ResetProperty)
 	engine.GET("/extensions/web-analytics/api/properties/:id/current-visitors", apiHandler.CurrentVisitors)
 	engine.GET("/extensions/web-analytics/api/properties/:id/verify", apiHandler.VerifyInstallation)
