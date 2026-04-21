@@ -41,10 +41,21 @@
     "/extensions/web-analytics/api/properties/:id/timeseries",
     "/extensions/web-analytics/api/properties/:id/verify"
   ],
+  "agentPaths": [
+    "/extensions/web-analytics/api/agent/properties",
+    "/extensions/web-analytics/api/agent/properties/:id"
+  ],
   "healthPaths": [
     "/extensions/web-analytics/health"
   ],
   "commands": [
-    "web-analytics.properties.list"
+    "web-analytics.properties.create",
+    "web-analytics.properties.delete",
+    "web-analytics.properties.get",
+    "web-analytics.properties.list",
+    "web-analytics.properties.update"
+  ],
+  "agentSkills": [
+    "manage-properties"
   ]
 }
