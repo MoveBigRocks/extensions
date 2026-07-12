@@ -60,6 +60,11 @@ func main() {
 	}()
 
 	engine := runtimehttp.DefaultEngine()
+	// Error tracking is an instance-admin observability tool that aggregates
+	// across workspaces (its dashboard lists all workspaces), so its core-table
+	// access runs under the cross-workspace admin role rather than being confined
+	// to one workspace under row-level security.
+	engine.Use(runtimehttp.AdminContext(runtime.store))
 	tmpl, err := errortrackingui.ParseTemplates()
 	if err != nil {
 		log.Error("Failed to parse error-tracking templates", "error", err)

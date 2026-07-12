@@ -33,6 +33,9 @@ func main() {
 	}()
 
 	engine := runtimehttp.DefaultEngine()
+	// ATS is workspace scoped: every request belongs to one workspace, so
+	// confine its core-table access to that workspace under row-level security.
+	engine.Use(runtimehttp.TenantContext(runtime.Store))
 	runtime.Register(engine)
 
 	log.Info("Starting ats runtime", "package_key", packageKey)
