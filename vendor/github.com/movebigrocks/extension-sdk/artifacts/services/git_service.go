@@ -529,6 +529,7 @@ func (s *GitService) currentRef(ctx context.Context, repoDir string) (string, er
 func (s *GitService) hasAnyStagedChanges(ctx context.Context, repoDir string) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--cached", "--quiet")
 	cmd.Dir = repoDir
+	cmd.Env = gitCommandEnv(nil)
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
@@ -556,10 +557,48 @@ func (s *GitService) moveTrackedPath(ctx context.Context, repoDir, previousPath,
 	return nil
 }
 
+// gitRedirectEnvNames are environment variables that would point git at a
+// different repository, index, object store, or config than the repoDir this
+// service manages. The artifact service always operates on its own per-workspace
+// repos under rootDir, so it must never inherit these from the ambient
+// environment. A git hook (which sets GIT_DIR and GIT_INDEX_FILE for the hook
+// process) or any parent launched by git would otherwise hijack every git
+// command onto the wrong repository.
+var gitRedirectEnvNames = map[string]struct{}{
+	"GIT_DIR":                          {},
+	"GIT_WORK_TREE":                    {},
+	"GIT_INDEX_FILE":                   {},
+	"GIT_OBJECT_DIRECTORY":             {},
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES": {},
+	"GIT_COMMON_DIR":                   {},
+	"GIT_NAMESPACE":                    {},
+	"GIT_PREFIX":                       {},
+	"GIT_CONFIG":                       {},
+	"GIT_CONFIG_GLOBAL":                {},
+	"GIT_CONFIG_SYSTEM":                {},
+	"GIT_CONFIG_COUNT":                 {},
+}
+
+func gitCommandEnv(extraEnv []string) []string {
+	base := os.Environ()
+	out := make([]string, 0, len(base)+len(extraEnv))
+	for _, kv := range base {
+		name := kv
+		if i := strings.IndexByte(kv, '='); i >= 0 {
+			name = kv[:i]
+		}
+		if _, redirect := gitRedirectEnvNames[name]; redirect {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out, extraEnv...)
+}
+
 func (s *GitService) runGit(ctx context.Context, dir string, extraEnv []string, args ...string) (string, string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), extraEnv...)
+	cmd.Env = gitCommandEnv(extraEnv)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
