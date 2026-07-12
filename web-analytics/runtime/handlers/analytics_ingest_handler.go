@@ -15,7 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/metrics"
+	"github.com/movebigrocks/extensions/web-analytics/runtime/metrics"
 	"github.com/movebigrocks/extension-sdk/logger"
 	analyticsservices "github.com/movebigrocks/extensions/web-analytics/runtime/services"
 )

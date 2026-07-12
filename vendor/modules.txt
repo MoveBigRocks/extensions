@@ -315,7 +315,7 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
-# github.com/movebigrocks/extension-sdk v0.8.24-0.20260712182342-ccc026259373
+# github.com/movebigrocks/extension-sdk v0.8.24-0.20260712204224-cb463122e5a6
 ## explicit; go 1.26.0
 github.com/movebigrocks/extension-sdk/artifacts/services
 github.com/movebigrocks/extension-sdk/eventbus
@@ -339,9 +339,9 @@ github.com/movebigrocks/extension-sdk/extensionhost/service/services
 github.com/movebigrocks/extension-sdk/extensionhost/shared/authorization
 github.com/movebigrocks/extension-sdk/extensionhost/shared/contracts
 github.com/movebigrocks/extension-sdk/extensionhost/shared/domain
-github.com/movebigrocks/extension-sdk/extensionhost/shared/geoip
 github.com/movebigrocks/extension-sdk/extensionhost/testutil
 github.com/movebigrocks/extension-sdk/extensionhost/testutil/refext
+github.com/movebigrocks/extension-sdk/geoip
 github.com/movebigrocks/extension-sdk/id
 github.com/movebigrocks/extension-sdk/internal/graph/model
 github.com/movebigrocks/extension-sdk/internal/infrastructure/antivirus

@@ -9,11 +9,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
-	"github.com/movebigrocks/extension-sdk/extensionhost/shared/geoip"
+	"github.com/movebigrocks/extension-sdk/geoip"
 	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	sqlstore "github.com/movebigrocks/extensions/web-analytics/runtime"
+	"github.com/movebigrocks/extensions/web-analytics/runtime/config"
 	analyticsdomain "github.com/movebigrocks/extensions/web-analytics/runtime/domain"
 	analyticshandlers "github.com/movebigrocks/extensions/web-analytics/runtime/handlers"
 	analyticsservices "github.com/movebigrocks/extensions/web-analytics/runtime/services"
@@ -85,7 +85,7 @@ func newAnalyticsRuntime(cfg *config.Config, log *logger.Logger) (*analyticsRunt
 		}
 	}
 
-	db, err := sqlstore.NewAnalyticsDB(cfg.Database.EffectiveDSN())
+	db, err := sqlstore.NewAnalyticsDB(cfg.DSN)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func newAnalyticsRuntime(cfg *config.Config, log *logger.Logger) (*analyticsRunt
 
 func registerAnalyticsRoutes(engine *gin.Engine, cfg *config.Config, runtime *analyticsRuntime, scriptContent []byte) {
 	adminHandler := analyticshandlers.NewAnalyticsAdminHandler()
-	apiHandler := analyticshandlers.NewAnalyticsExtensionAPIHandler(runtime.query, cfg.Server.APIBaseURL)
+	apiHandler := analyticshandlers.NewAnalyticsExtensionAPIHandler(runtime.query, cfg.APIBaseURL)
 	ingestHandler := analyticshandlers.NewAnalyticsIngestHandler(runtime.ingest, logger.New().WithField("handler", "analytics-ingest"))
 	scriptHandler := analyticshandlers.NewAnalyticsScriptHandlerWithContent(scriptContent)
 

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/shared/geoip"
+	"github.com/movebigrocks/extension-sdk/geoip"
 	"github.com/movebigrocks/extension-sdk/logger"
 	analyticsdomain "github.com/movebigrocks/extensions/web-analytics/runtime/domain"
 )

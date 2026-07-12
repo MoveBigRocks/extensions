@@ -115,8 +115,8 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
-github.com/movebigrocks/extension-sdk v0.8.24-0.20260712182342-ccc026259373 h1:rFYqGUBZDcpHB5Bhul8mZhQt3ScxXVJ+GRRSyjfU0g8=
-github.com/movebigrocks/extension-sdk v0.8.24-0.20260712182342-ccc026259373/go.mod h1:Iqlf7AeddG58nbnELSWb/j1mn+sCXV6aRwFPwaBdNaA=
+github.com/movebigrocks/extension-sdk v0.8.24-0.20260712204224-cb463122e5a6 h1:Gw+1iqaTAZu2dhcZAW/KbeLzQpC7GQ7l7ZgbnSxOLaI=
+github.com/movebigrocks/extension-sdk v0.8.24-0.20260712204224-cb463122e5a6/go.mod h1:Iqlf7AeddG58nbnELSWb/j1mn+sCXV6aRwFPwaBdNaA=
 github.com/mr-tron/base58 v1.2.0 h1:T/HDJBh4ZCPbU39/+c3rRvE0uKBQlU27+QI8LJ4t64o=
 github.com/mr-tron/base58 v1.2.0/go.mod h1:BinMc/sQntlIE1frQmRFPUoPA1Zkr8VRgBdjWI2mNwc=
 github.com/mssola/useragent v1.0.0 h1:WRlDpXyxHDNfvZaPEut5Biveq86Ze4o4EMffyMxmH5o=
