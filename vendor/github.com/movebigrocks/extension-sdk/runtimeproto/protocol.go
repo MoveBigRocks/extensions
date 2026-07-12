@@ -24,8 +24,6 @@ const (
 	HeaderRouteParamsJSON       = "X-MBR-Route-Params-JSON"
 	HeaderAdminExtensionNavJSON = "X-MBR-Admin-Extension-Nav-JSON"
 	HeaderAdminWidgetsJSON      = "X-MBR-Admin-Extension-Widgets-JSON"
-	HeaderShowAnalytics         = "X-MBR-Show-Analytics"
-	HeaderShowErrorTracking     = "X-MBR-Show-Error-Tracking"
 )
 
 const (

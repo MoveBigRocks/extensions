@@ -320,7 +320,11 @@ func (s *GitService) Read(ctx context.Context, params ReadParams) ([]byte, error
 		}
 		return data, nil
 	}
-	stdout, _, err := s.runGit(ctx, repoDir, nil, "show", strings.TrimSpace(params.Ref)+":"+relativePath)
+	ref, err := sanitizeGitRevision(params.Ref)
+	if err != nil {
+		return nil, err
+	}
+	stdout, _, err := s.runGit(ctx, repoDir, nil, "show", "--end-of-options", ref+":"+relativePath)
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "exists on disk, but not in") {
 			return nil, fmt.Errorf("%w: %s", fs.ErrNotExist, relativePath)
@@ -433,6 +437,14 @@ func (s *GitService) Diff(ctx context.Context, repository RepositoryRef, relativ
 	if err != nil {
 		return "", "", "", err
 	}
+	toRef, err = sanitizeOptionalGitRevision(toRef)
+	if err != nil {
+		return "", "", "", err
+	}
+	fromRef, err = sanitizeOptionalGitRevision(fromRef)
+	if err != nil {
+		return "", "", "", err
+	}
 	if strings.TrimSpace(toRef) == "" {
 		toRef, err = s.currentRef(ctx, repoDir)
 		if err != nil {
@@ -440,7 +452,7 @@ func (s *GitService) Diff(ctx context.Context, repository RepositoryRef, relativ
 		}
 	}
 	if strings.TrimSpace(fromRef) == "" {
-		stdout, _, err := s.runGit(ctx, repoDir, nil, "log", "--follow", "-n", "2", "--format=%H", toRef, "--", relativePath)
+		stdout, _, err := s.runGit(ctx, repoDir, nil, "log", "--follow", "-n", "2", "--format=%H", "--end-of-options", toRef, "--", relativePath)
 		if err == nil {
 			lines := strings.Fields(stdout)
 			if len(lines) >= 2 {
@@ -450,14 +462,14 @@ func (s *GitService) Diff(ctx context.Context, repository RepositoryRef, relativ
 	}
 
 	if strings.TrimSpace(fromRef) == "" {
-		stdout, _, err := s.runGit(ctx, repoDir, nil, "show", "--format=", "--patch", toRef, "--", relativePath)
+		stdout, _, err := s.runGit(ctx, repoDir, nil, "show", "--format=", "--patch", "--end-of-options", toRef, "--", relativePath)
 		if err != nil {
 			return "", "", "", err
 		}
 		return "", toRef, stdout, nil
 	}
 
-	stdout, _, err := s.runGit(ctx, repoDir, nil, "diff", fromRef, toRef, "--", relativePath)
+	stdout, _, err := s.runGit(ctx, repoDir, nil, "diff", "--end-of-options", fromRef, toRef, "--", relativePath)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -517,6 +529,7 @@ func (s *GitService) currentRef(ctx context.Context, repoDir string) (string, er
 func (s *GitService) hasAnyStagedChanges(ctx context.Context, repoDir string) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--cached", "--quiet")
 	cmd.Dir = repoDir
+	cmd.Env = gitCommandEnv(nil)
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
@@ -544,10 +557,48 @@ func (s *GitService) moveTrackedPath(ctx context.Context, repoDir, previousPath,
 	return nil
 }
 
+// gitRedirectEnvNames are environment variables that would point git at a
+// different repository, index, object store, or config than the repoDir this
+// service manages. The artifact service always operates on its own per-workspace
+// repos under rootDir, so it must never inherit these from the ambient
+// environment. A git hook (which sets GIT_DIR and GIT_INDEX_FILE for the hook
+// process) or any parent launched by git would otherwise hijack every git
+// command onto the wrong repository.
+var gitRedirectEnvNames = map[string]struct{}{
+	"GIT_DIR":                          {},
+	"GIT_WORK_TREE":                    {},
+	"GIT_INDEX_FILE":                   {},
+	"GIT_OBJECT_DIRECTORY":             {},
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES": {},
+	"GIT_COMMON_DIR":                   {},
+	"GIT_NAMESPACE":                    {},
+	"GIT_PREFIX":                       {},
+	"GIT_CONFIG":                       {},
+	"GIT_CONFIG_GLOBAL":                {},
+	"GIT_CONFIG_SYSTEM":                {},
+	"GIT_CONFIG_COUNT":                 {},
+}
+
+func gitCommandEnv(extraEnv []string) []string {
+	base := os.Environ()
+	out := make([]string, 0, len(base)+len(extraEnv))
+	for _, kv := range base {
+		name := kv
+		if i := strings.IndexByte(kv, '='); i >= 0 {
+			name = kv[:i]
+		}
+		if _, redirect := gitRedirectEnvNames[name]; redirect {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out, extraEnv...)
+}
+
 func (s *GitService) runGit(ctx context.Context, dir string, extraEnv []string, args ...string) (string, string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), extraEnv...)
+	cmd.Env = gitCommandEnv(extraEnv)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -582,6 +633,30 @@ func sanitizeOptionalRelativePath(value string) (string, error) {
 		return "", nil
 	}
 	return sanitizeRelativePath(value)
+}
+
+// sanitizeGitRevision guards against option injection when a caller-supplied
+// revision is handed to git. runGit uses an argument vector (no shell), so the
+// only way to smuggle a git option through a revision is a leading dash, which
+// a legitimate revision (SHA, HEAD, branch name, refs/...) never has. Call
+// sites additionally pass "--end-of-options" so git treats the value as an
+// operand even if this guard is ever bypassed.
+func sanitizeGitRevision(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("git revision is required")
+	}
+	if strings.HasPrefix(trimmed, "-") {
+		return "", fmt.Errorf("git revision must not start with '-'")
+	}
+	return trimmed, nil
+}
+
+func sanitizeOptionalGitRevision(value string) (string, error) {
+	if strings.TrimSpace(value) == "" {
+		return "", nil
+	}
+	return sanitizeGitRevision(value)
 }
 
 func normalizeRepositoryRef(repository RepositoryRef) (RepositoryRef, error) {
