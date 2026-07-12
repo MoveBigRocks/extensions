@@ -20,9 +20,10 @@ type FormCaseOptions struct {
 }
 
 type ruleActionSpec struct {
-	RequiresCase  bool
-	RequiresForm  bool
-	RequiresIssue bool
+	RequiresCase      bool
+	RequiresForm      bool
+	RequiresIssue     bool
+	RequiresExtension string
 }
 
 var supportedRuleActionSpecs = map[string]ruleActionSpec{
@@ -52,7 +53,7 @@ var supportedRuleActionSpecs = map[string]ruleActionSpec{
 	"send_email":            {},
 	"email":                 {},
 	"publish_event":         {},
-	"create_case":           {RequiresIssue: true},
+	"create_case":           {RequiresIssue: true, RequiresExtension: "error-tracking"},
 	"create_case_from_form": {RequiresForm: true},
 }
 
@@ -63,6 +64,14 @@ func SupportedRuleActionTypes() []string {
 	}
 	sort.Strings(types)
 	return types
+}
+
+func RequiredExtensionForAction(actionType string) string {
+	spec, ok := supportedRuleActionSpecs[actionType]
+	if !ok {
+		return ""
+	}
+	return spec.RequiresExtension
 }
 
 func ValidateRuleActions(conditions TypedConditions, actions TypedActions) error {
