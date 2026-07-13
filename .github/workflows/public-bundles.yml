@@ -244,10 +244,18 @@ jobs:
           cp -R "${{ steps.target.outputs.source_dir }}" "staged-source/${{ steps.target.outputs.source_dir }}"
           if [[ "${{ steps.target.outputs.needs_runtime }}" == "true" ]]; then
             tmp_manifest="$(mktemp)"
+            # Inject the published runtime reference and the release version so
+            # the bundle manifest version always matches the OCI tag. Without
+            # this, a runtime-only change (the bundle content is unchanged, only
+            # the compiled runtime differs) publishes a new tag while the manifest
+            # version stays stale, and the reconcile then treats it as a noop and
+            # the installed version record never advances. The version is the
+            # publish tag with any leading "v" removed.
             jq \
               --arg runtime_ref "${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}" \
               --arg runtime_digest "${{ steps.runtime_publish.outputs.digest }}" \
-              '.runtime.protocol = "unix_socket_http" | .runtime.ociReference = $runtime_ref | .runtime.digest = $runtime_digest' \
+              --arg version "${{ steps.target.outputs.publish_tag }}" \
+              '.runtime.protocol = "unix_socket_http" | .runtime.ociReference = $runtime_ref | .runtime.digest = $runtime_digest | .version = ($version | ltrimstr("v"))' \
               "staged-source/${{ steps.target.outputs.source_dir }}/manifest.json" > "${tmp_manifest}"
             mv "${tmp_manifest}" "staged-source/${{ steps.target.outputs.source_dir }}/manifest.json"
           fi
