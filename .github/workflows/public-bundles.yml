@@ -262,6 +262,11 @@ jobs:
 
       - name: Build raw bundle
         working-directory: mbr-sdk
+        env:
+          # The job vendors the extensions repo, but the SDK checkout is not
+          # vendored. Build its tools in module mode so the job-level
+          # GOFLAGS=-mod=vendor does not fail on a missing SDK vendor tree.
+          GOFLAGS: -mod=mod
         run: |
           sdk_root="${GITHUB_WORKSPACE}/mbr-sdk"
           source_root="${GITHUB_WORKSPACE}/staged-source/${{ steps.target.outputs.source_dir }}"
@@ -286,6 +291,8 @@ jobs:
         working-directory: mbr-sdk
         env:
           MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64: ${{ secrets.MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 }}
+          # See Build raw bundle: the SDK checkout is not vendored.
+          GOFLAGS: -mod=mod
         run: |
           if [[ -z "${MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64}" ]]; then
             echo "::error title=Missing signing secret::Set MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 in the MoveBigRocks/extensions repo secrets." >&2
