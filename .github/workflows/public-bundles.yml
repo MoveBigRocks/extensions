@@ -41,7 +41,7 @@ jobs:
       SIGNING_KEY_ID: demandops-public-1
       GOFLAGS: -mod=vendor
       SDK_REPOSITORY: MoveBigRocks/extension-sdk
-      SDK_REF: v0.8.23
+      SDK_REF: v0.8.24
     steps:
       - name: Checkout extension sources
         uses: actions/checkout@v4
@@ -266,9 +266,9 @@ jobs:
           sdk_root="${GITHUB_WORKSPACE}/mbr-sdk"
           source_root="${GITHUB_WORKSPACE}/staged-source/${{ steps.target.outputs.source_dir }}"
           out_path="${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json"
-          if [[ ! -f "${sdk_root}/scripts/build-bundle.go" ]]; then
-            echo "::error title=Missing SDK build script::${sdk_root}/scripts/build-bundle.go is missing" >&2
-            echo "missing build script: ${sdk_root}/scripts/build-bundle.go" >&2
+          if [[ ! -d "${sdk_root}/scripts/build-bundle" ]]; then
+            echo "::error title=Missing SDK build script::${sdk_root}/scripts/build-bundle is missing" >&2
+            echo "missing build script: ${sdk_root}/scripts/build-bundle" >&2
             exit 1
           fi
           if [[ ! -f "${source_root}/manifest.json" ]]; then
@@ -278,7 +278,7 @@ jobs:
             exit 1
           fi
           mkdir -p "${GITHUB_WORKSPACE}/dist"
-          go run ./scripts/build-bundle.go \
+          go run ./scripts/build-bundle \
             --source "${source_root}" \
             --out "${out_path}"
 
@@ -292,7 +292,7 @@ jobs:
             echo "MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64 is required" >&2
             exit 1
           fi
-          go run ./scripts/sign-bundle.go \
+          go run ./scripts/sign-bundle \
             --bundle "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.bundle.json" \
             --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.signed.bundle.json" \
             --key-id "${SIGNING_KEY_ID}" \
@@ -318,25 +318,6 @@ jobs:
         run: |
           digest="$(oras manifest fetch "${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }}" --descriptor | jq -r '.digest')"
           echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
-
-      - name: Write publication evidence
-        run: |
-          go run ./tools/publication-evidence \
-            --mode release \
-            --source-root "${GITHUB_WORKSPACE}" \
-            --slug "${{ steps.target.outputs.extension }}" \
-            --repository "${GITHUB_REPOSITORY}" \
-            --event-name "${GITHUB_EVENT_NAME}" \
-            --git-sha "${GITHUB_SHA}" \
-            --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            --published-at "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-            --publish-tag "${{ steps.target.outputs.publish_tag }}" \
-            --publish-latest="${{ steps.target.outputs.publish_latest }}" \
-            --bundle-ref "${{ steps.target.outputs.image }}:${{ steps.target.outputs.publish_tag }}" \
-            --bundle-digest "${{ steps.bundle_publish.outputs.digest }}" \
-            --runtime-ref "${{ steps.target.outputs.runtime_image }}:${{ steps.target.outputs.publish_tag }}" \
-            --runtime-digest "${{ steps.runtime_publish.outputs.digest }}" \
-            --out "${GITHUB_WORKSPACE}/dist/${{ steps.target.outputs.extension }}.publication-evidence.json"
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
