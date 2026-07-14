@@ -1,0 +1,11 @@
+# Build output
+/dist/
+/bin/
+*.test
+*.out
+
+# OS and editor cruft
+.DS_Store
+*.log
+*.tmp
+*.bak
