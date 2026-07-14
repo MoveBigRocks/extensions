@@ -19,7 +19,7 @@ The public runtime source for `web-analytics` is in this directory:
 - runtime domain, handlers, services, and SQL-backed store code:
   [`runtime/`](./runtime)
 - admin templates:
-  [`templates/`](./templates)
+  [`runtimeui/templates/`](./runtimeui/templates)
 
 This directory is the runtime source that people should inspect and learn from.
 Platform-owned host contracts it depends on are exposed through public packages,

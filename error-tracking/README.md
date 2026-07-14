@@ -19,7 +19,7 @@ The public runtime source for `error-tracking` is in this directory:
 - runtime domain, handlers, resolvers, services, and SQL-backed store code:
   [`runtime/`](./runtime)
 - admin templates:
-  [`templates/`](./templates)
+  [`runtimeui/templates/`](./runtimeui/templates)
 - SQL model definitions used by the runtime store:
   [`sql-models/`](./sql-models)
 
