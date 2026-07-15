@@ -36,7 +36,8 @@
     "attachment:write",
     "queue:read",
     "queue:write",
-    "automation:write"
+    "automation:write",
+    "artifact:write"
   ],
   "queues": [
     {

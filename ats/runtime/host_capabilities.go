@@ -2,122 +2,67 @@ package atsruntime
 
 import (
 	"context"
-	"io"
+	"fmt"
 
-	automationservices "github.com/movebigrocks/extension-sdk/extensionhost/automation/services"
-	sharedstore "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
-	platformdomain "github.com/movebigrocks/extension-sdk/extensionhost/platform/domain"
-	platformservices "github.com/movebigrocks/extension-sdk/extensionhost/platform/services"
-	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	"github.com/gin-gonic/gin"
+
+	"github.com/movebigrocks/extension-sdk/runtimehost"
 )
 
-type hostTransactionRunner interface {
-	WithTransaction(ctx context.Context, fn func(context.Context) error) error
+// coreHost is the slice of the platform host API the ATS runtime depends on.
+// The live implementation is *runtimehost.Client, built per request from the
+// host token and base URL the platform forwards; tests supply a fake. Keeping
+// it an interface is what lets the ATS runtime speak the language-neutral host
+// API instead of importing platform internals.
+type coreHost interface {
+	GetQueue(ctx context.Context, queueID string) (*runtimehost.HostQueue, bool, error)
+	GetQueueBySlug(ctx context.Context, slug string) (*runtimehost.HostQueue, bool, error)
+	CreateQueue(ctx context.Context, input runtimehost.CreateQueueInput) (*runtimehost.HostQueue, error)
+	GetCase(ctx context.Context, caseID string) (*runtimehost.HostCase, bool, error)
+	UpdateCase(ctx context.Context, caseID string, patch runtimehost.CaseUpdateInput) (*runtimehost.HostCase, error)
+	HandoffCase(ctx context.Context, caseID string, input runtimehost.HandoffCaseInput) error
+	UploadAttachment(ctx context.Context, input runtimehost.UploadAttachmentInput) (*runtimehost.HostAttachment, error)
+	GetAttachment(ctx context.Context, attachmentID string) (*runtimehost.HostAttachment, bool, error)
+	LinkAttachmentsToCase(ctx context.Context, caseID string, attachmentIDs []string) error
+	PublishArtifact(ctx context.Context, input runtimehost.PublishArtifactInput) error
+	IngestApplication(ctx context.Context, input runtimehost.IngestApplicationInput) (*runtimehost.IngestApplicationResult, error)
+	ApplyCaseChange(ctx context.Context, caseID string, input runtimehost.ApplyCaseChangeInput) (*runtimehost.HostCase, error)
 }
 
-type hostQueueGateway interface {
-	GetQueue(ctx context.Context, queueID string) (*servicedomain.Queue, error)
-	GetQueueBySlug(ctx context.Context, workspaceID, slug string) (*servicedomain.Queue, error)
-	CreateQueue(ctx context.Context, params serviceapp.CreateQueueParams) (*servicedomain.Queue, error)
+// *runtimehost.Client is the production coreHost.
+var _ coreHost = (*runtimehost.Client)(nil)
+
+// hostProvider yields the core host bound to a request's context. Because the
+// host token is per request, the runtime resolves the host client from the
+// context rather than holding a long-lived one.
+type hostProvider func(ctx context.Context) (coreHost, error)
+
+type hostClientContextKey struct{}
+
+// withHostClient stores a request-scoped host client on the context.
+func withHostClient(ctx context.Context, client *runtimehost.Client) context.Context {
+	return context.WithValue(ctx, hostClientContextKey{}, client)
 }
 
-type hostContactGateway interface {
-	CreateContact(ctx context.Context, params platformservices.CreateContactParams) (*platformdomain.Contact, error)
-}
-
-type hostCaseGateway interface {
-	CreateCase(ctx context.Context, params serviceapp.CreateCaseParams) (*servicedomain.Case, error)
-	GetCase(ctx context.Context, caseID string) (*servicedomain.Case, error)
-	UpdateCase(ctx context.Context, caseObj *servicedomain.Case) error
-	HandoffCase(ctx context.Context, caseID string, params serviceapp.CaseHandoffParams) error
-}
-
-type hostAttachmentGateway interface {
-	SaveAttachment(ctx context.Context, att *servicedomain.Attachment, data io.Reader) error
-	GetAttachment(ctx context.Context, workspaceID, attachmentID string) (*servicedomain.Attachment, error)
-	LinkAttachmentsToCase(ctx context.Context, workspaceID, caseID string, attachmentIDs []string) error
-}
-
-type hostArtifactPublisher interface {
-	PublishWorkspaceArtifact(ctx context.Context, workspaceID, surface, relativePath string, content []byte, actorID string) error
-}
-
-type hostRuleEvaluator interface {
-	EvaluateRulesForCase(ctx context.Context, caseObj *servicedomain.Case, event string, changes *automationservices.FieldChanges) error
-}
-
-type hostQueueGatewayAdapter struct {
-	store   sharedstore.QueueStore
-	service *serviceapp.QueueService
-}
-
-func (a hostQueueGatewayAdapter) GetQueue(ctx context.Context, queueID string) (*servicedomain.Queue, error) {
-	return a.store.GetQueue(ctx, queueID)
-}
-
-func (a hostQueueGatewayAdapter) GetQueueBySlug(ctx context.Context, workspaceID, slug string) (*servicedomain.Queue, error) {
-	return a.store.GetQueueBySlug(ctx, workspaceID, slug)
-}
-
-func (a hostQueueGatewayAdapter) CreateQueue(ctx context.Context, params serviceapp.CreateQueueParams) (*servicedomain.Queue, error) {
-	return a.service.CreateQueue(ctx, params)
-}
-
-type hostContactGatewayAdapter struct {
-	service *platformservices.ContactService
-}
-
-func (a hostContactGatewayAdapter) CreateContact(ctx context.Context, params platformservices.CreateContactParams) (*platformdomain.Contact, error) {
-	return a.service.CreateContact(ctx, params)
-}
-
-type hostCaseGatewayAdapter struct {
-	service *serviceapp.CaseService
-}
-
-func (a hostCaseGatewayAdapter) CreateCase(ctx context.Context, params serviceapp.CreateCaseParams) (*servicedomain.Case, error) {
-	return a.service.CreateCase(ctx, params)
-}
-
-func (a hostCaseGatewayAdapter) GetCase(ctx context.Context, caseID string) (*servicedomain.Case, error) {
-	return a.service.GetCase(ctx, caseID)
-}
-
-func (a hostCaseGatewayAdapter) UpdateCase(ctx context.Context, caseObj *servicedomain.Case) error {
-	return a.service.UpdateCase(ctx, caseObj)
-}
-
-func (a hostCaseGatewayAdapter) HandoffCase(ctx context.Context, caseID string, params serviceapp.CaseHandoffParams) error {
-	return a.service.HandoffCase(ctx, caseID, params)
-}
-
-type hostAttachmentGatewayAdapter struct {
-	store sharedstore.CaseAttachments
-}
-
-func (a hostAttachmentGatewayAdapter) SaveAttachment(ctx context.Context, att *servicedomain.Attachment, data io.Reader) error {
-	return a.store.SaveAttachment(ctx, att, data)
-}
-
-func (a hostAttachmentGatewayAdapter) GetAttachment(ctx context.Context, workspaceID, attachmentID string) (*servicedomain.Attachment, error) {
-	return a.store.GetAttachment(ctx, workspaceID, attachmentID)
-}
-
-func (a hostAttachmentGatewayAdapter) LinkAttachmentsToCase(ctx context.Context, workspaceID, caseID string, attachmentIDs []string) error {
-	return a.store.LinkAttachmentsToCase(ctx, workspaceID, caseID, attachmentIDs)
-}
-
-type hostArtifactPublisherAdapter struct {
-	store   sharedstore.ExtensionStore
-	service *platformservices.ExtensionService
-}
-
-func (a hostArtifactPublisherAdapter) PublishWorkspaceArtifact(ctx context.Context, workspaceID, surface, relativePath string, content []byte, actorID string) error {
-	installed, err := a.store.GetInstalledExtensionBySlug(ctx, workspaceID, "ats")
-	if err != nil {
-		return err
+// hostFromContext returns the host client the middleware placed on the context.
+func hostFromContext(ctx context.Context) (coreHost, error) {
+	client, ok := ctx.Value(hostClientContextKey{}).(*runtimehost.Client)
+	if !ok || client == nil {
+		return nil, fmt.Errorf("host API is not available on this request")
 	}
-	_, err = a.service.PublishExtensionArtifact(ctx, installed.ID, surface, relativePath, content, actorID)
-	return err
+	return client, nil
+}
+
+// HostClientMiddleware builds a host client from the token and base URL the
+// platform forwards on each proxied request and puts it on the request context,
+// so ATS handlers can call the platform host API. Requests with no host context
+// (health checks, asset fetches) pass through unwrapped and only fail if they
+// try to reach the host API.
+func HostClientMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if client, err := runtimehost.NewClientFromRequest(c.Request); err == nil {
+			c.Request = c.Request.WithContext(withHostClient(c.Request.Context(), client))
+		}
+		c.Next()
+	}
 }

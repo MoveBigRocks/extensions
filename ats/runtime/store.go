@@ -11,12 +11,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
-	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	"github.com/movebigrocks/extension-sdk/extdb"
 	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
 )
 
 type Store struct {
-	db *platformsql.SqlxDB
+	db *extdb.DB
 }
 
 const vacancySelectColumns = `
@@ -44,12 +44,27 @@ const publicAttachmentUploadSelectColumns = `
 
 const publicAttachmentUploadTokenPrefix = "atsu_"
 
-func NewStore(db *platformsql.SqlxDB) (*Store, error) {
+func NewStore(db *extdb.DB) (*Store, error) {
 	store := &Store{db: db}
 	if err := store.ensureSchemaAvailable(context.Background()); err != nil {
 		return nil, err
 	}
 	return store, nil
+}
+
+// WithTransaction runs fn inside a single database transaction over the ATS
+// schema, so a flow that writes several ATS tables commits or rolls back as a
+// unit. It nests safely: a call inside an existing transaction reuses it.
+func (s *Store) WithTransaction(ctx context.Context, fn func(context.Context) error) error {
+	return s.db.Transaction(ctx, fn)
+}
+
+// Close releases the underlying database connection pool.
+func (s *Store) Close() error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	return s.db.Close()
 }
 
 func (s *Store) ensureSchemaAvailable(ctx context.Context) error {

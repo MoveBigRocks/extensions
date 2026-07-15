@@ -2,9 +2,9 @@
 
 This document is the concrete table-to-file plan for the PostgreSQL baseline
 reset described in
-[RFC-0006](../../docs/RFCs/RFC-0006-postgres-and-extension-schemas.md).
+[RFC-0006](https://github.com/MoveBigRocks/platform/blob/main/docs/RFCs/RFC-0006-postgres-and-extension-schemas.md).
 
-The goal is the same as the `../tuinplan` approach:
+The goal:
 
 - one physical application database per environment
 - one central migration runner

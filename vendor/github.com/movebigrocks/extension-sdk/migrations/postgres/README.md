@@ -190,8 +190,8 @@ PostgreSQL 18 or newer is required for native `uuidv7()`.
 ## See Also
 
 - [Ownership Map](OWNERSHIP.md)
-- [RFC-0006](../../docs/RFCs/RFC-0006-postgres-and-extension-schemas.md)
-- [ADR-0022](../../docs/ADRs/0022-postgresql-native-uuidv7-row-ids-and-public-identifiers.md)
-- [ADR-0023](../../docs/ADRs/0023-core-postgresql-bounded-context-schemas.md)
-- [ADR-0024](../../docs/ADRs/0024-postgresql-migration-ledgers-and-identifier-ownership.md)
-- [ADR-0025](../../docs/ADRs/0025-pre-production-postgresql-baseline-reset.md)
+- [RFC-0006](https://github.com/MoveBigRocks/platform/blob/main/docs/RFCs/RFC-0006-postgres-and-extension-schemas.md)
+- [ADR-0022](https://github.com/MoveBigRocks/platform/blob/main/docs/ADRs/0022-postgresql-native-uuidv7-row-ids-and-public-identifiers.md)
+- [ADR-0023](https://github.com/MoveBigRocks/platform/blob/main/docs/ADRs/0023-core-postgresql-bounded-context-schemas.md)
+- [ADR-0024](https://github.com/MoveBigRocks/platform/blob/main/docs/ADRs/0024-postgresql-migration-ledgers-and-identifier-ownership.md)
+- [ADR-0025](https://github.com/MoveBigRocks/platform/blob/main/docs/ADRs/0025-pre-production-postgresql-baseline-reset.md)

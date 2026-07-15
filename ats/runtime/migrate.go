@@ -9,11 +9,11 @@ import (
 
 	"github.com/lib/pq"
 
-	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
+	"github.com/movebigrocks/extension-sdk/extdb"
 	atsmigrations "github.com/movebigrocks/extensions/ats/migrations"
 )
 
-func ApplyMigrations(ctx context.Context, db *platformsql.SqlxDB) error {
+func ApplyMigrations(ctx context.Context, db *extdb.DB) error {
 	if db == nil {
 		return fmt.Errorf("database is required")
 	}

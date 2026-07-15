@@ -1,27 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
 	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
-	"github.com/movebigrocks/extensions/ats/runtime"
+	atsruntime "github.com/movebigrocks/extensions/ats/runtime"
 )
 
 const packageKey = "demandops/ats"
 
 func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "load config: %v\n", err)
-		os.Exit(1)
-	}
-
 	log := logger.New().WithField("service", "ats-runtime")
-	runtime, err := atsruntime.NewRuntimeFromConfig(cfg)
+	runtime, err := atsruntime.NewRuntimeFromEnv()
 	if err != nil {
 		log.Error("Failed to initialize ats runtime", "error", err)
 		os.Exit(1)
@@ -33,9 +25,10 @@ func main() {
 	}()
 
 	engine := runtimehttp.DefaultEngine()
-	// ATS is workspace scoped: every request belongs to one workspace, so
-	// confine its core-table access to that workspace under row-level security.
-	engine.Use(runtimehttp.TenantContext(runtime.Store))
+	// ATS reaches core data through the platform host API. Build a host client
+	// from the token and base URL the platform forwards on each proxied request
+	// and put it on the request context so handlers can call back into core.
+	engine.Use(atsruntime.HostClientMiddleware())
 	runtime.Register(engine)
 
 	log.Info("Starting ats runtime", "package_key", packageKey)
