@@ -90,7 +90,7 @@
       "mountPath": "/extensions/error-tracking/applications",
       "methods": ["GET", "HEAD"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.applications"
     },
     {
@@ -99,7 +99,7 @@
       "mountPath": "/extensions/error-tracking/applications/new",
       "methods": ["GET", "HEAD"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.detail"
     },
     {
@@ -108,7 +108,7 @@
       "mountPath": "/extensions/error-tracking/applications/:id",
       "methods": ["GET", "HEAD"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.detail"
     },
     {
@@ -117,7 +117,7 @@
       "mountPath": "/extensions/error-tracking/applications",
       "methods": ["POST"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.create"
     },
     {
@@ -126,7 +126,7 @@
       "mountPath": "/extensions/error-tracking/applications/:id",
       "methods": ["GET"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.get"
     },
     {
@@ -135,7 +135,7 @@
       "mountPath": "/extensions/error-tracking/applications/:id",
       "methods": ["PUT"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.update"
     },
     {
@@ -144,7 +144,7 @@
       "mountPath": "/extensions/error-tracking/applications/:id",
       "methods": ["DELETE"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.delete"
     },
     {
@@ -153,7 +153,7 @@
       "mountPath": "/extensions/error-tracking/issues",
       "methods": ["GET", "HEAD"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.issues"
     },
     {
@@ -162,7 +162,7 @@
       "mountPath": "/extensions/error-tracking/issues/:id",
       "methods": ["GET", "HEAD"],
       "auth": "session",
-      "workspaceBinding": "workspace_from_session",
+      "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.issue.detail"
     },
     {
