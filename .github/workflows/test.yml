@@ -15,6 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PLATFORM_REF: main
+    services:
+      # Match production (PostgreSQL 18). The extension DB-backed tests skip when
+      # no admin database is reachable, so without this they never run in CI.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout extension sources
         uses: actions/checkout@v4
@@ -45,6 +61,8 @@ jobs:
         run: bash ./scripts/check-public-boundary.sh
 
       - name: Run extension Go tests
+        env:
+          TEST_DATABASE_ADMIN_DSN: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
         run: go test ./...
 
       - name: Build mbr CLI
