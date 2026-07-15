@@ -317,13 +317,19 @@ func TestSubmitApplicationUsesStableIdempotencyKeyForRetries(t *testing.T) {
 	input := sampleSubmission(workspaceID, job.Slug, "")
 	first, err := svc.SubmitApplication(ctx, input)
 	require.NoError(t, err)
-
-	// A byte-identical resubmission must reuse the same idempotency key so the
-	// host deduplicates it onto the same contact and case.
 	require.Equal(t, submissionIdempotencyKey(input), fake.ingestCalls[0].IdempotencyKey)
-	second := submissionIdempotencyKey(input)
-	require.Equal(t, fake.ingestCalls[0].IdempotencyKey, second)
 	require.NotEmpty(t, first.Application.CaseID)
+
+	// A byte-identical resubmission (a retry, a double click) must succeed
+	// idempotently: the host dedups the contact and case onto the same ids, and
+	// the ATS application row is returned rather than colliding on its unique
+	// (workspace, vacancy, applicant) key.
+	second, err := svc.SubmitApplication(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, first.Application.ID, second.Application.ID)
+	require.Equal(t, first.Application.CaseID, second.Application.CaseID)
+	require.Equal(t, first.Applicant.ContactID, second.Applicant.ContactID)
+	require.Len(t, fake.ingestByKey, 1) // exactly one core contact+case created
 
 	// A submission that differs in any field gets a distinct key.
 	other := sampleSubmission(workspaceID, job.Slug, "")

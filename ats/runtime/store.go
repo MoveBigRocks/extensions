@@ -446,6 +446,8 @@ func (s *Store) CreateApplication(ctx context.Context, application *Application)
 			reviewed_at, hired_at, rejected_at, withdrawn_at, rejection_reason, created_at, updated_at
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (workspace_id, vacancy_id, applicant_id)
+		DO UPDATE SET updated_at = EXCLUDED.updated_at
 		RETURNING `+applicationSelectColumns+`
 	`),
 		application.ID,
