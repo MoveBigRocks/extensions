@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,15 +10,13 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/movebigrocks/extension-sdk/eventbus"
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/outbox"
-	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
-	platformservices "github.com/movebigrocks/extension-sdk/extensionhost/platform/services"
-	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
+	"github.com/movebigrocks/extension-sdk/extdb"
 	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
 	errortrackingruntime "github.com/movebigrocks/extensions/error-tracking/runtime"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/config"
 	observabilityhandlers "github.com/movebigrocks/extensions/error-tracking/runtime/handlers"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/hostclient"
 	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
 	errortrackingui "github.com/movebigrocks/extensions/error-tracking/runtimeui"
 )
@@ -27,13 +24,7 @@ import (
 const packageKey = "demandops/error-tracking"
 
 type errorTrackingRuntime struct {
-	db             *platformsql.DB
-	store          *platformsql.Store
-	outbox         *outbox.Service
-	workspace      *platformservices.WorkspaceManagementService
-	user           *platformservices.UserManagementService
-	extension      *platformservices.ExtensionService
-	caseService    *serviceapp.CaseService
+	db             *extdb.DB
 	issueService   *observabilityservices.IssueService
 	projectService *observabilityservices.ProjectService
 	processor      *observabilityservices.ErrorProcessor
@@ -60,11 +51,11 @@ func main() {
 	}()
 
 	engine := runtimehttp.DefaultEngine()
-	// Error tracking is an instance-admin observability tool that aggregates
-	// across workspaces (its dashboard lists all workspaces), so its core-table
-	// access runs under the cross-workspace admin role rather than being confined
-	// to one workspace under row-level security.
-	engine.Use(runtimehttp.AdminContext(runtime.store))
+	engine.Use(hostclient.Middleware())
+	// The admin role applies only to the extension-owned schema. Core data is
+	// reached through the host client, where instance scope and permissions are
+	// enforced independently for every operation.
+	engine.Use(runtimehttp.AdminContext(runtime.db))
 	tmpl, err := errortrackingui.ParseTemplates()
 	if err != nil {
 		log.Error("Failed to parse error-tracking templates", "error", err)
@@ -72,7 +63,7 @@ func main() {
 	}
 	engine.SetHTMLTemplate(tmpl)
 
-	registerErrorTrackingRoutes(engine, runtime, cfg.Server.APIBaseURL)
+	registerErrorTrackingRoutes(engine, runtime, cfg.APIBaseURL)
 	runtimehttp.RegisterInternalRoutes(engine, map[string]func(context.Context, []byte) error{
 		"error-tracking.consumer.errors":       newErrorConsumer(runtime),
 		"error-tracking.consumer.issue-events": newIssueConsumer(runtime),
@@ -87,8 +78,8 @@ func main() {
 }
 
 func newErrorTrackingRuntime(cfg *config.Config, log *logger.Logger) (*errorTrackingRuntime, error) {
-	db, err := platformsql.NewDBWithConfig(platformsql.DBConfig{
-		DSN:             cfg.Database.EffectiveDSN(),
+	db, err := extdb.Open(extdb.Config{
+		DSN:             cfg.DatabaseDSN,
 		MaxOpenConns:    cfg.DatabasePool.MaxOpenConns,
 		MaxIdleConns:    cfg.DatabasePool.MaxIdleConns,
 		ConnMaxLifetime: cfg.DatabasePool.ConnMaxLifetime,
@@ -98,72 +89,24 @@ func newErrorTrackingRuntime(cfg *config.Config, log *logger.Logger) (*errorTrac
 		return nil, fmt.Errorf("create database: %w", err)
 	}
 
-	store, err := platformsql.NewStore(db)
-	if err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("create store: %w", err)
-	}
-
-	outboxService := outbox.NewServiceWithConfig(store, eventbus.NewInMemoryBus(), log, cfg.Outbox)
-	workspaceService := platformservices.NewWorkspaceManagementService(
-		store.Workspaces(),
-		store.Cases(),
-		store.Users(),
-		store.Rules(),
-	)
-	userService := platformservices.NewUserManagementService(
-		store.Users(),
-		store.Workspaces(),
-	)
-	extensionService := platformservices.NewExtensionService(
-		store.Extensions(),
-		store.Workspaces(),
-		store.Queues(),
-		store.Forms(),
-		store.Rules(),
-		store,
-	)
-	caseService := serviceapp.NewCaseService(
-		store.Queues(),
-		store.Cases(),
-		store.Workspaces(),
-		outboxService,
-		serviceapp.WithQueueItemStore(store.QueueItems()),
-		serviceapp.WithTransactionRunner(store),
-		serviceapp.WithOutboundEmailStore(store.OutboundEmails()),
-		serviceapp.WithUserStore(store.Users()),
-	)
-
-	stdDB, err := db.GetSQLDB()
-	if err != nil {
-		_ = store.Close()
-		return nil, fmt.Errorf("resolve sql db: %w", err)
-	}
-
-	errorStore := errortrackingruntime.NewErrorMonitoringStore(errortrackingruntime.NewSqlxDB(stdDB, db.Driver()))
+	errorStore := errortrackingruntime.NewErrorMonitoringStore(db)
+	publisher := hostclient.Publisher{Provider: hostclient.FromContext}
 	issueService := observabilityservices.NewIssueService(
 		errorStore,
 		errorStore,
 		errorStore,
-		store.Workspaces(),
-		outboxService,
+		publisher,
 	)
-	projectService := observabilityservices.NewProjectService(errorStore, store.Workspaces())
-	errorGrouping := observabilityservices.NewErrorGroupingService(errorStore, errorStore, outboxService)
-	processor := observabilityservices.NewErrorProcessorFromConfig(errorGrouping, cfg.ErrorProcessing)
+	projectService := observabilityservices.NewProjectService(errorStore)
+	errorGrouping := observabilityservices.NewErrorGroupingService(errorStore, errorStore, publisher)
+	processor := observabilityservices.NewErrorProcessorFromConfig(errorGrouping, cfg.ErrorProcessing, db)
 	if err := processor.StartWorkers(context.Background(), cfg.ErrorProcessing.WorkerCount); err != nil {
-		_ = store.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("start error processor workers: %w", err)
 	}
 
 	return &errorTrackingRuntime{
 		db:             db,
-		store:          store,
-		outbox:         outboxService,
-		workspace:      workspaceService,
-		user:           userService,
-		extension:      extensionService,
-		caseService:    caseService,
 		issueService:   issueService,
 		projectService: projectService,
 		processor:      processor,
@@ -181,8 +124,8 @@ func (r *errorTrackingRuntime) Close() error {
 			firstErr = err
 		}
 	}
-	if r.store != nil {
-		if err := r.store.Close(); err != nil && firstErr == nil {
+	if r.db != nil {
+		if err := r.db.Close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}
@@ -191,9 +134,7 @@ func (r *errorTrackingRuntime) Close() error {
 
 func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRuntime, apiBaseURL string) {
 	adminHandler := errortrackingruntime.NewErrorTrackingAdminHandler(
-		runtime.workspace,
-		runtime.user,
-		runtime.extension,
+		hostclient.FromContext,
 		runtime.issueService,
 		runtime.projectService,
 		apiBaseURL,
@@ -265,25 +206,17 @@ func newIssueConsumer(runtime *errorTrackingRuntime) func(context.Context, []byt
 
 func newCaseConsumer(runtime *errorTrackingRuntime) func(context.Context, []byte) error {
 	issueCaseService := observabilityservices.NewIssueCaseService(
-		runtime.store.Cases(),
-		runtime.caseService,
+		hostclient.FromContext,
 	)
 	handler := observabilityhandlers.NewErrorTrackingCaseEventHandler(
 		issueCaseService,
-		runtime.store,
 		logger.New().WithField("handler", "error-tracking-consumer-case-events"),
 	)
 	return func(ctx context.Context, data []byte) error {
-		var envelope struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal(data, &envelope); err != nil {
-			return err
-		}
-		switch strings.TrimSpace(envelope.Type) {
-		case "issue.case_linked":
+		switch strings.TrimSpace(eventbus.ParseEventType(data)) {
+		case "issue_case.linked":
 			return handler.HandleIssueCaseLinked(ctx, data)
-		case "issue.case_unlinked":
+		case "issue_case.unlinked":
 			return handler.HandleIssueCaseUnlinked(ctx, data)
 		case "case.created_for_contact":
 			return handler.HandleCaseCreatedForContact(ctx, data)

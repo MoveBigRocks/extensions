@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/movebigrocks/extension-sdk/eventbus"
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/metrics"
-	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
 	"github.com/movebigrocks/extension-sdk/logger"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/metrics"
 	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
 )
 
@@ -37,7 +36,7 @@ func NewIssueEventHandler(issueService *observabilityservices.IssueService, log 
 // with the same fingerprint concurrently.
 func (h *IssueEventHandler) HandleIssueCreated(ctx context.Context, eventData []byte) error {
 	// Parse the event
-	var event shareddomain.IssueCreated
+	var event observabilitydomain.IssueCreatedEvent
 	if err := json.Unmarshal(eventData, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal IssueCreated event: %w", err)
 	}
@@ -101,7 +100,7 @@ func (h *IssueEventHandler) HandleIssueCreated(ctx context.Context, eventData []
 			severity = "error"
 		}
 		// Using CasesCreated as a proxy for issues created for now
-		metrics.CasesCreated.WithLabelValues(event.WorkspaceID, severity).Inc()
+		metrics.IssuesChanged.WithLabelValues(event.WorkspaceID, "created:"+severity).Inc()
 	}
 
 	// 3. Check alert rules (simplified for now)
@@ -124,7 +123,7 @@ func (h *IssueEventHandler) HandleIssueCreated(ctx context.Context, eventData []
 // update the same issue simultaneously.
 func (h *IssueEventHandler) HandleIssueUpdated(ctx context.Context, eventData []byte) error {
 	// Parse the event
-	var event shareddomain.IssueUpdated
+	var event observabilitydomain.IssueUpdatedEvent
 	if err := json.Unmarshal(eventData, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal IssueUpdated event: %w", err)
 	}
@@ -181,7 +180,7 @@ func (h *IssueEventHandler) HandleIssueUpdated(ctx context.Context, eventData []
 // HandleIssueResolved processes IssueResolved events
 func (h *IssueEventHandler) HandleIssueResolved(ctx context.Context, eventData []byte) error {
 	// Parse the event
-	var event shareddomain.IssueResolved
+	var event observabilitydomain.IssueResolvedEvent
 	if err := json.Unmarshal(eventData, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal IssueResolved event: %w", err)
 	}
@@ -210,7 +209,7 @@ func (h *IssueEventHandler) HandleIssueResolved(ctx context.Context, eventData [
 
 	// 4. Update metrics (using existing metrics as proxies)
 	// Note: In production, we'd add specific IssuesResolved metric
-	metrics.CasesCreated.WithLabelValues(event.WorkspaceID, "resolved").Inc()
+	metrics.IssuesChanged.WithLabelValues(event.WorkspaceID, "resolved").Inc()
 
 	// 5. Log success
 	h.logger.WithFields(map[string]interface{}{

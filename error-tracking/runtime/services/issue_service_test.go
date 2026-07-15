@@ -3,238 +3,138 @@ package observabilityservices
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/movebigrocks/extension-sdk/eventbus"
-	graphshared "github.com/movebigrocks/extension-sdk/extensionhost/graph/shared"
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores"
-	platformsql "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/sql"
-	platformdomain "github.com/movebigrocks/extension-sdk/extensionhost/platform/domain"
-	sharedomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
-	testutil "github.com/movebigrocks/extension-sdk/extensionhost/testutil"
-	"github.com/movebigrocks/extension-sdk/extensionhost/testutil/refext"
-	"github.com/movebigrocks/extension-sdk/id"
-	errortrackingsql "github.com/movebigrocks/extensions/error-tracking/runtime"
 	obsdomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
-
+	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type mockOutbox struct {
+type issueStoreFake struct {
+	issue *obsdomain.Issue
+}
+
+func (f *issueStoreFake) CreateIssue(_ context.Context, issue *obsdomain.Issue) error {
+	f.issue = issue
+	return nil
+}
+func (f *issueStoreFake) CreateOrUpdateIssueByFingerprint(_ context.Context, issue *obsdomain.Issue) (*obsdomain.Issue, bool, error) {
+	f.issue = issue
+	return issue, true, nil
+}
+func (f *issueStoreFake) GetIssue(context.Context, string) (*obsdomain.Issue, error) {
+	if f.issue == nil {
+		return nil, errors.New("not found")
+	}
+	return f.issue, nil
+}
+func (f *issueStoreFake) GetIssueInWorkspace(_ context.Context, workspaceID, _ string) (*obsdomain.Issue, error) {
+	if f.issue == nil || f.issue.WorkspaceID != workspaceID {
+		return nil, errors.New("not found")
+	}
+	return f.issue, nil
+}
+func (f *issueStoreFake) GetIssuesByIDs(context.Context, []string) ([]*obsdomain.Issue, error) {
+	if f.issue == nil {
+		return nil, nil
+	}
+	return []*obsdomain.Issue{f.issue}, nil
+}
+func (f *issueStoreFake) GetIssueByFingerprint(context.Context, string, string) (*obsdomain.Issue, error) {
+	return f.issue, nil
+}
+func (f *issueStoreFake) UpdateIssue(_ context.Context, issue *obsdomain.Issue) error {
+	f.issue = issue
+	return nil
+}
+func (f *issueStoreFake) ListProjectIssues(context.Context, string, storecontracts.IssueFilter) ([]*obsdomain.Issue, error) {
+	return []*obsdomain.Issue{f.issue}, nil
+}
+func (f *issueStoreFake) ListIssues(context.Context, storecontracts.IssueFilters) ([]*obsdomain.Issue, int, error) {
+	return []*obsdomain.Issue{f.issue}, 1, nil
+}
+func (f *issueStoreFake) ListAllIssues(context.Context, storecontracts.IssueFilters) ([]*obsdomain.Issue, int, error) {
+	return []*obsdomain.Issue{f.issue}, 1, nil
+}
+func (f *issueStoreFake) AtomicUpdateIssueStats(context.Context, string, string, string, time.Time, bool) (*obsdomain.Issue, error) {
+	return f.issue, nil
+}
+
+type publishedEvent struct {
+	workspaceID string
+	eventType   string
+	payload     any
+}
+
+type recordingPublisher struct {
 	mu     sync.Mutex
-	events []mockPublishedEvent
+	err    error
+	events []publishedEvent
 }
 
-type mockPublishedEvent struct {
-	stream eventbus.Stream
-	event  eventbus.Event
+func (p *recordingPublisher) Publish(_ context.Context, workspaceID, eventType string, payload any) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.events = append(p.events, publishedEvent{workspaceID: workspaceID, eventType: eventType, payload: payload})
+	return p.err
 }
 
-func (m *mockOutbox) Publish(context.Context, eventbus.Stream, interface{}) error {
-	return nil
+func (p *recordingPublisher) snapshot() []publishedEvent {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]publishedEvent(nil), p.events...)
 }
 
-func (m *mockOutbox) PublishEvent(_ context.Context, stream eventbus.Stream, event eventbus.Event) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.events = append(m.events, mockPublishedEvent{
-		stream: stream,
-		event:  event,
-	})
-	return nil
-}
-
-func (m *mockOutbox) getEvents() []mockPublishedEvent {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	out := make([]mockPublishedEvent, len(m.events))
-	copy(out, m.events)
-	return out
-}
-
-type failingOutbox struct {
-	err        error
-	mu         sync.Mutex
-	publishCnt int
-}
-
-func (m *failingOutbox) Publish(context.Context, eventbus.Stream, interface{}) error {
-	return m.err
-}
-
-func (m *failingOutbox) PublishEvent(_ context.Context, stream eventbus.Stream, event eventbus.Event) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.publishCnt++
-	return m.err
-}
-
-func (m *failingOutbox) publishedCount() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.publishCnt
-}
-
-func newTestErrorStore(t testing.TB, store stores.Store) *errortrackingsql.ErrorMonitoringStore {
-	t.Helper()
-
-	concrete, ok := store.(*platformsql.Store)
-	require.True(t, ok)
-
-	rawDB, err := concrete.GetSQLDB()
-	require.NoError(t, err)
-
-	return errortrackingsql.NewErrorMonitoringStore(errortrackingsql.NewSqlxDB(rawDB, concrete.DB().Driver()))
-}
-
-func newTestProject(workspaceID string) *obsdomain.Project {
-	projectID := id.New()
-	project := obsdomain.NewProject(workspaceID, "", "Test Application "+projectID[:8], strings.ToLower(projectID[:12]), "javascript")
-	project.ID = projectID
-	project.CreatedAt = time.Now()
-	project.UpdatedAt = time.Now()
-	return project
-}
-
-func TestIssueService_ResolveIssuePublishesCasesBulkResolvedEvent(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := testutil.SetupTestStore(t)
-	t.Cleanup(cleanup)
-
-	baseCtx := context.Background()
-	wsID := testutil.CreateTestWorkspace(t, store, "issue-service")
-	installed := refext.InstallAndActivateReferenceExtension(t, baseCtx, store, wsID, "error-tracking")
-	errorStore := newTestErrorStore(t, store)
-
-	project := newTestProject(wsID)
-	require.NoError(t, errorStore.CreateProject(baseCtx, installed.ID, project))
-
-	systemCase := testutil.NewIsolatedCase(t, wsID)
-	systemCase.Source = sharedomain.SourceTypeSystem
-	systemCase.IsSystemCase = true
-
-	customerCase := testutil.NewIsolatedCase(t, wsID)
-	customerCase.Source = sharedomain.SourceTypeManual
-
-	require.NoError(t, store.Cases().CreateCase(baseCtx, systemCase))
-	require.NoError(t, store.Cases().CreateCase(baseCtx, customerCase))
-
-	issue := &obsdomain.Issue{
-		ID:             "issue-for-bulk-resolve",
-		WorkspaceID:    wsID,
-		ProjectID:      project.ID,
+func unresolvedIssue() *obsdomain.Issue {
+	return &obsdomain.Issue{
+		ID:             "issue-1",
+		WorkspaceID:    "workspace-1",
+		ProjectID:      "project-1",
 		Title:          "Cannot connect to API",
-		Fingerprint:    "fp-issue-1",
+		Fingerprint:    "fingerprint-1",
 		Status:         obsdomain.IssueStatusUnresolved,
 		FirstSeen:      time.Now(),
 		LastSeen:       time.Now(),
-		RelatedCaseIDs: []string{systemCase.ID, customerCase.ID},
+		RelatedCaseIDs: []string{"case-system", "case-customer"},
 		HasRelatedCase: true,
 	}
-	require.NoError(t, errorStore.CreateIssue(baseCtx, issue))
-
-	outbox := &mockOutbox{}
-	service := NewIssueService(
-		errorStore,
-		errorStore,
-		errorStore,
-		store.Workspaces(),
-		outbox,
-	)
-
-	authCtx := graphshared.SetAuthContext(baseCtx, &platformdomain.AuthContext{
-		Permissions: []string{platformdomain.PermissionIssueWrite},
-	})
-	err := service.ResolveIssue(authCtx, issue.ID, "", "")
-	require.NoError(t, err)
-
-	storedIssue, err := errorStore.GetIssue(baseCtx, issue.ID)
-	require.NoError(t, err)
-	assert.Equal(t, obsdomain.IssueStatusResolved, storedIssue.Status)
-	assert.Equal(t, "fixed", storedIssue.Resolution)
-	assert.NotNil(t, storedIssue.ResolvedAt)
-
-	published := outbox.getEvents()
-	require.Len(t, published, 2)
-
-	var casesBulk *sharedomain.CasesBulkResolved
-	var issueResolved *sharedomain.IssueResolved
-	for _, e := range published {
-		switch ev := e.event.(type) {
-		case sharedomain.CasesBulkResolved:
-			casesBulk = &ev
-		case sharedomain.IssueResolved:
-			issueResolved = &ev
-		}
-		assert.True(t,
-			e.stream == eventbus.StreamIssueEvents || e.stream == eventbus.StreamCaseEvents,
-			"unexpected event stream: %s", e.stream.String())
-	}
-
-	require.NotNil(t, issueResolved)
-	assert.Equal(t, issue.ID, issueResolved.IssueID)
-	assert.Equal(t, "fixed", issueResolved.Resolution)
-	assert.NotZero(t, issueResolved.AffectedCaseCount)
-
-	require.NotNil(t, casesBulk)
-	assert.Equal(t, issue.ID, casesBulk.IssueID)
-	assert.ElementsMatch(t, []string{systemCase.ID, customerCase.ID}, casesBulk.CaseIDs)
 }
 
-func TestIssueService_ResolveIssuePublishFailure_BestEffort(t *testing.T) {
-	t.Parallel()
+func TestIssueServiceResolveIssuePublishesHostEvents(t *testing.T) {
+	store := &issueStoreFake{issue: unresolvedIssue()}
+	publisher := &recordingPublisher{}
+	service := NewIssueService(store, nil, nil, publisher)
 
-	store, cleanup := testutil.SetupTestSQLStore(t)
-	t.Cleanup(cleanup)
+	require.NoError(t, service.ResolveIssue(context.Background(), store.issue.ID, "", ""))
+	assert.Equal(t, obsdomain.IssueStatusResolved, store.issue.Status)
+	assert.Equal(t, "fixed", store.issue.Resolution)
+	require.NotNil(t, store.issue.ResolvedAt)
 
-	ctx := context.Background()
-	workspace := testutil.NewIsolatedWorkspace(t)
-	require.NoError(t, store.Workspaces().CreateWorkspace(ctx, workspace))
-	installed := refext.InstallAndActivateReferenceExtension(t, ctx, store, workspace.ID, "error-tracking")
-	errorStore := newTestErrorStore(t, store)
+	events := publisher.snapshot()
+	require.Len(t, events, 2)
+	assert.Equal(t, "workspace-1", events[0].workspaceID)
+	assert.Equal(t, "issue.resolved", events[0].eventType)
+	resolved, ok := events[0].payload.(obsdomain.IssueResolvedEvent)
+	require.True(t, ok)
+	assert.Equal(t, store.issue.ID, resolved.IssueID)
+	assert.Equal(t, 2, resolved.AffectedCaseCount)
 
-	project := newTestProject(workspace.ID)
-	require.NoError(t, errorStore.CreateProject(ctx, installed.ID, project))
+	assert.Equal(t, "cases.bulk_resolved", events[1].eventType)
+	bulk, ok := events[1].payload.(obsdomain.CasesBulkResolvedEvent)
+	require.True(t, ok)
+	assert.ElementsMatch(t, store.issue.RelatedCaseIDs, bulk.CaseIDs)
+}
 
-	issueID := "issue-fail-transaction"
-	issue := &obsdomain.Issue{
-		ID:          issueID,
-		WorkspaceID: workspace.ID,
-		ProjectID:   project.ID,
-		Title:       "Issue for publish failure",
-		Fingerprint: "fp-tx-failure",
-		Status:      obsdomain.IssueStatusUnresolved,
-		FirstSeen:   time.Now(),
-		LastSeen:    time.Now(),
-		Platform:    "go",
-	}
-	require.NoError(t, errorStore.CreateIssue(ctx, issue))
+func TestIssueServiceResolveIssuePublishFailureIsBestEffort(t *testing.T) {
+	store := &issueStoreFake{issue: unresolvedIssue()}
+	publisher := &recordingPublisher{err: errors.New("host unavailable")}
+	service := NewIssueService(store, nil, nil, publisher)
 
-	outbox := &failingOutbox{err: errors.New("outbox publish failed")}
-	service := NewIssueService(
-		errorStore,
-		errorStore,
-		errorStore,
-		store.Workspaces(),
-		outbox,
-	)
-
-	authCtx := graphshared.SetAuthContext(ctx, &platformdomain.AuthContext{
-		Permissions: []string{platformdomain.PermissionIssueWrite},
-	})
-	// Without a transaction runner, publish failures are best-effort (logged, not returned)
-	err := service.ResolveIssue(authCtx, issue.ID, "", "")
-	require.NoError(t, err)
-	require.Equal(t, 1, outbox.publishedCount())
-
-	// Issue is still resolved even though publish failed
-	updated, err := errorStore.GetIssue(ctx, issue.ID)
-	require.NoError(t, err)
-	assert.Equal(t, obsdomain.IssueStatusResolved, updated.Status)
-	assert.NotNil(t, updated.ResolvedAt)
+	require.NoError(t, service.ResolveIssue(context.Background(), store.issue.ID, "", ""))
+	assert.Equal(t, obsdomain.IssueStatusResolved, store.issue.Status)
+	require.NotNil(t, store.issue.ResolvedAt)
+	assert.Len(t, publisher.snapshot(), 2)
 }

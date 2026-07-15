@@ -54,6 +54,7 @@ type HostCase struct {
 // the workspace supplied by the host from the extension's scope rather than the
 // caller. Priority and Channel are the string forms of the core enums.
 type CreateCaseInput struct {
+	WorkspaceID  string         `json:"workspaceId,omitempty"`
 	Subject      string         `json:"subject"`
 	Description  string         `json:"description,omitempty"`
 	Priority     string         `json:"priority,omitempty"`
@@ -81,8 +82,19 @@ func (c *Client) CreateCase(ctx context.Context, input CreateCaseInput) (*HostCa
 // GetCase returns a core case the extension is allowed to see (in its
 // workspace). It returns a nil case and false when the case does not exist.
 func (c *Client) GetCase(ctx context.Context, caseID string) (*HostCase, bool, error) {
+	return c.GetCaseInWorkspace(ctx, "", caseID)
+}
+
+// GetCaseInWorkspace returns a case in the named workspace. Instance-scoped
+// extensions must supply workspaceID; workspace-scoped extensions may leave it
+// empty or pass their installed workspace.
+func (c *Client) GetCaseInWorkspace(ctx context.Context, workspaceID, caseID string) (*HostCase, bool, error) {
 	var out HostCase
-	err := c.doJSON(ctx, http.MethodGet, CoreCasesPath+"/"+url.PathEscape(strings.TrimSpace(caseID)), nil, &out)
+	path := CoreCasesPath + "/" + url.PathEscape(strings.TrimSpace(caseID))
+	if workspaceID = strings.TrimSpace(workspaceID); workspaceID != "" {
+		path += "?workspaceId=" + url.QueryEscape(workspaceID)
+	}
+	err := c.doJSON(ctx, http.MethodGet, path, nil, &out)
 	if err != nil {
 		if isNotFound(err) {
 			return nil, false, nil

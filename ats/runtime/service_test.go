@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/movebigrocks/extension-sdk/extdb"
-	"github.com/movebigrocks/extension-sdk/extensionhost/testutil"
+	"github.com/movebigrocks/extension-sdk/id"
 	"github.com/movebigrocks/extension-sdk/runtimehost"
+	"github.com/movebigrocks/extension-sdk/testdb"
 	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
 )
 
@@ -191,7 +192,7 @@ var _ coreHost = (*fakeHost)(nil)
 
 func setupATS(t *testing.T) (*Service, *fakeHost, string) {
 	t.Helper()
-	dsn, cleanup := testutil.SetupTestPostgresDatabase(t)
+	dsn, cleanup := testdb.SetupPostgres(t)
 	t.Cleanup(cleanup)
 
 	db, err := extdb.Open(extdb.Config{DSN: dsn})
@@ -215,7 +216,7 @@ func setupATS(t *testing.T) (*Service, *fakeHost, string) {
 
 	fake := newFakeHost()
 	svc := NewService(store, func(context.Context) (coreHost, error) { return fake, nil })
-	return svc, fake, testutil.NewIsolatedWorkspace(t).ID
+	return svc, fake, id.New()
 }
 
 func sampleJob(workspaceID string) CreateJobInput {

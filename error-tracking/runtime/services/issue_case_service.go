@@ -6,11 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
-	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
-	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
 	"github.com/movebigrocks/extension-sdk/logger"
+	"github.com/movebigrocks/extension-sdk/runtimehost"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/hostclient"
 )
 
 type CreateCaseForIssueParams struct {
@@ -19,64 +17,76 @@ type CreateCaseForIssueParams struct {
 	ProjectID    string
 	IssueTitle   string
 	IssueLevel   string
-	Priority     servicedomain.CasePriority
+	Priority     string
 	ContactID    string
 	ContactEmail string
 }
 
-type issueCaseWriter interface {
-	CreateCase(ctx context.Context, params serviceapp.CreateCaseParams) (*servicedomain.Case, error)
-	UpdateCase(ctx context.Context, caseObj *servicedomain.Case) error
-	LinkIssueToCase(ctx context.Context, caseID, issueID, projectID string) error
-	UnlinkIssueFromCase(ctx context.Context, caseID, issueID string) error
-	MarkCaseResolved(ctx context.Context, caseID string, resolvedAt time.Time) error
-	GetCase(ctx context.Context, caseID string) (*servicedomain.Case, error)
-}
-
 // IssueCaseService owns the issue-to-case helper behavior for the error-tracking extension.
-// It wraps generic case primitives instead of embedding that behavior in the shared support service.
+// It reaches core cases only through the language-neutral host API.
 type IssueCaseService struct {
-	caseStore shared.CaseStore
-	writer    issueCaseWriter
-	logger    *logger.Logger
+	newHost hostclient.Provider
+	logger  *logger.Logger
 }
 
-func NewIssueCaseService(caseStore shared.CaseStore, writer issueCaseWriter) *IssueCaseService {
+func NewIssueCaseService(newHost hostclient.Provider) *IssueCaseService {
 	return &IssueCaseService{
-		caseStore: caseStore,
-		writer:    writer,
-		logger:    logger.New().WithField("service", "issue-case"),
+		newHost: newHost,
+		logger:  logger.New().WithField("service", "issue-case"),
 	}
 }
 
-func (s *IssueCaseService) LinkIssueToCase(ctx context.Context, caseID, issueID, projectID string) error {
-	return s.writer.LinkIssueToCase(ctx, caseID, issueID, projectID)
+func (s *IssueCaseService) LinkIssueToCase(ctx context.Context, workspaceID, caseID, issueID, projectID string) error {
+	host, err := s.newHost(ctx)
+	if err != nil {
+		return err
+	}
+	return host.LinkIssueToCase(ctx, workspaceID, caseID, issueID, projectID)
 }
 
-func (s *IssueCaseService) UnlinkIssueFromCase(ctx context.Context, caseID, issueID string) error {
-	return s.writer.UnlinkIssueFromCase(ctx, caseID, issueID)
+func (s *IssueCaseService) UnlinkIssueFromCase(ctx context.Context, workspaceID, caseID, issueID string) error {
+	host, err := s.newHost(ctx)
+	if err != nil {
+		return err
+	}
+	return host.UnlinkIssueFromCase(ctx, workspaceID, caseID, issueID)
 }
 
-func (s *IssueCaseService) MarkCaseResolved(ctx context.Context, caseID string, resolvedAt time.Time) error {
-	return s.writer.MarkCaseResolved(ctx, caseID, resolvedAt)
+func (s *IssueCaseService) MarkCaseResolved(ctx context.Context, workspaceID, caseID string, resolvedAt time.Time) error {
+	host, err := s.newHost(ctx)
+	if err != nil {
+		return err
+	}
+	return host.MarkCaseResolvedInWorkspace(ctx, workspaceID, caseID, resolvedAt)
 }
 
-func (s *IssueCaseService) GetCase(ctx context.Context, caseID string) (*servicedomain.Case, error) {
-	return s.writer.GetCase(ctx, caseID)
+func (s *IssueCaseService) MarkIssueResolved(ctx context.Context, workspaceID, caseID string, resolvedAt time.Time) error {
+	host, err := s.newHost(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = host.UpdateCase(ctx, caseID, runtimehost.CaseUpdateInput{
+		WorkspaceID: workspaceID,
+		CustomFields: map[string]any{
+			"issue_resolved":    true,
+			"issue_resolved_at": resolvedAt.UTC().Format(time.RFC3339Nano),
+		},
+	})
+	return err
 }
 
-func (s *IssueCaseService) UpdateCase(ctx context.Context, caseObj *servicedomain.Case) error {
-	return s.writer.UpdateCase(ctx, caseObj)
-}
-
-func (s *IssueCaseService) CreateCaseForIssue(ctx context.Context, params CreateCaseForIssueParams) (*servicedomain.Case, error) {
-	if s == nil || s.writer == nil || s.caseStore == nil {
+func (s *IssueCaseService) CreateCaseForIssue(ctx context.Context, params CreateCaseForIssueParams) (*runtimehost.HostCase, error) {
+	if s == nil || s.newHost == nil {
 		return nil, fmt.Errorf("issue case service is not configured")
+	}
+	host, err := s.newHost(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	if params.ContactID != "" {
-		existing, err := s.caseStore.GetCaseByIssueAndContact(ctx, params.WorkspaceID, params.IssueID, params.ContactID)
-		if err == nil && existing != nil {
+		existing, found, err := host.GetCaseByIssueAndContact(ctx, params.WorkspaceID, params.IssueID, params.ContactID)
+		if err == nil && found {
 			s.logger.WithFields(map[string]interface{}{
 				"case_id":    existing.ID,
 				"issue_id":   params.IssueID,
@@ -86,43 +96,32 @@ func (s *IssueCaseService) CreateCaseForIssue(ctx context.Context, params Create
 		}
 	}
 
-	customFields := shareddomain.NewTypedCustomFields()
-	customFields.SetString("linked_issue_id", params.IssueID)
-	customFields.SetString("linked_project_id", params.ProjectID)
-	customFields.SetString("issue_level", params.IssueLevel)
-	customFields.SetString("source", "auto_monitoring")
-	customFields.SetBool("auto_created", true)
-
-	caseObj, err := s.writer.CreateCase(ctx, serviceapp.CreateCaseParams{
+	caseObj, err := host.CreateCase(ctx, runtimehost.CreateCaseInput{
 		WorkspaceID:  params.WorkspaceID,
 		Subject:      formatIssueSubject(params.IssueTitle),
 		Description:  formatIssueDescription(params.IssueTitle, params.IssueLevel),
 		Priority:     params.Priority,
-		Channel:      servicedomain.CaseChannelInternal,
+		Channel:      "internal",
 		ContactID:    params.ContactID,
 		ContactEmail: params.ContactEmail,
-		CustomFields: customFields,
+		CustomFields: map[string]any{
+			"linked_issue_id":   params.IssueID,
+			"linked_project_id": params.ProjectID,
+			"issue_level":       params.IssueLevel,
+			"source":            "auto_monitoring",
+			"auto_created":      true,
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.writer.LinkIssueToCase(ctx, caseObj.ID, params.IssueID, params.ProjectID); err != nil {
+	if err := host.LinkIssueToCase(ctx, params.WorkspaceID, caseObj.ID, params.IssueID, params.ProjectID); err != nil {
 		s.logger.Warn("Failed to link issue to case", "case_id", caseObj.ID, "issue_id", params.IssueID, "error", err)
 		return caseObj, nil
 	}
 
-	stored, err := s.writer.GetCase(ctx, caseObj.ID)
-	if err != nil {
-		s.logger.Warn("Failed to reload case after issue link", "case_id", caseObj.ID, "error", err)
-		return caseObj, nil
-	}
-	stored.MarkAsAutoCreated("auto_monitoring", params.IssueID)
-	if err := s.writer.UpdateCase(ctx, stored); err != nil {
-		s.logger.Warn("Failed to persist issue link metadata", "case_id", caseObj.ID, "error", err)
-		return stored, nil
-	}
-	return stored, nil
+	return caseObj, nil
 }
 
 func formatIssueSubject(issueTitle string) string {

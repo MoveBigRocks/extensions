@@ -3,7 +3,6 @@ package sql
 import (
 	"context"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -11,10 +10,9 @@ import (
 	"github.com/gosimple/slug"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
 
-	middleware "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/httpx"
-	platformadmin "github.com/movebigrocks/extension-sdk/extensionhost/platform/adminui"
-	platformservices "github.com/movebigrocks/extension-sdk/extensionhost/platform/services"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/hostclient"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/httpx"
 	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 )
 
@@ -24,12 +22,10 @@ const (
 )
 
 type ErrorTrackingAdminHandler struct {
-	workspaceService *platformservices.WorkspaceManagementService
-	userService      *platformservices.UserManagementService
-	extensionService *platformservices.ExtensionService
-	issueService     adminIssueService
-	projectService   adminProjectService
-	apiBaseURL       string
+	newHost        hostclient.Provider
+	issueService   adminIssueService
+	projectService adminProjectService
+	apiBaseURL     string
 }
 
 type adminIssueService interface {
@@ -51,7 +47,7 @@ type adminProjectService interface {
 }
 
 type ApplicationsPageData struct {
-	platformadmin.BasePageData
+	BasePageData
 	Applications         []ApplicationListItem
 	TotalApplications    int
 	ApplicationsBasePath string
@@ -70,9 +66,9 @@ type ApplicationListItem struct {
 }
 
 type ApplicationDetailPageData struct {
-	platformadmin.BasePageData
+	BasePageData
 	Application          ApplicationDetailItem
-	Workspaces           []platformadmin.WorkspaceOption
+	Workspaces           []WorkspaceOption
 	IsNew                bool
 	ApplicationsBasePath string
 }
@@ -96,7 +92,7 @@ type ApplicationDetailItem struct {
 }
 
 type IssuesPageData struct {
-	platformadmin.BasePageData
+	BasePageData
 	Issues         []*observabilitydomain.Issue
 	TotalIssues    int
 	ProjectNames   map[string]string
@@ -104,7 +100,7 @@ type IssuesPageData struct {
 }
 
 type IssueDetailPageData struct {
-	platformadmin.BasePageData
+	BasePageData
 	Issue          *observabilitydomain.Issue
 	Events         []*observabilitydomain.ErrorEvent
 	WorkspaceName  string
@@ -112,21 +108,39 @@ type IssueDetailPageData struct {
 	IssuesBasePath string
 }
 
+type BasePageData struct {
+	ActivePage         string
+	PageTitle          string
+	PageSubtitle       string
+	UserName           string
+	UserEmail          string
+	UserRole           string
+	CanManageUsers     bool
+	IsWorkspaceScoped  bool
+	ExtensionNav       any
+	ExtensionWidgets   any
+	CurrentWorkspaceID string
+	CurrentWorkspace   string
+}
+
+type WorkspaceOption struct {
+	ID   string
+	Name string
+}
+
+type ErrorPageData struct{ Error string }
+
 func NewErrorTrackingAdminHandler(
-	workspaceService *platformservices.WorkspaceManagementService,
-	userService *platformservices.UserManagementService,
-	extensionService *platformservices.ExtensionService,
+	newHost hostclient.Provider,
 	issueService adminIssueService,
 	projectService adminProjectService,
 	apiBaseURL string,
 ) *ErrorTrackingAdminHandler {
 	return &ErrorTrackingAdminHandler{
-		workspaceService: workspaceService,
-		userService:      userService,
-		extensionService: extensionService,
-		issueService:     issueService,
-		projectService:   projectService,
-		apiBaseURL:       strings.TrimSpace(apiBaseURL),
+		newHost:        newHost,
+		issueService:   issueService,
+		projectService: projectService,
+		apiBaseURL:     strings.TrimSpace(apiBaseURL),
 	}
 }
 
@@ -154,7 +168,7 @@ func (h *ErrorTrackingAdminHandler) ShowApplications(c *gin.Context) {
 		}
 	}
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "error.html", platformadmin.ErrorPageData{Error: "Failed to load applications"})
+		c.HTML(http.StatusInternalServerError, "error.html", ErrorPageData{Error: "Failed to load applications"})
 		return
 	}
 
@@ -191,20 +205,25 @@ func (h *ErrorTrackingAdminHandler) ShowApplicationDetail(c *gin.Context) {
 		currentWorkspaceName = workspaceName
 	}
 
-	workspaceOptions := make([]platformadmin.WorkspaceOption, 0)
+	workspaceOptions := make([]WorkspaceOption, 0)
 	if currentWorkspaceID != "" {
-		workspaceOptions = append(workspaceOptions, platformadmin.WorkspaceOption{
+		workspaceOptions = append(workspaceOptions, WorkspaceOption{
 			ID:   currentWorkspaceID,
 			Name: currentWorkspaceName,
 		})
-	} else if h.workspaceService != nil {
-		allWorkspaces, err := h.workspaceService.ListAllWorkspaces(ctx)
+	} else if h.newHost != nil {
+		host, hostErr := h.newHost(ctx)
+		if hostErr != nil {
+			c.HTML(http.StatusInternalServerError, "error.html", ErrorPageData{Error: "Failed to load workspaces"})
+			return
+		}
+		allWorkspaces, err := host.ListWorkspaces(ctx)
 		if err != nil {
-			c.HTML(http.StatusInternalServerError, "error.html", platformadmin.ErrorPageData{Error: "Failed to load workspaces"})
+			c.HTML(http.StatusInternalServerError, "error.html", ErrorPageData{Error: "Failed to load workspaces"})
 			return
 		}
 		for _, ws := range allWorkspaces {
-			workspaceOptions = append(workspaceOptions, platformadmin.WorkspaceOption{
+			workspaceOptions = append(workspaceOptions, WorkspaceOption{
 				ID:   ws.ID,
 				Name: ws.Name,
 			})
@@ -222,26 +241,24 @@ func (h *ErrorTrackingAdminHandler) ShowApplicationDetail(c *gin.Context) {
 		return
 	}
 
-	appID = middleware.ValidateUUIDParam(c, "id")
+	appID = httpx.ValidateUUIDParam(c, "id")
 	if appID == "" {
 		return
 	}
 
 	project, err := h.projectService.GetProject(ctx, appID)
 	if err != nil {
-		c.HTML(http.StatusNotFound, "error.html", platformadmin.ErrorPageData{Error: "Application not found"})
+		c.HTML(http.StatusNotFound, "error.html", ErrorPageData{Error: "Application not found"})
 		return
 	}
 	if currentWorkspaceID != "" && project.WorkspaceID != currentWorkspaceID {
-		c.HTML(http.StatusNotFound, "error.html", platformadmin.ErrorPageData{Error: "Application not found"})
+		c.HTML(http.StatusNotFound, "error.html", ErrorPageData{Error: "Application not found"})
 		return
 	}
 
 	workspaceName := currentWorkspaceName
-	if workspaceName == "" && h.workspaceService != nil {
-		if ws, err := h.workspaceService.GetWorkspace(ctx, project.WorkspaceID); err == nil {
-			workspaceName = ws.Name
-		}
+	if workspaceName == "" {
+		workspaceName = h.getWorkspaceNamesMap(ctx, []string{project.WorkspaceID})[project.WorkspaceID]
 	}
 
 	c.HTML(http.StatusOK, "application_detail.html", ApplicationDetailPageData{
@@ -277,7 +294,7 @@ func (h *ErrorTrackingAdminHandler) CreateApplication(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.RespondWithError(c, http.StatusBadRequest, "Invalid request format: name and workspaceID are required")
+		httpx.RespondWithError(c, http.StatusBadRequest, "Invalid request format: name and workspaceID are required")
 		return
 	}
 	if workspaceID, _, ok := currentWorkspaceScope(c); ok {
@@ -285,7 +302,7 @@ func (h *ErrorTrackingAdminHandler) CreateApplication(c *gin.Context) {
 			req.WorkspaceID = workspaceID
 		}
 		if req.WorkspaceID != workspaceID {
-			middleware.RespondWithError(c, http.StatusForbidden, "Workspace mismatch")
+			httpx.RespondWithError(c, http.StatusForbidden, "Workspace mismatch")
 			return
 		}
 	}
@@ -298,12 +315,12 @@ func (h *ErrorTrackingAdminHandler) CreateApplication(c *gin.Context) {
 
 	extensionInstallID := runtimehttp.ExtensionID(c)
 	if strings.TrimSpace(extensionInstallID) == "" {
-		middleware.RespondWithError(c, http.StatusInternalServerError, "Missing extension identity in runtime context")
+		httpx.RespondWithError(c, http.StatusInternalServerError, "Missing extension identity in runtime context")
 		return
 	}
 
 	if err := h.projectService.CreateProject(c.Request.Context(), extensionInstallID, project); err != nil {
-		middleware.RespondWithError(c, http.StatusInternalServerError, "Failed to create application")
+		httpx.RespondWithError(c, http.StatusInternalServerError, "Failed to create application")
 		return
 	}
 
@@ -318,7 +335,7 @@ func (h *ErrorTrackingAdminHandler) CreateApplication(c *gin.Context) {
 }
 
 func (h *ErrorTrackingAdminHandler) UpdateApplication(c *gin.Context) {
-	appID := middleware.ValidateUUIDParam(c, "id")
+	appID := httpx.ValidateUUIDParam(c, "id")
 	if appID == "" {
 		return
 	}
@@ -333,18 +350,18 @@ func (h *ErrorTrackingAdminHandler) UpdateApplication(c *gin.Context) {
 		RetentionDays  int    `json:"retentionDays"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.RespondWithError(c, http.StatusBadRequest, "Invalid request format")
+		httpx.RespondWithError(c, http.StatusBadRequest, "Invalid request format")
 		return
 	}
 
 	ctx := c.Request.Context()
 	project, err := h.projectService.GetProject(ctx, appID)
 	if err != nil {
-		middleware.RespondWithError(c, http.StatusNotFound, "Application not found")
+		httpx.RespondWithError(c, http.StatusNotFound, "Application not found")
 		return
 	}
 	if workspaceID, _, ok := currentWorkspaceScope(c); ok && project.WorkspaceID != workspaceID {
-		middleware.RespondWithError(c, http.StatusNotFound, "Application not found")
+		httpx.RespondWithError(c, http.StatusNotFound, "Application not found")
 		return
 	}
 
@@ -362,7 +379,7 @@ func (h *ErrorTrackingAdminHandler) UpdateApplication(c *gin.Context) {
 		validStatuses := map[string]bool{"active": true, "paused": true, "disabled": true}
 		status := strings.ToLower(req.Status)
 		if !validStatuses[status] {
-			middleware.RespondWithError(c, http.StatusBadRequest, "Invalid status. Must be: active, paused, or disabled")
+			httpx.RespondWithError(c, http.StatusBadRequest, "Invalid status. Must be: active, paused, or disabled")
 			return
 		}
 		project.Status = status
@@ -381,7 +398,7 @@ func (h *ErrorTrackingAdminHandler) UpdateApplication(c *gin.Context) {
 	}
 
 	if err := h.projectService.UpdateProject(ctx, project); err != nil {
-		middleware.RespondWithError(c, http.StatusInternalServerError, "Failed to update application")
+		httpx.RespondWithError(c, http.StatusInternalServerError, "Failed to update application")
 		return
 	}
 
@@ -389,7 +406,7 @@ func (h *ErrorTrackingAdminHandler) UpdateApplication(c *gin.Context) {
 }
 
 func (h *ErrorTrackingAdminHandler) DeleteApplication(c *gin.Context) {
-	appID := middleware.ValidateUUIDParam(c, "id")
+	appID := httpx.ValidateUUIDParam(c, "id")
 	if appID == "" {
 		return
 	}
@@ -397,16 +414,16 @@ func (h *ErrorTrackingAdminHandler) DeleteApplication(c *gin.Context) {
 	ctx := c.Request.Context()
 	project, err := h.projectService.GetProject(ctx, appID)
 	if err != nil {
-		middleware.RespondWithError(c, http.StatusNotFound, "Application not found")
+		httpx.RespondWithError(c, http.StatusNotFound, "Application not found")
 		return
 	}
 	if workspaceID, _, ok := currentWorkspaceScope(c); ok && project.WorkspaceID != workspaceID {
-		middleware.RespondWithError(c, http.StatusNotFound, "Application not found")
+		httpx.RespondWithError(c, http.StatusNotFound, "Application not found")
 		return
 	}
 
 	if err := h.projectService.DeleteProject(ctx, project.WorkspaceID, appID); err != nil {
-		middleware.RespondWithError(c, http.StatusInternalServerError, "Failed to delete application")
+		httpx.RespondWithError(c, http.StatusInternalServerError, "Failed to delete application")
 		return
 	}
 
@@ -430,7 +447,7 @@ func (h *ErrorTrackingAdminHandler) ShowIssues(c *gin.Context) {
 		issues, _, err = h.issueService.ListAllIssues(ctx, storecontracts.IssueFilters{Limit: 100})
 	}
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "error.html", platformadmin.ErrorPageData{Error: "Failed to load issues"})
+		c.HTML(http.StatusInternalServerError, "error.html", ErrorPageData{Error: "Failed to load issues"})
 		return
 	}
 
@@ -443,10 +460,8 @@ func (h *ErrorTrackingAdminHandler) ShowIssues(c *gin.Context) {
 		projects, _ := h.projectService.GetProjectsByIDs(ctx, projectIDs)
 		for _, project := range projects {
 			projectNames[project.ID] = project.Name
-			if len(workspaceNames) == 0 && h.workspaceService != nil {
-				if ws, err := h.workspaceService.GetWorkspace(ctx, project.WorkspaceID); err == nil {
-					workspaceNames[project.WorkspaceID] = ws.Name
-				}
+			if len(workspaceNames) == 0 {
+				workspaceNames = h.getWorkspaceNamesMap(ctx, []string{project.WorkspaceID})
 			}
 		}
 	}
@@ -462,7 +477,7 @@ func (h *ErrorTrackingAdminHandler) ShowIssues(c *gin.Context) {
 
 func (h *ErrorTrackingAdminHandler) ShowIssueDetail(c *gin.Context) {
 	ctx := c.Request.Context()
-	issueID := middleware.ValidateUUIDParam(c, "id")
+	issueID := httpx.ValidateUUIDParam(c, "id")
 	if issueID == "" {
 		return
 	}
@@ -477,25 +492,23 @@ func (h *ErrorTrackingAdminHandler) ShowIssueDetail(c *gin.Context) {
 	if workspaceID, currentWorkspaceName, ok := currentWorkspaceScope(c); ok {
 		issue, err = h.issueService.GetIssueInWorkspace(ctx, workspaceID, issueID)
 		if err != nil || issue == nil {
-			c.HTML(http.StatusNotFound, "error.html", platformadmin.ErrorPageData{Error: "Issue not found"})
+			c.HTML(http.StatusNotFound, "error.html", ErrorPageData{Error: "Issue not found"})
 			return
 		}
 		project, _ = h.projectService.GetProject(ctx, issue.ProjectID)
 		if project == nil || project.WorkspaceID != workspaceID {
-			c.HTML(http.StatusNotFound, "error.html", platformadmin.ErrorPageData{Error: "Issue not found"})
+			c.HTML(http.StatusNotFound, "error.html", ErrorPageData{Error: "Issue not found"})
 			return
 		}
 		workspaceName = currentWorkspaceName
 	} else {
 		issue, project, err = h.issueService.GetIssueWithProject(ctx, issueID)
 		if err != nil || issue == nil {
-			c.HTML(http.StatusNotFound, "error.html", platformadmin.ErrorPageData{Error: "Issue not found"})
+			c.HTML(http.StatusNotFound, "error.html", ErrorPageData{Error: "Issue not found"})
 			return
 		}
-		if project != nil && h.workspaceService != nil {
-			if ws, err := h.workspaceService.GetWorkspace(ctx, project.WorkspaceID); err == nil {
-				workspaceName = ws.Name
-			}
+		if project != nil {
+			workspaceName = h.getWorkspaceNamesMap(ctx, []string{project.WorkspaceID})[project.WorkspaceID]
 		}
 	}
 
@@ -515,108 +528,26 @@ func (h *ErrorTrackingAdminHandler) ShowIssueDetail(c *gin.Context) {
 	})
 }
 
-func (h *ErrorTrackingAdminHandler) buildBasePageData(c *gin.Context, activePage, title, subtitle string) platformadmin.BasePageData {
-	ctxValues := platformadmin.GetContextValues(c)
-	workspaceID, workspaceName, _, isWorkspaceScoped := ctxValues.WorkspaceContext()
-
-	return platformadmin.BasePageData{
+func (h *ErrorTrackingAdminHandler) buildBasePageData(c *gin.Context, activePage, title, subtitle string) BasePageData {
+	data := runtimehttp.BuildBasePageData(c, activePage, title, subtitle)
+	return BasePageData{
 		ActivePage:         activePage,
 		PageTitle:          title,
 		PageSubtitle:       subtitle,
-		UserName:           ctxValues.UserName,
-		UserEmail:          ctxValues.UserEmail,
-		UserRole:           ctxValues.UserRole(),
-		CanManageUsers:     ctxValues.CanManageUsers(),
-		IsWorkspaceScoped:  isWorkspaceScoped,
-		ExtensionNav:       h.extensionNavigation(c.Request.Context(), workspaceID),
-		ExtensionWidgets:   h.extensionWidgets(c.Request.Context(), workspaceID),
-		CurrentWorkspaceID: workspaceID,
-		CurrentWorkspace:   workspaceName,
+		UserName:           stringValue(data["UserName"]),
+		UserEmail:          stringValue(data["UserEmail"]),
+		UserRole:           stringValue(data["UserRole"]),
+		CanManageUsers:     boolValue(data["CanManageUsers"]),
+		IsWorkspaceScoped:  boolValue(data["IsWorkspaceScoped"]),
+		ExtensionNav:       data["ExtensionNav"],
+		ExtensionWidgets:   data["ExtensionWidgets"],
+		CurrentWorkspaceID: stringValue(data["CurrentWorkspaceID"]),
+		CurrentWorkspace:   stringValue(data["CurrentWorkspace"]),
 	}
-}
-
-func (h *ErrorTrackingAdminHandler) extensionNavigation(ctx context.Context, workspaceID string) []platformadmin.AdminExtensionNavSection {
-	if h == nil || h.extensionService == nil {
-		return nil
-	}
-
-	var (
-		items []platformservices.ResolvedExtensionAdminNavigationItem
-		err   error
-	)
-	if strings.TrimSpace(workspaceID) != "" {
-		items, err = h.extensionService.ListWorkspaceAdminNavigation(ctx, workspaceID)
-	} else {
-		items, err = h.extensionService.ListInstanceAdminNavigation(ctx)
-	}
-	if err != nil || len(items) == 0 {
-		return nil
-	}
-
-	sectionOrder := make([]string, 0)
-	sections := make(map[string][]platformadmin.AdminExtensionNavItem)
-	for _, item := range items {
-		section := item.Section
-		if section == "" {
-			section = "Extensions"
-		}
-		if _, exists := sections[section]; !exists {
-			sectionOrder = append(sectionOrder, section)
-		}
-		sections[section] = append(sections[section], platformadmin.AdminExtensionNavItem{
-			Title:      item.Title,
-			Icon:       item.Icon,
-			Href:       item.Href,
-			ActivePage: item.ActivePage,
-		})
-	}
-
-	result := make([]platformadmin.AdminExtensionNavSection, 0, len(sectionOrder))
-	for _, section := range sectionOrder {
-		items := sections[section]
-		slices.SortStableFunc(items, func(left, right platformadmin.AdminExtensionNavItem) int {
-			return strings.Compare(left.Title, right.Title)
-		})
-		result = append(result, platformadmin.AdminExtensionNavSection{
-			Title: section,
-			Items: items,
-		})
-	}
-	return result
-}
-
-func (h *ErrorTrackingAdminHandler) extensionWidgets(ctx context.Context, workspaceID string) []platformadmin.AdminExtensionWidget {
-	if h == nil || h.extensionService == nil {
-		return nil
-	}
-
-	var (
-		widgets []platformservices.ResolvedExtensionDashboardWidget
-		err     error
-	)
-	if strings.TrimSpace(workspaceID) != "" {
-		widgets, err = h.extensionService.ListWorkspaceDashboardWidgets(ctx, workspaceID)
-	} else {
-		widgets, err = h.extensionService.ListInstanceDashboardWidgets(ctx)
-	}
-	if err != nil || len(widgets) == 0 {
-		return nil
-	}
-
-	result := make([]platformadmin.AdminExtensionWidget, 0, len(widgets))
-	for _, widget := range widgets {
-		result = append(result, platformadmin.AdminExtensionWidget{
-			Title:       widget.Title,
-			Description: widget.Description,
-			Icon:        widget.Icon,
-			Href:        widget.Href,
-		})
-	}
-	return result
 }
 
 func (h *ErrorTrackingAdminHandler) getWorkspaceNamesMap(ctx context.Context, workspaceIDs []string) map[string]string {
-	if h == nil || h.workspaceService == nil || len(workspaceIDs) == 0 {
+	if h == nil || h.newHost == nil || len(workspaceIDs) == 0 {
 		return map[string]string{}
 	}
 	uniqueIDs := make([]string, 0, len(workspaceIDs))
@@ -628,7 +559,11 @@ func (h *ErrorTrackingAdminHandler) getWorkspaceNamesMap(ctx context.Context, wo
 		seen[id] = struct{}{}
 		uniqueIDs = append(uniqueIDs, id)
 	}
-	workspaces, err := h.workspaceService.GetWorkspacesByIDs(ctx, uniqueIDs)
+	host, err := h.newHost(ctx)
+	if err != nil {
+		return map[string]string{}
+	}
+	workspaces, err := host.GetWorkspacesByIDs(ctx, uniqueIDs)
 	if err != nil {
 		return map[string]string{}
 	}
@@ -641,6 +576,18 @@ func (h *ErrorTrackingAdminHandler) getWorkspaceNamesMap(ctx context.Context, wo
 }
 
 func currentWorkspaceScope(c *gin.Context) (workspaceID, workspaceName string, ok bool) {
-	workspaceID, workspaceName, _, ok = platformadmin.GetContextValues(c).WorkspaceContext()
+	workspaceID = strings.TrimSpace(c.GetString("workspace_id"))
+	workspaceName = strings.TrimSpace(c.GetString("workspace_name"))
+	ok = workspaceID != ""
 	return workspaceID, workspaceName, ok
+}
+
+func stringValue(value any) string {
+	result, _ := value.(string)
+	return result
+}
+
+func boolValue(value any) bool {
+	result, _ := value.(bool)
+	return result
 }

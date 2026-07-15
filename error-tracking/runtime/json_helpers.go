@@ -6,8 +6,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
 	"github.com/movebigrocks/extension-sdk/logger"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 )
 
 func marshalJSONString(v interface{}, fieldName string) (string, error) {
@@ -39,16 +39,16 @@ func unmarshalJSONBytes(data []byte, target interface{}, table, field string) {
 	}
 }
 
-func unmarshalMetadataOrEmpty(jsonStr string, table, field string) shareddomain.Metadata {
+func unmarshalMetadataOrEmpty(jsonStr string, table, field string) observabilitydomain.Metadata {
 	if jsonStr == "" {
-		return shareddomain.NewMetadata()
+		return observabilitydomain.NewMetadata()
 	}
 	var m map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonStr), &m); err != nil {
 		logger.New().Warn("Failed to unmarshal metadata", "table", table, "field", field, "error", err)
-		return shareddomain.NewMetadata()
+		return observabilitydomain.NewMetadata()
 	}
-	return shareddomain.MetadataFromMap(m)
+	return observabilitydomain.MetadataFromMap(m)
 }
 
 func buildInQuery(query string, args interface{}) (string, []interface{}, error) {

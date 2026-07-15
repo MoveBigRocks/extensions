@@ -10,7 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
+	"github.com/movebigrocks/extension-sdk/extdb"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	models "github.com/movebigrocks/extensions/error-tracking/sql-models"
 )
@@ -18,11 +18,11 @@ import (
 const errorTrackingSchemaName = "ext_demandops_error_tracking"
 
 type ErrorMonitoringStore struct {
-	db     *SqlxDB
+	db     *extdb.DB
 	schema string
 }
 
-func NewErrorMonitoringStore(db *SqlxDB) *ErrorMonitoringStore {
+func NewErrorMonitoringStore(db *extdb.DB) *ErrorMonitoringStore {
 	return &ErrorMonitoringStore{db: db, schema: errorTrackingSchemaName}
 }
 
@@ -54,7 +54,7 @@ func (s *ErrorMonitoringStore) lookupProjectScope(ctx context.Context, projectID
 		projectID).Scan(&workspaceID, &installID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", "", shared.ErrNotFound
+			return "", "", ErrNotFound
 		}
 		return "", "", err
 	}
@@ -147,7 +147,7 @@ func (s *ErrorMonitoringStore) UpdateProject(ctx context.Context, project *obser
 	}
 	rows, rowsErr := result.RowsAffected()
 	if rowsErr == nil && rows == 0 {
-		return shared.ErrNotFound
+		return ErrNotFound
 	}
 	return nil
 }
@@ -238,7 +238,7 @@ func (s *ErrorMonitoringStore) DeleteProject(ctx context.Context, workspaceID, p
 	}
 	rows, rowsErr := result.RowsAffected()
 	if rowsErr == nil && rows == 0 {
-		return shared.ErrNotFound
+		return ErrNotFound
 	}
 	return nil
 }

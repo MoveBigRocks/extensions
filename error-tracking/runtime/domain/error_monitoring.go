@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	shared "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
 	"github.com/movebigrocks/extension-sdk/id"
 )
 
@@ -132,8 +131,8 @@ type ErrorEvent struct {
 
 	// Additional context
 	Tags        map[string]string
-	Extra       shared.Metadata
-	Contexts    shared.Metadata
+	Extra       Metadata
+	Contexts    Metadata
 	Breadcrumbs []Breadcrumb
 
 	// Fingerprinting
@@ -171,7 +170,7 @@ type FrameData struct {
 	PreContext  []string
 	PostContext []string
 	InApp       bool
-	Vars        shared.Metadata
+	Vars        Metadata
 }
 
 type UserContext struct {
@@ -185,7 +184,7 @@ type RequestContext struct {
 	URL         string
 	Method      string
 	Headers     map[string]string
-	Data        shared.Metadata
+	Data        Metadata
 	QueryString string
 	Cookies     map[string]string
 }
@@ -196,7 +195,7 @@ type Breadcrumb struct {
 	Category  string
 	Level     string
 	Type      string
-	Data      shared.Metadata
+	Data      Metadata
 }
 
 // Alert represents an alerting rule for error monitoring
@@ -225,13 +224,13 @@ type Alert struct {
 type AlertCondition struct {
 	Type       string // "event_frequency", "new_issue", "error_level"
 	Operator   string // "greater_than", "equals"
-	Value      shared.Value
+	Value      any
 	TimeWindow time.Duration
 }
 
 type AlertAction struct {
 	Type   string // "slack", "email", "webhook"
-	Config shared.Metadata
+	Config Metadata
 }
 
 // IsInCooldownPeriod checks if the alert is currently in its cooldown period
@@ -366,8 +365,8 @@ func NewErrorEvent(projectID, eventID string) *ErrorEvent {
 		Timestamp: now,
 		Received:  now,
 		Tags:      make(map[string]string),
-		Extra:     shared.NewMetadata(),
-		Contexts:  shared.NewMetadata(),
+		Extra:     NewMetadata(),
+		Contexts:  NewMetadata(),
 	}
 }
 

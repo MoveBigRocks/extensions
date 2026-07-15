@@ -65,7 +65,7 @@ surfaces:
 
 - `MoveBigRocks/extension-sdk` for runtime helpers like `runtimehttp` and
   `extdb`
-- `github.com/movebigrocks/extension-sdk/extensionhost/...` for host-facing
+- focused SDK packages such as `runtimehost` and `apierrors` for host-facing
   public types and contracts
 
 It should not import anything from `github.com/movebigrocks/platform/...`.

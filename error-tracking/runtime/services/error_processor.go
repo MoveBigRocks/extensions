@@ -8,20 +8,26 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/config"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/config"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/hostclient"
 )
+
+type adminScoper interface {
+	WithAdminContext(context.Context, func(context.Context) error) error
+}
 
 // ErrorProcessor handles background processing of error events
 // Uses injected services for all store operations
 type ErrorProcessor struct {
 	groupingService *ErrorGroupingService
+	adminScoper     adminScoper
 	logger          *log.Logger
 
 	// Worker pool management
 	workerCount int
 	workers     []*EventWorker
-	eventQueue  chan *observabilitydomain.ErrorEvent
+	eventQueue  chan processingJob
 	stopChan    chan struct{}
 	wg          sync.WaitGroup
 	isRunning   atomic.Bool // Thread-safe running state
@@ -30,6 +36,11 @@ type ErrorProcessor struct {
 	// In-memory processing stats
 	successCount int64
 	failedCount  int64
+}
+
+type processingJob struct {
+	ctx   context.Context
+	event *observabilitydomain.ErrorEvent
 }
 
 // EventWorker represents a background worker for processing events
@@ -65,6 +76,7 @@ type ProcessingStats struct {
 func NewErrorProcessorFromConfig(
 	groupingService *ErrorGroupingService,
 	cfg config.ErrorProcessingConfig,
+	scoper adminScoper,
 ) *ErrorProcessor {
 	workerCount := cfg.WorkerCount
 	if workerCount <= 0 {
@@ -77,9 +89,10 @@ func NewErrorProcessorFromConfig(
 
 	return &ErrorProcessor{
 		groupingService: groupingService,
+		adminScoper:     scoper,
 		logger:          log.New(log.Writer(), "[ErrorProcessor] ", log.LstdFlags),
 		workerCount:     workerCount,
-		eventQueue:      make(chan *observabilitydomain.ErrorEvent, queueSize),
+		eventQueue:      make(chan processingJob, queueSize),
 		stopChan:        make(chan struct{}),
 	}
 }
@@ -154,19 +167,28 @@ func (e *ErrorProcessor) StopWorkers() error {
 func (e *ErrorProcessor) ProcessEvent(ctx context.Context, event *observabilitydomain.ErrorEvent) error {
 	if !e.isRunning.Load() {
 		// Process synchronously if workers not running
-		return e.processEventSync(ctx, event)
+		return e.processEventScoped(ctx, event)
 	}
 
 	select {
-	case e.eventQueue <- event:
+	case e.eventQueue <- processingJob{ctx: hostclient.DetachedContext(ctx), event: event}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 		// Queue is full, process synchronously or drop
 		e.logger.Printf("Event queue full, processing synchronously: %s", event.EventID)
+		return e.processEventScoped(ctx, event)
+	}
+}
+
+func (e *ErrorProcessor) processEventScoped(ctx context.Context, event *observabilitydomain.ErrorEvent) error {
+	if e.adminScoper == nil {
 		return e.processEventSync(ctx, event)
 	}
+	return e.adminScoper.WithAdminContext(ctx, func(scopedCtx context.Context) error {
+		return e.processEventSync(scopedCtx, event)
+	})
 }
 
 // processEventSync processes an event synchronously
@@ -258,8 +280,8 @@ func (w *EventWorker) Start(ctx context.Context) {
 
 	for {
 		select {
-		case event := <-w.processor.eventQueue:
-			w.processEvent(ctx, event)
+		case job := <-w.processor.eventQueue:
+			w.processEvent(job.ctx, job.event)
 		case <-w.stopChan:
 			w.logger.Printf("Worker stopping")
 			return
@@ -281,7 +303,7 @@ func (w *EventWorker) processEvent(ctx context.Context, event *observabilitydoma
 		}
 	}()
 
-	if err := w.processor.processEventSync(ctx, event); err != nil {
+	if err := w.processor.processEventScoped(ctx, event); err != nil {
 		w.logger.Printf("Failed to process event %s: %v", event.EventID, err)
 		w.processor.updateProcessingStats(ctx, false, time.Since(startTime))
 	}

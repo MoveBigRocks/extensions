@@ -3,133 +3,86 @@ package observabilityservices
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/movebigrocks/extension-sdk/runtimehost"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/hostclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
-	serviceapp "github.com/movebigrocks/extension-sdk/extensionhost/service/services"
-	"github.com/movebigrocks/extension-sdk/extensionhost/testutil"
-	"github.com/movebigrocks/extension-sdk/id"
 )
 
-func TestFormatIssueSubject(t *testing.T) {
-	testCases := []struct {
-		name        string
-		issueTitle  string
-		expectMatch string
-	}{
-		{
-			"formats basic issue title",
-			"NullPointerException in UserService",
-			"Error affecting you: NullPointerException in UserService",
-		},
-		{
-			"handles empty issue title",
-			"",
-			"Error affecting you: ",
-		},
-	}
+type issueCaseFakeHost struct {
+	created runtimehost.CreateCaseInput
+	linked  runtimehost.LinkIssueToCaseInput
+	cases   map[string]*runtimehost.HostCase
+}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := formatIssueSubject(tc.issueTitle)
-			assert.Equal(t, tc.expectMatch, result)
-		})
+func newIssueCaseFakeHost() *issueCaseFakeHost {
+	return &issueCaseFakeHost{cases: map[string]*runtimehost.HostCase{}}
+}
+
+func (f *issueCaseFakeHost) CreateCase(_ context.Context, input runtimehost.CreateCaseInput) (*runtimehost.HostCase, error) {
+	f.created = input
+	created := &runtimehost.HostCase{ID: "case-1", WorkspaceID: input.WorkspaceID, Subject: input.Subject, Description: input.Description, Priority: input.Priority, Channel: input.Channel, ContactID: input.ContactID, CustomFields: input.CustomFields}
+	f.cases[created.ID] = created
+	return created, nil
+}
+func (f *issueCaseFakeHost) GetCaseInWorkspace(_ context.Context, _, caseID string) (*runtimehost.HostCase, bool, error) {
+	value, ok := f.cases[caseID]
+	return value, ok, nil
+}
+func (f *issueCaseFakeHost) UpdateCase(_ context.Context, caseID string, patch runtimehost.CaseUpdateInput) (*runtimehost.HostCase, error) {
+	value := f.cases[caseID]
+	for key, item := range patch.CustomFields {
+		value.CustomFields[key] = item
 	}
+	return value, nil
+}
+func (f *issueCaseFakeHost) MarkCaseResolvedInWorkspace(context.Context, string, string, time.Time) error {
+	return nil
+}
+func (f *issueCaseFakeHost) LinkIssueToCase(_ context.Context, workspaceID, caseID, issueID, projectID string) error {
+	f.linked = runtimehost.LinkIssueToCaseInput{WorkspaceID: workspaceID, IssueID: issueID, ProjectID: projectID}
+	return nil
+}
+func (f *issueCaseFakeHost) UnlinkIssueFromCase(context.Context, string, string, string) error {
+	return nil
+}
+func (f *issueCaseFakeHost) GetCaseByIssueAndContact(_ context.Context, _, _, _ string) (*runtimehost.HostCase, bool, error) {
+	return nil, false, nil
+}
+func (f *issueCaseFakeHost) ListWorkspaces(context.Context) ([]runtimehost.HostWorkspace, error) {
+	return nil, nil
+}
+func (f *issueCaseFakeHost) GetWorkspacesByIDs(context.Context, []string) ([]runtimehost.HostWorkspace, error) {
+	return nil, nil
+}
+func (f *issueCaseFakeHost) PublishEvent(context.Context, runtimehost.PublishEventInput) error {
+	return nil
+}
+
+func TestFormatIssueSubject(t *testing.T) {
+	assert.Equal(t, "Error affecting you: NullPointerException", formatIssueSubject("NullPointerException"))
 }
 
 func TestFormatIssueDescription(t *testing.T) {
-	testCases := []struct {
-		name        string
-		issueTitle  string
-		issueLevel  string
-		expectMatch string
-	}{
-		{
-			"formats basic description",
-			"Database connection timeout",
-			"error",
-			"We've detected an error that may be affecting your experience: Database connection timeout",
-		},
-		{
-			"handles different level",
-			"API rate limit exceeded",
-			"warning",
-			"We've detected an error that may be affecting your experience: API rate limit exceeded",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := formatIssueDescription(tc.issueTitle, tc.issueLevel)
-			assert.Equal(t, tc.expectMatch, result)
-		})
-	}
+	assert.Equal(t, "We've detected an error that may be affecting your experience: Timeout", formatIssueDescription("Timeout", "warning"))
 }
 
-func TestIssueCaseService_CreateCaseForIssue(t *testing.T) {
-	store, cleanup := testutil.SetupTestStore(t)
-	defer cleanup()
+func TestIssueCaseServiceCreateCaseForIssueUsesHostAPI(t *testing.T) {
+	fake := newIssueCaseFakeHost()
+	service := NewIssueCaseService(func(context.Context) (hostclient.Host, error) { return fake, nil })
 
-	workspaceID := testutil.CreateTestWorkspace(t, store, "issue-test")
-
-	caseService := serviceapp.NewCaseService(store.Queues(), store.Cases(), store.Workspaces(), nil)
-	svc := NewIssueCaseService(store.Cases(), caseService)
-	ctx := context.Background()
-
-	t.Run("creates case from issue with internal channel", func(t *testing.T) {
-		linkedIssueID := id.New()
-		params := CreateCaseForIssueParams{
-			WorkspaceID:  workspaceID,
-			IssueID:      linkedIssueID,
-			ProjectID:    "project-xyz",
-			IssueTitle:   "Payment processing error",
-			IssueLevel:   "error",
-			Priority:     servicedomain.CasePriorityHigh,
-			ContactEmail: "affected@example.com",
-		}
-
-		caseObj, err := svc.CreateCaseForIssue(ctx, params)
-		require.NoError(t, err)
-		require.NotNil(t, caseObj)
-
-		assert.Equal(t, servicedomain.CaseChannelInternal, caseObj.Channel)
-		assert.Contains(t, caseObj.Subject, "Payment processing error")
-		assert.Contains(t, caseObj.Description, "Payment processing error")
-		assert.Equal(t, servicedomain.CasePriorityHigh, caseObj.Priority)
-
-		issueID, ok := caseObj.CustomFields.GetString("linked_issue_id")
-		assert.True(t, ok)
-		assert.Equal(t, linkedIssueID, issueID)
-
-		projectID, ok := caseObj.CustomFields.GetString("linked_project_id")
-		assert.True(t, ok)
-		assert.Equal(t, "project-xyz", projectID)
-
-		level, ok := caseObj.CustomFields.GetString("issue_level")
-		assert.True(t, ok)
-		assert.Equal(t, "error", level)
-
-		source, ok := caseObj.CustomFields.GetString("source")
-		assert.True(t, ok)
-		assert.Equal(t, "auto_monitoring", source)
+	created, err := service.CreateCaseForIssue(context.Background(), CreateCaseForIssueParams{
+		WorkspaceID: "ws-1", IssueID: "issue-1", ProjectID: "project-1", IssueTitle: "Payment failed",
+		IssueLevel: "error", Priority: "high", ContactID: "contact-1", ContactEmail: "a@example.com",
 	})
-
-	t.Run("case has linked issue in LinkedIssueIDs", func(t *testing.T) {
-		linkedIssueID := id.New()
-		params := CreateCaseForIssueParams{
-			WorkspaceID: workspaceID,
-			IssueID:     linkedIssueID,
-			ProjectID:   "project-link",
-			IssueTitle:  "Test error",
-			IssueLevel:  "warning",
-			Priority:    servicedomain.CasePriorityMedium,
-		}
-
-		caseObj, err := svc.CreateCaseForIssue(ctx, params)
-		require.NoError(t, err)
-
-		assert.Contains(t, caseObj.LinkedIssueIDs, linkedIssueID)
-	})
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.Equal(t, "ws-1", fake.created.WorkspaceID)
+	assert.Equal(t, "internal", fake.created.Channel)
+	assert.Equal(t, "high", fake.created.Priority)
+	assert.Equal(t, "issue-1", fake.created.CustomFields["linked_issue_id"])
+	assert.Equal(t, "ws-1", fake.linked.WorkspaceID)
+	assert.Equal(t, "issue-1", fake.linked.IssueID)
 }

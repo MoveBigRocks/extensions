@@ -4,13 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/movebigrocks/extension-sdk/eventbus"
-	apierrors "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/errors"
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
-	platformdomain "github.com/movebigrocks/extension-sdk/extensionhost/platform/domain"
-	"github.com/movebigrocks/extension-sdk/extensionhost/shared/authorization"
-	"github.com/movebigrocks/extension-sdk/extensionhost/shared/contracts"
-	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
+	"github.com/movebigrocks/extension-sdk/apierrors"
 	"github.com/movebigrocks/extension-sdk/logger"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
@@ -21,38 +15,28 @@ type IssueService struct {
 	issueStore      storecontracts.IssueStore
 	projectStore    storecontracts.ProjectStore
 	errorEventStore storecontracts.ErrorEventStore
-	workspaceStore  shared.WorkspaceCRUD
-	tx              contracts.TransactionRunner
-	outbox          contracts.OutboxPublisher
-	authorizer      *authorization.Authorizer // Defense-in-depth permission checking
+	publisher       EventPublisher
 	logger          *logger.Logger
 }
 
-// IssueServiceOption configures optional dependencies for IssueService.
-type IssueServiceOption func(*IssueService)
+type EventPublisher interface {
+	Publish(ctx context.Context, workspaceID, eventType string, payload any) error
+}
 
 // NewIssueService creates a new issue service
 func NewIssueService(
 	issueStore storecontracts.IssueStore,
 	projectStore storecontracts.ProjectStore,
 	errorEventStore storecontracts.ErrorEventStore,
-	workspaceStore shared.WorkspaceCRUD,
-	outbox contracts.OutboxPublisher,
-	opts ...IssueServiceOption,
+	publisher EventPublisher,
 ) *IssueService {
-	service := &IssueService{
+	return &IssueService{
 		issueStore:      issueStore,
 		projectStore:    projectStore,
 		errorEventStore: errorEventStore,
-		workspaceStore:  workspaceStore,
-		outbox:          outbox,
-		authorizer:      authorization.NewAuthorizer(),
+		publisher:       publisher,
 		logger:          logger.New().WithField("service", "issue"),
 	}
-	for _, opt := range opts {
-		opt(service)
-	}
-	return service
 }
 
 // GetIssue retrieves an issue by ID
@@ -103,11 +87,6 @@ func (s *IssueService) GetIssuesByIDs(ctx context.Context, issueIDs []string) ([
 
 // UpdateIssue updates an existing issue
 func (s *IssueService) UpdateIssue(ctx context.Context, issue *observabilitydomain.Issue) error {
-	// Defense-in-depth: check permission at service layer (layer 3)
-	if err := s.authorizer.RequirePermission(ctx, platformdomain.PermissionIssueWrite); err != nil {
-		return apierrors.New(apierrors.ErrorTypeAuthorization, "issue:write permission required")
-	}
-
 	if issue.ID == "" {
 		return apierrors.NewValidationErrors(apierrors.NewValidationError("id", "required"))
 	}
@@ -189,11 +168,6 @@ func (s *IssueService) ListProjectIssues(ctx context.Context, projectID string, 
 
 // ResolveIssue marks an issue as resolved
 func (s *IssueService) ResolveIssue(ctx context.Context, issueID string, resolution string, resolvedBy string) error {
-	// Defense-in-depth: check permission at service layer (layer 3)
-	if err := s.authorizer.RequirePermission(ctx, platformdomain.PermissionIssueWrite); err != nil {
-		return apierrors.New(apierrors.ErrorTypeAuthorization, "issue:write permission required")
-	}
-
 	if resolvedBy == "" {
 		resolvedBy = "system"
 	}
@@ -218,38 +192,19 @@ func (s *IssueService) ResolveIssue(ctx context.Context, issueID string, resolut
 		}
 
 		if err := s.publishIssueResolved(txCtx, issue); err != nil {
-			return err
+			s.logger.WithError(err).Warn("Failed to publish issue resolved event", "issue_id", issue.ID)
 		}
 		if err := s.publishCasesBulkResolved(txCtx, issue); err != nil {
-			return err
+			s.logger.WithError(err).Warn("Failed to publish cases bulk resolved event", "issue_id", issue.ID)
 		}
 		return nil
 	}
 
-	if s.tx != nil && s.outbox != nil {
-		return s.tx.WithTransaction(ctx, updateFn)
-	}
-
-	if err := s.issueStore.UpdateIssue(ctx, issue); err != nil {
-		return apierrors.DatabaseError("resolve issue", err)
-	}
-
-	// Best effort: preserve existing behavior when running without transaction.
-	if err := s.publishIssueResolved(ctx, issue); err != nil {
-		s.logger.WithError(err).Warn("Failed to publish issue resolved event (non-transactional)", "issue_id", issue.ID)
-	}
-	if err := s.publishCasesBulkResolved(ctx, issue); err != nil {
-		s.logger.WithError(err).Warn("Failed to publish cases bulk resolved event (non-transactional)", "issue_id", issue.ID)
-	}
-	return nil
+	return updateFn(ctx)
 }
 
 // SetIssueStatus applies a validated status transition and persists the issue.
 func (s *IssueService) SetIssueStatus(ctx context.Context, issueID, status, changedBy string) (*observabilitydomain.Issue, error) {
-	if err := s.authorizer.RequirePermission(ctx, platformdomain.PermissionIssueWrite); err != nil {
-		return nil, apierrors.New(apierrors.ErrorTypeAuthorization, "issue:write permission required")
-	}
-
 	issue, err := s.GetIssue(ctx, issueID)
 	if err != nil {
 		return nil, err
@@ -270,10 +225,6 @@ func (s *IssueService) SetIssueStatus(ctx context.Context, issueID, status, chan
 
 // LinkIssueToCase records the case linkage on the issue aggregate.
 func (s *IssueService) LinkIssueToCase(ctx context.Context, issueID, caseID string) (*observabilitydomain.Issue, error) {
-	if err := s.authorizer.RequirePermission(ctx, platformdomain.PermissionIssueWrite); err != nil {
-		return nil, apierrors.New(apierrors.ErrorTypeAuthorization, "issue:write permission required")
-	}
-
 	issue, err := s.GetIssue(ctx, issueID)
 	if err != nil {
 		return nil, err
@@ -288,10 +239,6 @@ func (s *IssueService) LinkIssueToCase(ctx context.Context, issueID, caseID stri
 
 // UnlinkIssueFromCase removes a case linkage from the issue aggregate.
 func (s *IssueService) UnlinkIssueFromCase(ctx context.Context, issueID, caseID string) (*observabilitydomain.Issue, error) {
-	if err := s.authorizer.RequirePermission(ctx, platformdomain.PermissionIssueWrite); err != nil {
-		return nil, apierrors.New(apierrors.ErrorTypeAuthorization, "issue:write permission required")
-	}
-
 	issue, err := s.GetIssue(ctx, issueID)
 	if err != nil {
 		return nil, err
@@ -311,10 +258,6 @@ func (s *IssueService) UnlinkIssueFromCase(ctx context.Context, issueID, caseID 
 // IgnoreIssue marks an issue as ignored
 func (s *IssueService) IgnoreIssue(ctx context.Context, issueID string) error {
 	// Defense-in-depth: check permission at service layer (layer 3)
-	if err := s.authorizer.RequirePermission(ctx, platformdomain.PermissionIssueWrite); err != nil {
-		return apierrors.New(apierrors.ErrorTypeAuthorization, "issue:write permission required")
-	}
-
 	issue, err := s.GetIssue(ctx, issueID)
 	if err != nil {
 		return err
@@ -331,10 +274,6 @@ func (s *IssueService) IgnoreIssue(ctx context.Context, issueID string) error {
 // ReopenIssue reopens a resolved or ignored issue
 func (s *IssueService) ReopenIssue(ctx context.Context, issueID string) error {
 	// Defense-in-depth: check permission at service layer (layer 3)
-	if err := s.authorizer.RequirePermission(ctx, platformdomain.PermissionIssueWrite); err != nil {
-		return apierrors.New(apierrors.ErrorTypeAuthorization, "issue:write permission required")
-	}
-
 	issue, err := s.GetIssue(ctx, issueID)
 	if err != nil {
 		return err
@@ -413,7 +352,7 @@ func (s *IssueService) GetErrorEvent(ctx context.Context, eventID string) (*obse
 // publishIssueResolved publishes an IssueResolved event for downstream handlers.
 // Best effort: if publishing fails, resolve operation succeeds and log warning.
 func (s *IssueService) publishIssueResolved(ctx context.Context, issue *observabilitydomain.Issue) error {
-	if s.outbox == nil {
+	if s.publisher == nil {
 		s.logger.Debug("Skipping issue resolved event publish - outbox not configured", "issue_id", issue.ID)
 		return nil
 	}
@@ -422,8 +361,7 @@ func (s *IssueService) publishIssueResolved(ctx context.Context, issue *observab
 		return nil
 	}
 
-	event := shareddomain.IssueResolved{
-		BaseEvent:         eventbus.NewBaseEvent(eventbus.TypeIssueResolved),
+	event := observabilitydomain.IssueResolvedEvent{
 		IssueID:           issue.ID,
 		ProjectID:         issue.ProjectID,
 		WorkspaceID:       issue.WorkspaceID,
@@ -441,7 +379,7 @@ func (s *IssueService) publishIssueResolved(ctx context.Context, issue *observab
 		event.ResolvedAt = *issue.ResolvedAt
 	}
 
-	if err := s.outbox.PublishEvent(ctx, eventbus.StreamIssueEvents, event); err != nil {
+	if err := s.publisher.Publish(ctx, issue.WorkspaceID, "issue.resolved", event); err != nil {
 		s.logger.WithError(err).Warn("Failed to publish issue resolved event", "issue_id", issue.ID)
 		return err
 	}
@@ -451,7 +389,7 @@ func (s *IssueService) publishIssueResolved(ctx context.Context, issue *observab
 // publishCasesBulkResolved publishes related cases for automatic case resolution.
 // Best effort: if publishing fails, issue resolution still succeeds.
 func (s *IssueService) publishCasesBulkResolved(ctx context.Context, issue *observabilitydomain.Issue) error {
-	if s.outbox == nil {
+	if s.publisher == nil {
 		s.logger.Debug("Skipping cases bulk resolved publish - outbox not configured", "issue_id", issue.ID)
 		return nil
 	}
@@ -463,8 +401,7 @@ func (s *IssueService) publishCasesBulkResolved(ctx context.Context, issue *obse
 	if issue.ResolvedAt != nil {
 		resolvedAt = *issue.ResolvedAt
 	}
-	event := shareddomain.CasesBulkResolved{
-		BaseEvent:   eventbus.NewBaseEvent(eventbus.TypeCasesBulkResolved),
+	event := observabilitydomain.CasesBulkResolvedEvent{
 		IssueID:     issue.ID,
 		ProjectID:   issue.ProjectID,
 		WorkspaceID: issue.WorkspaceID,
@@ -473,7 +410,7 @@ func (s *IssueService) publishCasesBulkResolved(ctx context.Context, issue *obse
 		ResolvedAt:  resolvedAt,
 	}
 
-	if err := s.outbox.PublishEvent(ctx, eventbus.StreamCaseEvents, event); err != nil {
+	if err := s.publisher.Publish(ctx, issue.WorkspaceID, "cases.bulk_resolved", event); err != nil {
 		s.logger.WithError(err).Warn("Failed to publish cases bulk resolved event", "issue_id", issue.ID)
 		return err
 	}

@@ -98,6 +98,7 @@ func (c *Client) CreateContact(ctx context.Context, input CreateContactInput) (*
 // and risking clobbering columns it did not intend to touch. Setting a field to
 // its pointer sets it; leaving it nil leaves the stored value unchanged.
 type CaseUpdateInput struct {
+	WorkspaceID  string         `json:"workspaceId,omitempty"`
 	Status       *string        `json:"status,omitempty"`
 	Priority     *string        `json:"priority,omitempty"`
 	QueueID      *string        `json:"queueId,omitempty"`
@@ -135,6 +136,14 @@ func (c *Client) HandoffCase(ctx context.Context, caseID string, input HandoffCa
 
 // MarkCaseResolved marks a case resolved at the given time.
 func (c *Client) MarkCaseResolved(ctx context.Context, caseID string, resolvedAt time.Time) error {
-	body := map[string]any{"resolvedAt": resolvedAt.UTC().Format(time.RFC3339Nano)}
+	return c.MarkCaseResolvedInWorkspace(ctx, "", caseID, resolvedAt)
+}
+
+// MarkCaseResolvedInWorkspace marks a case resolved in the named workspace.
+func (c *Client) MarkCaseResolvedInWorkspace(ctx context.Context, workspaceID, caseID string, resolvedAt time.Time) error {
+	body := map[string]any{
+		"workspaceId": strings.TrimSpace(workspaceID),
+		"resolvedAt":  resolvedAt.UTC().Format(time.RFC3339Nano),
+	}
 	return c.doJSON(ctx, http.MethodPost, CoreCasesPath+"/"+url.PathEscape(strings.TrimSpace(caseID))+"/resolve", body, nil)
 }

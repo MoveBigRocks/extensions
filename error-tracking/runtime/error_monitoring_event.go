@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	shared "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 	models "github.com/movebigrocks/extensions/error-tracking/sql-models"
@@ -171,7 +170,7 @@ func (s *ErrorMonitoringStore) UpdateEventIssueID(ctx context.Context, workspace
 	}
 	rows, rowsErr := result.RowsAffected()
 	if rowsErr == nil && rows == 0 {
-		return shared.ErrNotFound
+		return ErrNotFound
 	}
 	return nil
 }

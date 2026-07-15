@@ -14,11 +14,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	middleware "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/httpx"
-	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
 	"github.com/movebigrocks/extension-sdk/id"
 	"github.com/movebigrocks/extension-sdk/logger"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
+	"github.com/movebigrocks/extensions/error-tracking/runtime/httpx"
 )
 
 type sentryEventStore interface {
@@ -69,32 +68,32 @@ func (h *SentryIngestHandler) HandleEnvelopeWithProject(c *gin.Context) {
 
 func (h *SentryIngestHandler) handleEnvelope(c *gin.Context, expectedProjectNumber string) {
 	if err := validateSentryEnvelopeRequest(c); err != nil {
-		middleware.RespondWithError(c, http.StatusBadRequest, err.Error())
+		httpx.RespondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	publicKey, ok := parseSentryAuth(c.GetHeader("X-Sentry-Auth"))
 	if !ok {
-		middleware.RespondWithError(c, http.StatusUnauthorized, "invalid sentry auth header")
+		httpx.RespondWithError(c, http.StatusUnauthorized, "invalid sentry auth header")
 		return
 	}
 
 	ctx := c.Request.Context()
 	project, err := h.projectStore.GetProjectByKey(ctx, publicKey)
 	if err != nil || project == nil || !project.IsActive() {
-		middleware.RespondWithError(c, http.StatusUnauthorized, "invalid project credentials")
+		httpx.RespondWithError(c, http.StatusUnauthorized, "invalid project credentials")
 		return
 	}
 
 	if expectedProjectNumber != "" {
 		numberFromPath, err := strconv.ParseInt(expectedProjectNumber, 10, 64)
 		if err != nil {
-			middleware.RespondWithError(c, http.StatusBadRequest, "invalid project number")
+			httpx.RespondWithError(c, http.StatusBadRequest, "invalid project number")
 			return
 		}
 
 		if project.ProjectNumber != numberFromPath {
-			middleware.RespondWithError(c, http.StatusUnauthorized, "project number mismatch")
+			httpx.RespondWithError(c, http.StatusUnauthorized, "project number mismatch")
 			return
 		}
 	}
@@ -102,33 +101,33 @@ func (h *SentryIngestHandler) handleEnvelope(c *gin.Context, expectedProjectNumb
 	binaryBody, err := readSentryEnvelopeBody(c.Request.Body, c.GetHeader("Content-Encoding"))
 	if err != nil {
 		h.logger.WithError(err).Warn("failed to read sentry envelope body")
-		middleware.RespondWithError(c, http.StatusBadRequest, "invalid request body")
+		httpx.RespondWithError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	eventData, err := parseSentryEnvelope(binaryBody)
 	if err != nil {
 		h.logger.WithError(err).Warn("failed to parse sentry envelope")
-		middleware.RespondWithError(c, http.StatusBadRequest, "invalid envelope format")
+		httpx.RespondWithError(c, http.StatusBadRequest, "invalid envelope format")
 		return
 	}
 
 	event, err := convertSentryEvent(eventData, project.ID)
 	if err != nil {
 		h.logger.WithError(err).Warn("failed to convert sentry event")
-		middleware.RespondWithError(c, http.StatusBadRequest, "invalid event payload")
+		httpx.RespondWithError(c, http.StatusBadRequest, "invalid event payload")
 		return
 	}
 
 	if err := h.errorEventStore.CreateErrorEvent(ctx, event); err != nil {
 		h.logger.WithError(err).Error("failed to persist error event")
-		middleware.RespondWithError(c, http.StatusInternalServerError, "failed to store event")
+		httpx.RespondWithError(c, http.StatusInternalServerError, "failed to store event")
 		return
 	}
 
 	if err := h.processor.ProcessEvent(ctx, event); err != nil {
 		h.logger.WithError(err).Error("failed to process error event")
-		middleware.RespondWithError(c, http.StatusInternalServerError, "failed to process event")
+		httpx.RespondWithError(c, http.StatusInternalServerError, "failed to process event")
 		return
 	}
 
@@ -299,8 +298,8 @@ func convertSentryEvent(data map[string]interface{}, projectID string) (*observa
 	}
 
 	event.Tags = asStringMap(data["tags"])
-	event.Extra = shareddomain.MetadataFromMap(asMetadataMap(data, "extra"))
-	event.Contexts = shareddomain.MetadataFromMap(asMetadataMap(data, "contexts"))
+	event.Extra = observabilitydomain.MetadataFromMap(asMetadataMap(data, "extra"))
+	event.Contexts = observabilitydomain.MetadataFromMap(asMetadataMap(data, "contexts"))
 
 	event.Stacktrace = parseSentryStacktrace(data["stacktrace"])
 
@@ -321,7 +320,7 @@ func convertSentryEvent(data map[string]interface{}, projectID string) (*observa
 			Category:  asString(breadcrumbData["category"]),
 			Level:     asString(breadcrumbData["level"]),
 			Type:      asString(breadcrumbData["type"]),
-			Data:      shareddomain.MetadataFromMap(asMetadataMap(breadcrumbData, "data")),
+			Data:      observabilitydomain.MetadataFromMap(asMetadataMap(breadcrumbData, "data")),
 		})
 	}
 
@@ -329,7 +328,7 @@ func convertSentryEvent(data map[string]interface{}, projectID string) (*observa
 		event.Request = &observabilitydomain.RequestContext{
 			URL:         asString(requestData["url"]),
 			Method:      asString(requestData["method"]),
-			Data:        shareddomain.MetadataFromMap(asMetadataMap(requestData, "data")),
+			Data:        observabilitydomain.MetadataFromMap(asMetadataMap(requestData, "data")),
 			Cookies:     asStringMap(requestData["cookies"]),
 			QueryString: asString(requestData["query_string"]),
 			Headers:     asStringMap(requestData["headers"]),
@@ -427,7 +426,7 @@ func parseSentryStacktrace(value interface{}) *observabilitydomain.StacktraceDat
 			AbsPath:     asString(frameData["abs_path"]),
 			ContextLine: asString(frameData["context_line"]),
 			InApp:       asBool(frameData["in_app"]),
-			Vars:        shareddomain.MetadataFromMap(asMetadataMap(frameData, "vars")),
+			Vars:        observabilitydomain.MetadataFromMap(asMetadataMap(frameData, "vars")),
 		})
 	}
 	if len(framesData) == 0 {

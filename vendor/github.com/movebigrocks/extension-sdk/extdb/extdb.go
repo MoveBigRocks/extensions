@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
@@ -34,6 +34,7 @@ type Querier interface {
 
 type DB struct {
 	*sqlx.DB
+	adminRole string
 }
 
 type txKey struct{}
@@ -96,7 +97,9 @@ func Open(cfg Config) (*DB, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	return &DB{DB: sqlx.NewDb(db, "postgres")}, nil
+	wrapped := &DB{DB: sqlx.NewDb(db, "postgres")}
+	wrapped.adminRole = wrapped.detectAdminRole()
+	return wrapped, nil
 }
 
 func (db *DB) Get(ctx context.Context) Querier {
@@ -133,6 +136,39 @@ func (db *DB) Transaction(ctx context.Context, fn func(context.Context) error) e
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 	return nil
+}
+
+// WithAdminContext runs fn in a transaction under the host-provisioned
+// BYPASSRLS role. Extension runtimes use this only for cross-workspace access
+// to their own ext_* tables; core data remains available exclusively through
+// runtimehost.Client.
+func (db *DB) WithAdminContext(ctx context.Context, fn func(context.Context) error) error {
+	if db == nil || db.DB == nil {
+		return fmt.Errorf("database is not configured")
+	}
+	return db.Transaction(ctx, func(txCtx context.Context) error {
+		if db.adminRole != "" {
+			if _, err := db.Get(txCtx).ExecContext(txCtx, "SET LOCAL ROLE "+pq.QuoteIdentifier(db.adminRole)); err != nil {
+				return fmt.Errorf("enter admin role %s: %w", db.adminRole, err)
+			}
+		}
+		return fn(txCtx)
+	})
+}
+
+func (db *DB) detectAdminRole() string {
+	if db == nil || db.DB == nil {
+		return ""
+	}
+	const role = "mbr_admin"
+	var found string
+	if err := db.QueryRowx(
+		`SELECT rolname FROM pg_roles WHERE rolname = $1 AND pg_has_role(current_user, oid, 'USAGE')`,
+		role,
+	).Scan(&found); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(found)
 }
 
 type rebindQuerier struct {

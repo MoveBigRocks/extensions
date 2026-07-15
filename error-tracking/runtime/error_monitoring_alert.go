@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	models "github.com/movebigrocks/extensions/error-tracking/sql-models"
 )
@@ -82,7 +81,7 @@ func (s *ErrorMonitoringStore) UpdateAlert(ctx context.Context, alert *observabi
 	}
 	rows, rowsErr := result.RowsAffected()
 	if rowsErr == nil && rows == 0 {
-		return shared.ErrNotFound
+		return ErrNotFound
 	}
 	return nil
 }

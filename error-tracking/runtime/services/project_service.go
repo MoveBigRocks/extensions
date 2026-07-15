@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	apierrors "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/errors"
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
+	"github.com/movebigrocks/extension-sdk/apierrors"
 	"github.com/movebigrocks/extension-sdk/logger"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
@@ -13,16 +12,14 @@ import (
 
 // ProjectService handles all project-related business logic
 type ProjectService struct {
-	projectStore   storecontracts.ProjectStore
-	gitRepoStore   storecontracts.GitRepoStore
-	workspaceStore shared.WorkspaceCRUD
-	logger         *logger.Logger
+	projectStore storecontracts.ProjectStore
+	gitRepoStore storecontracts.GitRepoStore
+	logger       *logger.Logger
 }
 
 // NewProjectService creates a new project service
 func NewProjectService(
 	projectStore storecontracts.ProjectStore,
-	workspaceStore shared.WorkspaceCRUD,
 ) *ProjectService {
 	var gitRepoStore storecontracts.GitRepoStore
 	if storeWithGitRepos, ok := projectStore.(storecontracts.GitRepoStore); ok {
@@ -30,10 +27,9 @@ func NewProjectService(
 	}
 
 	return &ProjectService{
-		projectStore:   projectStore,
-		gitRepoStore:   gitRepoStore,
-		workspaceStore: workspaceStore,
-		logger:         logger.New().WithField("service", "project"),
+		projectStore: projectStore,
+		gitRepoStore: gitRepoStore,
+		logger:       logger.New().WithField("service", "project"),
 	}
 }
 

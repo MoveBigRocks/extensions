@@ -6,32 +6,28 @@ import (
 	"fmt"
 	"time"
 
-	servicedomain "github.com/movebigrocks/extension-sdk/extensionhost/service/domain"
-	"github.com/movebigrocks/extension-sdk/extensionhost/shared/contracts"
-	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
 	"github.com/movebigrocks/extension-sdk/logger"
+	"github.com/movebigrocks/extension-sdk/runtimehost"
 
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
 )
 
 type issueCaseWriter interface {
-	LinkIssueToCase(ctx context.Context, caseID, issueID, projectID string) error
-	UnlinkIssueFromCase(ctx context.Context, caseID, issueID string) error
-	CreateCaseForIssue(ctx context.Context, params observabilityservices.CreateCaseForIssueParams) (*servicedomain.Case, error)
-	MarkCaseResolved(ctx context.Context, caseID string, resolvedAt time.Time) error
-	GetCase(ctx context.Context, caseID string) (*servicedomain.Case, error)
-	UpdateCase(ctx context.Context, caseObj *servicedomain.Case) error
+	LinkIssueToCase(ctx context.Context, workspaceID, caseID, issueID, projectID string) error
+	UnlinkIssueFromCase(ctx context.Context, workspaceID, caseID, issueID string) error
+	CreateCaseForIssue(ctx context.Context, params observabilityservices.CreateCaseForIssueParams) (*runtimehost.HostCase, error)
+	MarkCaseResolved(ctx context.Context, workspaceID, caseID string, resolvedAt time.Time) error
+	MarkIssueResolved(ctx context.Context, workspaceID, caseID string, resolvedAt time.Time) error
 }
 
 type ErrorTrackingCaseEventHandler struct {
 	caseService issueCaseWriter
-	adminRunner contracts.AdminContextRunner
 	logger      *logger.Logger
 }
 
 func NewErrorTrackingCaseEventHandler(
 	caseService issueCaseWriter,
-	adminRunner contracts.AdminContextRunner,
 	log *logger.Logger,
 ) *ErrorTrackingCaseEventHandler {
 	if log == nil {
@@ -39,13 +35,12 @@ func NewErrorTrackingCaseEventHandler(
 	}
 	return &ErrorTrackingCaseEventHandler{
 		caseService: caseService,
-		adminRunner: adminRunner,
 		logger:      log,
 	}
 }
 
 func (h *ErrorTrackingCaseEventHandler) HandleIssueCaseLinked(ctx context.Context, eventData []byte) error {
-	var event shareddomain.IssueCaseLinked
+	var event observabilitydomain.IssueCaseLinkedEvent
 	if err := json.Unmarshal(eventData, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal IssueCaseLinked event: %w", err)
 	}
@@ -56,13 +51,11 @@ func (h *ErrorTrackingCaseEventHandler) HandleIssueCaseLinked(ctx context.Contex
 		return nil
 	}
 
-	return h.adminRunner.WithAdminContext(ctx, func(adminCtx context.Context) error {
-		return h.caseService.LinkIssueToCase(adminCtx, event.CaseID, event.IssueID, event.ProjectID)
-	})
+	return h.caseService.LinkIssueToCase(ctx, event.WorkspaceID, event.CaseID, event.IssueID, event.ProjectID)
 }
 
 func (h *ErrorTrackingCaseEventHandler) HandleIssueCaseUnlinked(ctx context.Context, eventData []byte) error {
-	var event shareddomain.IssueCaseUnlinked
+	var event observabilitydomain.IssueCaseUnlinkedEvent
 	if err := json.Unmarshal(eventData, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal IssueCaseUnlinked event: %w", err)
 	}
@@ -73,13 +66,11 @@ func (h *ErrorTrackingCaseEventHandler) HandleIssueCaseUnlinked(ctx context.Cont
 		return nil
 	}
 
-	return h.adminRunner.WithAdminContext(ctx, func(adminCtx context.Context) error {
-		return h.caseService.UnlinkIssueFromCase(adminCtx, event.CaseID, event.IssueID)
-	})
+	return h.caseService.UnlinkIssueFromCase(ctx, event.WorkspaceID, event.CaseID, event.IssueID)
 }
 
 func (h *ErrorTrackingCaseEventHandler) HandleCaseCreatedForContact(ctx context.Context, eventData []byte) error {
-	var event shareddomain.CaseCreatedForContact
+	var event observabilitydomain.CaseCreatedForContactEvent
 	if err := json.Unmarshal(eventData, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal CaseCreatedForContact event: %w", err)
 	}
@@ -87,23 +78,21 @@ func (h *ErrorTrackingCaseEventHandler) HandleCaseCreatedForContact(ctx context.
 		return nil
 	}
 
-	return h.adminRunner.WithAdminContext(ctx, func(adminCtx context.Context) error {
-		_, err := h.caseService.CreateCaseForIssue(adminCtx, observabilityservices.CreateCaseForIssueParams{
-			WorkspaceID:  event.WorkspaceID,
-			IssueID:      event.IssueID,
-			ProjectID:    event.ProjectID,
-			IssueTitle:   event.IssueTitle,
-			IssueLevel:   event.IssueLevel,
-			Priority:     servicedomain.CasePriority(event.Priority),
-			ContactID:    event.ContactID,
-			ContactEmail: event.ContactEmail,
-		})
-		return err
+	_, err := h.caseService.CreateCaseForIssue(ctx, observabilityservices.CreateCaseForIssueParams{
+		WorkspaceID:  event.WorkspaceID,
+		IssueID:      event.IssueID,
+		ProjectID:    event.ProjectID,
+		IssueTitle:   event.IssueTitle,
+		IssueLevel:   event.IssueLevel,
+		Priority:     event.Priority,
+		ContactID:    event.ContactID,
+		ContactEmail: event.ContactEmail,
 	})
+	return err
 }
 
 func (h *ErrorTrackingCaseEventHandler) HandleCasesBulkResolved(ctx context.Context, eventData []byte) error {
-	var event shareddomain.CasesBulkResolved
+	var event observabilitydomain.CasesBulkResolvedEvent
 	if err := json.Unmarshal(eventData, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal CasesBulkResolved event: %w", err)
 	}
@@ -133,22 +122,14 @@ func (h *ErrorTrackingCaseEventHandler) HandleCasesBulkResolved(ctx context.Cont
 		return nil
 	}
 
-	return h.adminRunner.WithAdminContext(ctx, func(adminCtx context.Context) error {
-		for _, caseID := range caseIDs {
-			if err := h.caseService.MarkCaseResolved(adminCtx, caseID, event.ResolvedAt); err != nil {
-				h.logger.WithError(err).WithField("case_id", caseID).Warn("Failed to resolve case from error-tracking event")
-				continue
-			}
-			caseObj, err := h.caseService.GetCase(adminCtx, caseID)
-			if err != nil {
-				h.logger.WithError(err).WithField("case_id", caseID).Warn("Failed to reload case after resolution")
-				continue
-			}
-			caseObj.MarkIssueResolved(event.ResolvedAt)
-			if err := h.caseService.UpdateCase(adminCtx, caseObj); err != nil {
-				h.logger.WithError(err).WithField("case_id", caseID).Warn("Failed to persist issue resolution on case")
-			}
+	for _, caseID := range caseIDs {
+		if err := h.caseService.MarkCaseResolved(ctx, event.WorkspaceID, caseID, event.ResolvedAt); err != nil {
+			h.logger.WithError(err).WithField("case_id", caseID).Warn("Failed to resolve case from error-tracking event")
+			continue
 		}
-		return nil
-	})
+		if err := h.caseService.MarkIssueResolved(ctx, event.WorkspaceID, caseID, event.ResolvedAt); err != nil {
+			h.logger.WithError(err).WithField("case_id", caseID).Warn("Failed to persist issue resolution on case")
+		}
+	}
+	return nil
 }

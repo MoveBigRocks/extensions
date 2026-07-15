@@ -1,10 +1,6 @@
 package eventbus
 
-import (
-	"context"
-
-	"github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/metrics"
-)
+import "context"
 
 // IdempotencyStore interface for database-backed idempotency.
 type IdempotencyStore interface {
@@ -22,13 +18,11 @@ func WithDBIdempotency(store IdempotencyStore, handlerGroup string, handler Hand
 
 		processed, err := store.IsProcessed(ctx, hdr.EventID, handlerGroup)
 		if err != nil {
-			metrics.IdempotencyCheckErrors.WithLabelValues(handlerGroup).Inc()
 			// Log error but continue - better to potentially duplicate than drop
 			return handler(ctx, data)
 		}
 
 		if processed {
-			metrics.EventsDeduplicated.WithLabelValues(handlerGroup).Inc()
 			return nil // Already processed, skip
 		}
 
@@ -36,13 +30,10 @@ func WithDBIdempotency(store IdempotencyStore, handlerGroup string, handler Hand
 			return err
 		}
 
-		metrics.EventsHandled.WithLabelValues(handlerGroup).Inc()
-
 		// Mark as processed after successful handling
 		if err := store.MarkProcessed(ctx, hdr.EventID, handlerGroup); err != nil {
 			// Log error but don't fail - event was processed successfully
 			// On replay, handler will re-execute (handlers must be idempotent)
-			metrics.MarkProcessedErrors.WithLabelValues(handlerGroup).Inc()
 		}
 		return nil
 	}

@@ -6,9 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/movebigrocks/extension-sdk/eventbus"
-	"github.com/movebigrocks/extension-sdk/extensionhost/shared/contracts"
-	shareddomain "github.com/movebigrocks/extension-sdk/extensionhost/shared/domain"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 )
@@ -22,7 +19,7 @@ type ErrorGroupingService struct {
 	projectStore storecontracts.ProjectStore
 
 	// Event publishing (the ONLY write dependency!)
-	outbox contracts.OutboxPublisher
+	publisher EventPublisher
 
 	similarity SimilarityEngine
 	logger     *log.Logger
@@ -34,11 +31,11 @@ type SimilarityEngine struct{}
 type FingerprintComponents = observabilitydomain.FingerprintComponents
 
 // NewErrorGroupingService creates the event-driven version
-func NewErrorGroupingService(issueStore storecontracts.IssueStore, projectStore storecontracts.ProjectStore, outbox contracts.OutboxPublisher) *ErrorGroupingService {
+func NewErrorGroupingService(issueStore storecontracts.IssueStore, projectStore storecontracts.ProjectStore, publisher EventPublisher) *ErrorGroupingService {
 	return &ErrorGroupingService{
 		issueStore:   issueStore,
 		projectStore: projectStore,
-		outbox:       outbox,
+		publisher:    publisher,
 		similarity:   SimilarityEngine{},
 		logger:       log.New(log.Writer(), "[ErrorGrouping] ", log.LstdFlags),
 	}
@@ -102,17 +99,12 @@ func (e *ErrorGroupingService) publishIssueCreated(ctx context.Context, event *o
 	}
 
 	// Create the domain event using constructor
-	issueCreatedEvent := shareddomain.NewIssueCreatedEvent(
-		issue.ID,
-		issue.ProjectID,
-		project.WorkspaceID,
-		issue.Title,
-		issue.Level,
-		issue.Fingerprint,
-		event.EventID,
-		issue.Platform,
-		issue.Culprit,
-	)
+	issueCreatedEvent := observabilitydomain.IssueCreatedEvent{
+		IssueID: issue.ID, ProjectID: issue.ProjectID, WorkspaceID: project.WorkspaceID,
+		Title: issue.Title, Level: issue.Level, Fingerprint: issue.Fingerprint,
+		FirstEventID: event.EventID, Platform: issue.Platform, Culprit: issue.Culprit,
+		CreatedAt: time.Now().UTC(),
+	}
 
 	// PUBLISH EVENT: This is the only write operation!
 	// Event handlers will:
@@ -120,7 +112,7 @@ func (e *ErrorGroupingService) publishIssueCreated(ctx context.Context, event *o
 	// 2. Update metrics
 	// 3. Check alert rules
 	// 4. Send notifications
-	if err := e.outbox.PublishEvent(ctx, eventbus.StreamIssueEvents, issueCreatedEvent); err != nil {
+	if err := e.publisher.Publish(ctx, project.WorkspaceID, "issue.created", issueCreatedEvent); err != nil {
 		return nil, fmt.Errorf("failed to publish IssueCreated event: %w", err)
 	}
 
@@ -141,17 +133,14 @@ func (e *ErrorGroupingService) publishIssueUpdated(ctx context.Context, issue *o
 
 	// Create the domain event using the new constructor with user flag.
 	// This signals to the handler whether to atomically increment user_count.
-	issueUpdatedEvent := shareddomain.NewIssueUpdatedEventWithUserFlag(
-		issue.ID,
-		issue.ProjectID,
-		issue.WorkspaceID,
-		event.EventID,
-		event.Timestamp,
-		hasNewUser,
-	)
+	issueUpdatedEvent := observabilitydomain.IssueUpdatedEvent{
+		IssueID: issue.ID, ProjectID: issue.ProjectID, WorkspaceID: issue.WorkspaceID,
+		NewEventID: event.EventID, LastSeen: event.Timestamp, HasNewUser: hasNewUser,
+		UpdatedAt: time.Now().UTC(),
+	}
 
 	// PUBLISH EVENT: Event handlers will atomically update storage
-	if err := e.outbox.PublishEvent(ctx, eventbus.StreamIssueEvents, issueUpdatedEvent); err != nil {
+	if err := e.publisher.Publish(ctx, issue.WorkspaceID, "issue.updated", issueUpdatedEvent); err != nil {
 		return fmt.Errorf("failed to publish IssueUpdated event: %w", err)
 	}
 

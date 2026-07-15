@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	shared "github.com/movebigrocks/extension-sdk/extensionhost/infrastructure/stores/shared"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	storecontracts "github.com/movebigrocks/extensions/error-tracking/runtime/storecontracts"
 	models "github.com/movebigrocks/extensions/error-tracking/sql-models"
@@ -217,7 +216,7 @@ func (s *ErrorMonitoringStore) UpdateIssue(ctx context.Context, issue *observabi
 	}
 	rows, rowsErr := result.RowsAffected()
 	if rowsErr == nil && rows == 0 {
-		return shared.ErrNotFound
+		return ErrNotFound
 	}
 	return nil
 }
@@ -406,7 +405,7 @@ func (s *ErrorMonitoringStore) AtomicUpdateIssueStats(ctx context.Context, works
 	}
 	rows, rowsErr := result.RowsAffected()
 	if rowsErr == nil && rows == 0 {
-		return nil, shared.ErrNotFound
+		return nil, ErrNotFound
 	}
 	// If rowsErr != nil, ExecContext succeeded but we can't verify row count
 	// Optimistically continue to return the updated issue
