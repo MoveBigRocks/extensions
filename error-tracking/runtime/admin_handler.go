@@ -109,18 +109,24 @@ type IssueDetailPageData struct {
 }
 
 type BasePageData struct {
-	ActivePage         string
-	PageTitle          string
-	PageSubtitle       string
-	UserName           string
-	UserEmail          string
-	UserRole           string
-	CanManageUsers     bool
-	IsWorkspaceScoped  bool
-	ExtensionNav       any
-	ExtensionWidgets   any
-	CurrentWorkspaceID string
-	CurrentWorkspace   string
+	ActivePage          string
+	PageTitle           string
+	PageSubtitle        string
+	UserName            string
+	UserEmail           string
+	UserRole            string
+	CanManageUsers      bool
+	IsWorkspaceScoped   bool
+	ExtensionNav        any
+	ExtensionWidgets    any
+	CurrentWorkspaceID  string
+	CurrentWorkspace    string
+	CaseCount           int
+	RuleCount           int
+	FormCount           int
+	WorkspaceCount      int
+	UserCount           int
+	UnreadNotifications int
 }
 
 type WorkspaceOption struct {
@@ -531,18 +537,24 @@ func (h *ErrorTrackingAdminHandler) ShowIssueDetail(c *gin.Context) {
 func (h *ErrorTrackingAdminHandler) buildBasePageData(c *gin.Context, activePage, title, subtitle string) BasePageData {
 	data := runtimehttp.BuildBasePageData(c, activePage, title, subtitle)
 	return BasePageData{
-		ActivePage:         activePage,
-		PageTitle:          title,
-		PageSubtitle:       subtitle,
-		UserName:           stringValue(data["UserName"]),
-		UserEmail:          stringValue(data["UserEmail"]),
-		UserRole:           stringValue(data["UserRole"]),
-		CanManageUsers:     boolValue(data["CanManageUsers"]),
-		IsWorkspaceScoped:  boolValue(data["IsWorkspaceScoped"]),
-		ExtensionNav:       data["ExtensionNav"],
-		ExtensionWidgets:   data["ExtensionWidgets"],
-		CurrentWorkspaceID: stringValue(data["CurrentWorkspaceID"]),
-		CurrentWorkspace:   stringValue(data["CurrentWorkspace"]),
+		ActivePage:          activePage,
+		PageTitle:           title,
+		PageSubtitle:        subtitle,
+		UserName:            stringValue(data["UserName"]),
+		UserEmail:           stringValue(data["UserEmail"]),
+		UserRole:            stringValue(data["UserRole"]),
+		CanManageUsers:      boolValue(data["CanManageUsers"]),
+		IsWorkspaceScoped:   boolValue(data["IsWorkspaceScoped"]),
+		ExtensionNav:        data["ExtensionNav"],
+		ExtensionWidgets:    data["ExtensionWidgets"],
+		CurrentWorkspaceID:  stringValue(data["CurrentWorkspaceID"]),
+		CurrentWorkspace:    stringValue(data["CurrentWorkspace"]),
+		CaseCount:           intValue(data["CaseCount"]),
+		RuleCount:           intValue(data["RuleCount"]),
+		FormCount:           intValue(data["FormCount"]),
+		WorkspaceCount:      intValue(data["WorkspaceCount"]),
+		UserCount:           intValue(data["UserCount"]),
+		UnreadNotifications: intValue(data["UnreadNotifications"]),
 	}
 }
 
@@ -589,5 +601,10 @@ func stringValue(value any) string {
 
 func boolValue(value any) bool {
 	result, _ := value.(bool)
+	return result
+}
+
+func intValue(value any) int {
+	result, _ := value.(int)
 	return result
 }
