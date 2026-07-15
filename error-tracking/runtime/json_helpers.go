@@ -21,24 +21,6 @@ func marshalJSONString(v interface{}, fieldName string) (string, error) {
 	return string(data), nil
 }
 
-func unmarshalJSONField(jsonStr string, target interface{}, table, field string) {
-	if jsonStr == "" {
-		return
-	}
-	if err := json.Unmarshal([]byte(jsonStr), target); err != nil {
-		logger.New().Warn("Failed to unmarshal JSON field", "table", table, "field", field, "error", err)
-	}
-}
-
-func unmarshalJSONBytes(data []byte, target interface{}, table, field string) {
-	if len(data) == 0 {
-		return
-	}
-	if err := json.Unmarshal(data, target); err != nil {
-		logger.New().Warn("Failed to unmarshal JSON bytes", "table", table, "field", field, "error", err)
-	}
-}
-
 func unmarshalMetadataOrEmpty(jsonStr string, table, field string) observabilitydomain.Metadata {
 	if jsonStr == "" {
 		return observabilitydomain.NewMetadata()

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/movebigrocks/extension-sdk/eventbus"
 	"github.com/movebigrocks/extension-sdk/logger"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
@@ -52,19 +51,5 @@ func (h *ErrorEventHandler) HandleErrorEvent(ctx context.Context, eventData []by
 	}
 
 	h.logger.WithField("event_id", event.EventID).Info("Successfully processed error event")
-	return nil
-}
-
-// RegisterHandlers registers the error event handler with the event bus
-func (h *ErrorEventHandler) RegisterHandlers(subscribe func(stream eventbus.Stream, group, consumer string, handler func(context.Context, []byte) error) error) error {
-	// Wrap handler with middleware
-	errorEventHandler := EventHandlerMiddleware(h.logger, h.HandleErrorEvent)
-
-	// Subscribe to error events stream
-	if err := subscribe(eventbus.StreamErrorEvents, "error-processors", "consumer", errorEventHandler); err != nil {
-		return fmt.Errorf("failed to register error event handler: %w", err)
-	}
-
-	h.logger.Info("Error event handlers registered successfully")
 	return nil
 }

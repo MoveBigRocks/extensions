@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
-	"github.com/movebigrocks/extension-sdk/eventbus"
 	"github.com/movebigrocks/extension-sdk/logger"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 	"github.com/movebigrocks/extensions/error-tracking/runtime/metrics"
@@ -219,50 +217,4 @@ func (h *IssueEventHandler) HandleIssueResolved(ctx context.Context, eventData [
 	}).Info("Successfully processed IssueResolved event")
 
 	return nil
-}
-
-// RegisterHandlers registers all issue event handlers with the event bus
-// This is called during application startup
-func (h *IssueEventHandler) RegisterHandlers(subscribe func(stream eventbus.Stream, group, consumer string, handler func(context.Context, []byte) error) error) error {
-	// Wrap handlers with middleware
-	issueCreatedHandler := EventHandlerMiddleware(h.logger, h.HandleIssueCreated)
-	issueUpdatedHandler := EventHandlerMiddleware(h.logger, h.HandleIssueUpdated)
-	issueResolvedHandler := EventHandlerMiddleware(h.logger, h.HandleIssueResolved)
-
-	// Each event type gets its own consumer group to ensure all handlers receive all events
-	// Register IssueCreated handler
-	if err := subscribe(eventbus.StreamIssueEvents, "issue-created", "consumer", issueCreatedHandler); err != nil {
-		return fmt.Errorf("failed to register IssueCreated handler: %w", err)
-	}
-
-	// Register IssueUpdated handler
-	if err := subscribe(eventbus.StreamIssueEvents, "issue-updated", "consumer", issueUpdatedHandler); err != nil {
-		return fmt.Errorf("failed to register IssueUpdated handler: %w", err)
-	}
-
-	// Register IssueResolved handler
-	if err := subscribe(eventbus.StreamIssueEvents, "issue-resolved", "consumer", issueResolvedHandler); err != nil {
-		return fmt.Errorf("failed to register IssueResolved handler: %w", err)
-	}
-
-	h.logger.Info("Issue event handlers registered successfully")
-	return nil
-}
-
-// EventHandlerMiddleware wraps event handlers with error handling and logging
-func EventHandlerMiddleware(logger *logger.Logger, handler func(context.Context, []byte) error) func(context.Context, []byte) error {
-	return func(ctx context.Context, data []byte) error {
-		start := time.Now()
-
-		err := handler(ctx, data)
-
-		duration := time.Since(start)
-		if err != nil {
-			logger.WithError(err).WithField("duration_ms", duration.Milliseconds()).Error("Event handler failed")
-			return err
-		}
-
-		logger.WithField("duration_ms", duration.Milliseconds()).Debug("Event handler completed")
-		return nil
-	}
 }
