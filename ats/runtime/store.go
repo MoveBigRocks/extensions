@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/movebigrocks/extension-sdk/extdb"
 	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
@@ -760,7 +759,7 @@ func (s *Store) ReplaceStagePresets(ctx context.Context, workspaceID string, pre
 		preset.Slug = normalizedSlugOrDefault(preset.Slug, preset.Name, fmt.Sprintf("preset-%d", index+1))
 		preset.Name = strings.TrimSpace(preset.Name)
 		if preset.Name == "" {
-			preset.Name = cases.Title(language.English).String(strings.NewReplacer("-", " ", "_", " ").Replace(preset.Slug))
+			preset.Name = titleFromSlug(preset.Slug)
 		}
 		preset.Stages = normalizeStageValues(preset.Stages)
 		if preset.ID == "" {
@@ -824,7 +823,7 @@ func (s *Store) ReplaceSavedFilters(ctx context.Context, workspaceID string, fil
 		filter.Slug = normalizedSlugOrDefault(filter.Slug, filter.Name, fmt.Sprintf("view-%d", index+1))
 		filter.Name = strings.TrimSpace(filter.Name)
 		if filter.Name == "" {
-			filter.Name = cases.Title(language.English).String(strings.ReplaceAll(filter.Slug, "-", " "))
+			filter.Name = titleFromSlug(filter.Slug)
 		}
 		filter.Criteria = normalizeSavedFilterCriteria(filter.Criteria)
 		if filter.ID == "" {
@@ -865,6 +864,21 @@ func (s *Store) ReplaceSavedFilters(ctx context.Context, workspaceID string, fil
 		return nil, err
 	}
 	return s.ListSavedFilters(ctx, workspaceID)
+}
+
+func titleFromSlug(slug string) string {
+	words := strings.FieldsFunc(slug, func(r rune) bool {
+		return r == '-' || r == '_'
+	})
+	for index, word := range words {
+		runes := []rune(word)
+		if len(runes) == 0 {
+			continue
+		}
+		runes[0] = unicode.ToUpper(runes[0])
+		words[index] = string(runes)
+	}
+	return strings.Join(words, " ")
 }
 
 func (s *Store) ensureStagePresets(ctx context.Context, workspaceID string) error {

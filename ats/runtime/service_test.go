@@ -400,3 +400,8 @@ func TestRouteCandidateHandsOffAndPatchesCase(t *testing.T) {
 	require.NotNil(t, fake.updates[0].patch.Tags)
 	require.Contains(t, *fake.updates[0].patch.Tags, talentPoolCaseTag)
 }
+
+func TestTitleFromSlug(t *testing.T) {
+	require.Equal(t, "High Intent Candidates", titleFromSlug("high-intent_candidates"))
+	require.Equal(t, "", titleFromSlug("---___"))
+}
