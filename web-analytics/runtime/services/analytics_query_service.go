@@ -28,10 +28,6 @@ func (s *QueryService) ListProperties(ctx context.Context, workspaceID string) (
 	return s.store.ListPropertiesByWorkspace(ctx, workspaceID)
 }
 
-func (s *QueryService) ListAllProperties(ctx context.Context) ([]*analyticsdomain.Property, error) {
-	return s.store.ListAllProperties(ctx)
-}
-
 func (s *QueryService) CreateProperty(ctx context.Context, extensionInstallID, workspaceID, domain, timezone string) (*analyticsdomain.Property, error) {
 	if extensionInstallID == "" {
 		return nil, fmt.Errorf("extension install id is required")

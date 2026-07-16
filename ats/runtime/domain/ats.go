@@ -327,19 +327,6 @@ func NewApplicant(workspaceID, fullName, email string) (*Applicant, error) {
 	return applicant, nil
 }
 
-func (a *Applicant) AttachResume(attachmentID string) error {
-	if a == nil {
-		return fmt.Errorf("applicant is required")
-	}
-	attachmentID = strings.TrimSpace(attachmentID)
-	if attachmentID == "" {
-		return fmt.Errorf("resume attachment id is required")
-	}
-	a.ResumeAttachmentID = attachmentID
-	a.UpdatedAt = time.Now().UTC()
-	return nil
-}
-
 func (a Applicant) CaseCustomFields() map[string]any {
 	return map[string]any{
 		"ats_applicant_id":                   strings.TrimSpace(a.ID),

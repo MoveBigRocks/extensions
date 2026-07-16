@@ -2,9 +2,7 @@ package sql
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -476,14 +474,6 @@ func (s *AnalyticsStore) DeleteSessionsOlderThan(ctx context.Context, cutoff tim
 		return 0, err
 	}
 	return result.RowsAffected()
-}
-
-// GenerateSessionID creates a random int64 for session identification.
-// Uses int64 (reinterpreted from uint64) in a SQLite-friendly form.
-func GenerateSessionID() int64 {
-	var buf [8]byte
-	_, _ = rand.Read(buf[:])
-	return int64(binary.LittleEndian.Uint64(buf[:]))
 }
 
 // --- Goals ---

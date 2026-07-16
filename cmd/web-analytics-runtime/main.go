@@ -68,6 +68,13 @@ func main() {
 		"analytics.job.maintenance": runtime.runMaintenance,
 	})
 
+	// The ingest rate limiters key their counters by client IP and property
+	// domain and only reset expired entries, so without periodic pruning the
+	// counter maps grow without bound under public traffic. Start the sweeper.
+	stopRateLimiterCleanup := make(chan struct{})
+	defer close(stopRateLimiterCleanup)
+	analyticshandlers.StartAnalyticsRateLimiterCleanup(stopRateLimiterCleanup)
+
 	log.Info("Starting web analytics extension runtime", "package_key", packageKey)
 	if err := runtimehttp.ListenAndServeUnixSocket(engine, packageKey); err != nil && err != http.ErrServerClosed {
 		log.Error("Analytics runtime stopped", "error", err)

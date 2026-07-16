@@ -2,9 +2,30 @@ package analyticshandlers
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// TestCleanupRateLimiterPrunesExpiredCounters guards the sweep the runtime now
+// starts: allow() only ever resets an expired counter, never deletes a stale
+// key, so without pruning the counter map grows without bound under public
+// ingest traffic (one key per client IP and property domain).
+func TestCleanupRateLimiterPrunesExpiredCounters(t *testing.T) {
+	rl := &analyticsRateLimiter{counters: map[string]*analyticsRateCounter{
+		"fresh":   {count: 1, resetTime: time.Now().Add(time.Minute)},
+		"expired": {count: 1, resetTime: time.Now().Add(-time.Minute)},
+	}}
+
+	cleanupRateLimiter(rl)
+
+	if _, ok := rl.counters["expired"]; ok {
+		t.Fatal("expired counter should be pruned")
+	}
+	if _, ok := rl.counters["fresh"]; !ok {
+		t.Fatal("a live counter must be retained")
+	}
+}
 
 func TestIsBotUA(t *testing.T) {
 	tests := []struct {
