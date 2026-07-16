@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/movebigrocks/extension-sdk/extdb"
 	atsdomain "github.com/movebigrocks/extensions/ats/runtime/domain"
@@ -758,7 +760,7 @@ func (s *Store) ReplaceStagePresets(ctx context.Context, workspaceID string, pre
 		preset.Slug = normalizedSlugOrDefault(preset.Slug, preset.Name, fmt.Sprintf("preset-%d", index+1))
 		preset.Name = strings.TrimSpace(preset.Name)
 		if preset.Name == "" {
-			preset.Name = strings.ReplaceAll(strings.Title(strings.ReplaceAll(preset.Slug, "-", " ")), "_", " ")
+			preset.Name = cases.Title(language.English).String(strings.NewReplacer("-", " ", "_", " ").Replace(preset.Slug))
 		}
 		preset.Stages = normalizeStageValues(preset.Stages)
 		if preset.ID == "" {
@@ -822,7 +824,7 @@ func (s *Store) ReplaceSavedFilters(ctx context.Context, workspaceID string, fil
 		filter.Slug = normalizedSlugOrDefault(filter.Slug, filter.Name, fmt.Sprintf("view-%d", index+1))
 		filter.Name = strings.TrimSpace(filter.Name)
 		if filter.Name == "" {
-			filter.Name = strings.Title(strings.ReplaceAll(filter.Slug, "-", " "))
+			filter.Name = cases.Title(language.English).String(strings.ReplaceAll(filter.Slug, "-", " "))
 		}
 		filter.Criteria = normalizeSavedFilterCriteria(filter.Criteria)
 		if filter.ID == "" {
