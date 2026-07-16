@@ -33,19 +33,19 @@ jobs:
           --health-retries 10
     steps:
       - name: Checkout extension sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout platform sources for CLI validation
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MoveBigRocks/platform
           ref: ${{ env.PLATFORM_REF }}
           path: platform
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.0'
+          go-version: '1.26.5'
           cache-dependency-path: |
             go.mod
             platform/go.mod
