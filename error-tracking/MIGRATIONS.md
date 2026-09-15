@@ -8,6 +8,7 @@ Canonical migration files:
 
 - `migrations/000001_init.up.sql`
 - `migrations/000002_rls.up.sql`
+- `migrations/000003_issue_case_claims.up.sql`
 
 What belongs in these migrations:
 
@@ -18,6 +19,8 @@ What belongs in these migrations:
 - project stats
 - issue stats
 - git repository mappings used by issue resolution flows
+- the issue-to-case claim ledger that keeps case creation idempotent across
+  at-least-once event redelivery
 - indexes and RLS policies for the owned schema
 
 What does not belong in these migrations:

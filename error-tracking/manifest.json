@@ -12,7 +12,7 @@
   "schema": {
     "name": "ext_demandops_error_tracking",
     "packageKey": "demandops/error-tracking",
-    "targetVersion": "000002",
+    "targetVersion": "000003",
     "migrationEngine": "postgres_sql"
   },
   "runtime": {

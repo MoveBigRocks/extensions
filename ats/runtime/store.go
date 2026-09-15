@@ -501,6 +501,42 @@ func (s *Store) GetApplication(ctx context.Context, workspaceID, applicationID s
 	return application, nil
 }
 
+// FindApplicantByEmail returns the applicant a workspace already holds for an
+// email address. The email is the applicant identity: UpsertApplicant keys on
+// it, and applications hang off the applicant it resolves to.
+func (s *Store) FindApplicantByEmail(ctx context.Context, workspaceID, email string) (*Applicant, bool, error) {
+	applicant := &Applicant{}
+	if err := s.db.Get(ctx).GetContext(ctx, applicant, s.query(`
+		SELECT `+applicantSelectColumns+`
+		FROM ${SCHEMA_NAME}.applicants
+		WHERE workspace_id = ? AND email = ?
+	`), strings.TrimSpace(workspaceID), strings.TrimSpace(email)); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("find applicant by email: %w", err)
+	}
+	return applicant, true, nil
+}
+
+// FindApplicationByVacancyAndApplicant returns the one application a candidate
+// can hold for a vacancy, the row the (workspace, vacancy, applicant) unique
+// constraint allows.
+func (s *Store) FindApplicationByVacancyAndApplicant(ctx context.Context, workspaceID, vacancyID, applicantID string) (*Application, bool, error) {
+	application := &Application{}
+	if err := s.db.Get(ctx).GetContext(ctx, application, s.query(`
+		SELECT `+applicationSelectColumns+`
+		FROM ${SCHEMA_NAME}.applications
+		WHERE workspace_id = ? AND vacancy_id = ? AND applicant_id = ?
+	`), strings.TrimSpace(workspaceID), strings.TrimSpace(vacancyID), strings.TrimSpace(applicantID)); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("find application by vacancy and applicant: %w", err)
+	}
+	return application, true, nil
+}
+
 func (s *Store) SaveApplication(ctx context.Context, application *Application) (*Application, error) {
 	if application == nil {
 		return nil, fmt.Errorf("application is required")

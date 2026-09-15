@@ -99,6 +99,18 @@ type Issue struct {
 	LastEventID string
 }
 
+// IssueCaseClaim is the extension's record that a customer case for an issue has
+// been claimed, and once CaseID is set, which case the claim produced. The
+// case-events consumer is at-least-once, so this is what makes creating the case
+// idempotent across redeliveries of the same event.
+type IssueCaseClaim struct {
+	WorkspaceID string
+	IssueID     string
+	DedupKey    string
+	CaseID      string
+	ClaimedAt   time.Time
+}
+
 // ErrorEvent represents an individual error occurrence
 type ErrorEvent struct {
 	ID        string

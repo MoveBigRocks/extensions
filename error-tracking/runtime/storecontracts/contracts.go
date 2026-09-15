@@ -50,6 +50,19 @@ type IssueCaseIntegrationStore interface {
 	GetUnresolvedIssuesWithCases(ctx context.Context, workspaceID string) ([]*observabilitydomain.Issue, error)
 }
 
+// IssueCaseClaimStore is the extension-owned idempotency ledger behind creating
+// a customer case from an issue, plus the workspace check that has to pass
+// before a case is written. Core CreateCase takes no idempotency key, so this
+// claim is what stops an at-least-once event redelivery from creating a second
+// case for the same issue and contact.
+type IssueCaseClaimStore interface {
+	GetIssueInWorkspace(ctx context.Context, workspaceID, issueID string) (*observabilitydomain.Issue, error)
+	GetIssueCaseClaim(ctx context.Context, workspaceID, issueID, dedupKey string) (*observabilitydomain.IssueCaseClaim, error)
+	ClaimIssueCase(ctx context.Context, workspaceID, issueID, dedupKey string) (bool, error)
+	CompleteIssueCaseClaim(ctx context.Context, workspaceID, issueID, dedupKey, caseID string) error
+	ReleaseIssueCaseClaim(ctx context.Context, workspaceID, issueID, dedupKey string) error
+}
+
 type ErrorAlertStore interface {
 	CreateAlert(ctx context.Context, alert *observabilitydomain.Alert) error
 	GetAlert(ctx context.Context, alertID string) (*observabilitydomain.Alert, error)

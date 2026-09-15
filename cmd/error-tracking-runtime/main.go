@@ -207,6 +207,7 @@ func newIssueConsumer(runtime *errorTrackingRuntime) func(context.Context, []byt
 func newCaseConsumer(runtime *errorTrackingRuntime) func(context.Context, []byte) error {
 	issueCaseService := observabilityservices.NewIssueCaseService(
 		hostclient.FromContext,
+		runtime.errorStore,
 	)
 	handler := observabilityhandlers.NewErrorTrackingCaseEventHandler(
 		issueCaseService,

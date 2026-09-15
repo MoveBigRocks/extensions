@@ -176,3 +176,19 @@ type IssueStats struct {
 	FirstOccurrence    time.Time `db:"first_occurrence"`
 	LastOccurrence     time.Time `db:"last_occurrence"`
 }
+
+// IssueCaseClaim
+type IssueCaseClaim struct {
+	WorkspaceID        string    `db:"workspace_id"`
+	ExtensionInstallID string    `db:"extension_install_id"`
+	IssueID            string    `db:"issue_id"`
+	DedupKey           string    `db:"dedup_key"`
+	CaseID             *string   `db:"case_id"`
+	ClaimedAt          time.Time `db:"claimed_at"`
+	CreatedAt          time.Time `db:"created_at"`
+	UpdatedAt          time.Time `db:"updated_at"`
+}
+
+func (IssueCaseClaim) TableName() string {
+	return "issue_case_claims"
+}

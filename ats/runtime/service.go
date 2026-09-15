@@ -478,16 +478,33 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 	if err != nil {
 		return nil, err
 	}
+	// Build the candidate record before anything single-use is touched: it
+	// normalises the applicant identity (the email) that both the retry guard
+	// below and the core ingest key are derived from.
+	applicantDomain, applicationDomain, err := atsdomain.BuildCandidateRecord(input.WorkspaceID, vacancy.toDomain(), input.Submission)
+	if err != nil {
+		return nil, err
+	}
+
+	// A submission that already succeeded is returned unchanged. The ATS
+	// applications table is unique on (workspace, vacancy, applicant), so an
+	// existing row is the record of the earlier attempt, and replaying the rest
+	// of the flow could only do harm: it would consume the applicant's fresh
+	// upload receipt and re-enter the core ingest for work core already holds.
+	// This runs before the receipt is resolved so a retry never touches it.
+	existing, found, err := s.findSubmission(ctx, input.WorkspaceID, vacancy, applicantDomain.Email)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		return existing, nil
+	}
+
 	resolvedResumeAttachmentID, publicUpload, err := s.resolveSubmissionResumeAttachment(ctx, input.WorkspaceID, input.Submission.ResumeAttachmentID)
 	if err != nil {
 		return nil, err
 	}
-	submission := input.Submission
-	submission.ResumeAttachmentID = resolvedResumeAttachmentID
-	applicantDomain, applicationDomain, err := atsdomain.BuildCandidateRecord(input.WorkspaceID, vacancy.toDomain(), submission)
-	if err != nil {
-		return nil, err
-	}
+	applicationDomain.SubmissionResumeAttachmentID = resolvedResumeAttachmentID
 	applicant := applicantFromDomain(applicantDomain)
 	application := applicationFromDomain(applicationDomain)
 
@@ -527,14 +544,14 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 	}
 
 	// Create the applicant contact and candidate case in core through one
-	// idempotent host operation, keyed by the submission's content so a retry
-	// (a double click, a network retry) returns the same ids rather than
-	// creating a second contact and case. The ATS-owned rows are written after,
-	// in their own transaction, from the ids the host returns. The host call is
-	// kept outside that transaction so no ATS transaction is held open across a
-	// network round trip.
+	// idempotent host operation, keyed by the application identity so a retry
+	// (a double click, a network retry, a re-upload after a failed submit)
+	// returns the same ids rather than creating a second contact and case. The
+	// ATS-owned rows are written after, in their own transaction, from the ids
+	// the host returns. The host call is kept outside that transaction so no ATS
+	// transaction is held open across a network round trip.
 	ingest, err := host.IngestApplication(ctx, runtimehost.IngestApplicationInput{
-		IdempotencyKey: submissionIdempotencyKey(input),
+		IdempotencyKey: submissionIdempotencyKey(input.WorkspaceID, vacancy.ID, applicantDomain.Email),
 		Contact: runtimehost.CreateContactInput{
 			Email:    applicantDomain.Email,
 			Name:     applicantDomain.FullName,
@@ -588,15 +605,35 @@ func (s *Service) SubmitApplication(ctx context.Context, input SubmitApplication
 	return result, nil
 }
 
-// submissionIdempotencyKey derives a stable key from a submission's content so
-// the coarse core ingest deduplicates retries of the same submission. Two
-// distinct submissions differ in at least one field and so get distinct keys;
-// a byte-identical resubmission is indistinguishable from a retry and folds
-// onto the same key by design.
-func submissionIdempotencyKey(input SubmitApplicationInput) string {
-	raw, _ := json.Marshal(input.Submission)
-	sum := sha256.Sum256([]byte(strings.Join([]string{input.WorkspaceID, input.VacancySlug, string(raw)}, "\x00")))
+// submissionIdempotencyKey derives the coarse core-ingest key from the identity
+// the ATS applications table is unique on: workspace, vacancy, applicant email.
+// That identity is the only part of a submission that survives every retry.
+// Keying on the submission's content instead let a retry that re-uploaded the
+// resume (a fresh upload receipt, so different content) miss the host's ledger
+// and create a second core case, while the local insert conflicted on the same
+// three columns and quietly returned the first application, orphaning the case.
+func submissionIdempotencyKey(workspaceID, vacancyID, applicantEmail string) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{workspaceID, vacancyID, applicantEmail}, "\x00")))
 	return "ats_submit_" + hex.EncodeToString(sum[:])
+}
+
+// findSubmission returns the result of an application a candidate already holds
+// for a vacancy, matched on the same (workspace, vacancy, applicant) identity
+// the applications unique constraint enforces.
+func (s *Service) findSubmission(ctx context.Context, workspaceID string, vacancy *Vacancy, applicantEmail string) (*SubmissionResult, bool, error) {
+	applicant, found, err := s.store.FindApplicantByEmail(ctx, workspaceID, applicantEmail)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	application, found, err := s.store.FindApplicationByVacancyAndApplicant(ctx, workspaceID, vacancy.ID, applicant.ID)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	return &SubmissionResult{
+		Vacancy:     *vacancy,
+		Applicant:   *applicant,
+		Application: *application,
+	}, true, nil
 }
 
 func (s *Service) UploadCareerAttachment(ctx context.Context, workspaceID, filename, contentType, description string, size int64, reader io.Reader) (*PublicAttachmentUploadResponse, error) {
@@ -734,33 +771,74 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 		return nil, err
 	}
 
-	var (
-		saved         *Application
-		previousStage string
-	)
+	current, err := s.store.GetApplication(ctx, workspaceID, applicationID)
+	if err != nil {
+		return nil, err
+	}
+	if current.Stage == input.Stage {
+		// Already there. Either a recruiter re-picked the stage the candidate is
+		// on, or an earlier attempt of this transition completed and the caller
+		// never saw the response. Host-first ordering below makes the two the
+		// same case: a local row at the requested stage can only have been saved
+		// after core accepted the change, so nothing is left to apply.
+		return current, nil
+	}
+	previousStage := string(current.Stage)
+
+	// Project the transition first, then apply it to core before committing it
+	// locally. Core is the side that cannot be replayed by hand: the stage change
+	// is what fires the rejection and hire notifications. Committing the ATS row
+	// first made a failed host call unrecoverable, because the retry re-read a
+	// row that was already terminal, the domain refused the transition, and the
+	// case never moved while the emails never fired. Host-first leaves the
+	// retriable work on the local side, and matches SubmitApplication, which
+	// already writes core before its own tables.
+	at := occurredAt(input.OccurredAt)
+	projected := current.toDomain()
+	if err := applyStageTransition(projected, input, at); err != nil {
+		return nil, err
+	}
+
+	// Mirror the new stage onto the core case and fire stage-change automation
+	// through one idempotent host operation, keyed by the application and its
+	// new stage so a duplicate or retried transition does not re-fire the rules.
+	if strings.TrimSpace(current.CaseID) != "" {
+		patch := runtimehost.CaseUpdateInput{
+			CustomFields: map[string]any{"ats_application_stage": string(projected.Stage)},
+		}
+		if projected.RejectionReason != "" {
+			patch.CustomFields["ats_application_rejection_reason"] = projected.RejectionReason
+		}
+		if _, err := host.ApplyCaseChange(ctx, current.CaseID, runtimehost.ApplyCaseChangeInput{
+			IdempotencyKey: fmt.Sprintf("ats_stage_%s_%s", current.ID, projected.Stage),
+			Patch:          patch,
+			Event:          "ats_application_stage_changed",
+			Changes: map[string]any{
+				"ats_application_previous_stage": previousStage,
+				"ats_application_stage":          string(projected.Stage),
+			},
+		}); err != nil {
+			return nil, fmt.Errorf("apply candidate stage change to core: %w", err)
+		}
+	}
+
+	var saved *Application
 	err = s.store.WithTransaction(ctx, func(txCtx context.Context) error {
-		current, err := s.store.GetApplication(txCtx, workspaceID, applicationID)
+		latest, err := s.store.GetApplication(txCtx, workspaceID, applicationID)
 		if err != nil {
 			return err
 		}
-		previousStage = string(current.Stage)
-		domainApp := current.toDomain()
-		switch input.Stage {
-		case atsdomain.ApplicationStageRejected:
-			err = domainApp.Reject(input.Reason, occurredAt(input.OccurredAt))
-		case atsdomain.ApplicationStageHired:
-			err = domainApp.Hire(occurredAt(input.OccurredAt))
-		case atsdomain.ApplicationStageWithdrawn:
-			err = domainApp.Withdraw(occurredAt(input.OccurredAt))
-		default:
-			err = domainApp.AdvanceTo(input.Stage, occurredAt(input.OccurredAt))
-		}
-		if err != nil {
-			return err
-		}
-		saved, err = s.store.SaveApplication(txCtx, applicationFromDomain(domainApp))
-		if err != nil {
-			return err
+		if latest.Stage == input.Stage {
+			// A concurrent attempt at the same transition committed first.
+			saved = latest
+		} else {
+			domainApp := latest.toDomain()
+			if err := applyStageTransition(domainApp, input, at); err != nil {
+				return err
+			}
+			if saved, err = s.store.SaveApplication(txCtx, applicationFromDomain(domainApp)); err != nil {
+				return err
+			}
 		}
 		if strings.TrimSpace(input.Note) != "" {
 			if _, err := s.store.AddRecruiterNote(txCtx, workspaceID, applicationID, input.ActorName, actorType(input.ActorType), input.Note); err != nil {
@@ -772,30 +850,23 @@ func (s *Service) ChangeCandidateStage(ctx context.Context, workspaceID, applica
 	if err != nil {
 		return nil, err
 	}
-
-	// Mirror the new stage onto the core case and fire stage-change automation
-	// through one idempotent host operation, keyed by the application and its
-	// new stage so a duplicate or retried transition does not re-fire the rules.
-	if strings.TrimSpace(saved.CaseID) != "" {
-		patch := runtimehost.CaseUpdateInput{
-			CustomFields: map[string]any{"ats_application_stage": string(saved.Stage)},
-		}
-		if saved.RejectionReason != "" {
-			patch.CustomFields["ats_application_rejection_reason"] = saved.RejectionReason
-		}
-		if _, err := host.ApplyCaseChange(ctx, saved.CaseID, runtimehost.ApplyCaseChangeInput{
-			IdempotencyKey: fmt.Sprintf("ats_stage_%s_%s", saved.ID, saved.Stage),
-			Patch:          patch,
-			Event:          "ats_application_stage_changed",
-			Changes: map[string]any{
-				"ats_application_previous_stage": previousStage,
-				"ats_application_stage":          string(saved.Stage),
-			},
-		}); err != nil {
-			return nil, fmt.Errorf("apply candidate stage change to core: %w", err)
-		}
-	}
 	return saved, nil
+}
+
+// applyStageTransition runs the requested stage change through the domain so the
+// same validation and timestamps apply whether the transition is being projected
+// for the core case or committed to the ATS row.
+func applyStageTransition(application *atsdomain.Application, input StageChangeInput, at time.Time) error {
+	switch input.Stage {
+	case atsdomain.ApplicationStageRejected:
+		return application.Reject(input.Reason, at)
+	case atsdomain.ApplicationStageHired:
+		return application.Hire(at)
+	case atsdomain.ApplicationStageWithdrawn:
+		return application.Withdraw(at)
+	default:
+		return application.AdvanceTo(input.Stage, at)
+	}
 }
 
 func (s *Service) RouteCandidate(ctx context.Context, workspaceID, applicationID string, input CandidateRouteInput) (*Application, error) {

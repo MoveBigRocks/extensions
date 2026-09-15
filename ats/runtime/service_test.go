@@ -37,6 +37,11 @@ type fakeHost struct {
 	uploads       []runtimehost.UploadAttachmentInput
 	published     []runtimehost.PublishArtifactInput
 	ruleFirings   int
+
+	// applyErr stands in for a host that is unreachable or failing when the
+	// extension calls ApplyCaseChange, the failure the stage-change retry path
+	// has to survive.
+	applyErr error
 }
 
 type applyCall struct {
@@ -160,6 +165,9 @@ func (f *fakeHost) IngestApplication(_ context.Context, input runtimehost.Ingest
 
 func (f *fakeHost) ApplyCaseChange(_ context.Context, caseID string, input runtimehost.ApplyCaseChangeInput) (*runtimehost.HostCase, error) {
 	f.applyCalls = append(f.applyCalls, applyCall{caseID: caseID, input: input})
+	if f.applyErr != nil {
+		return nil, f.applyErr
+	}
 	c := f.casesByID[caseID]
 	if c == nil {
 		return nil, fmt.Errorf("case %s not found", caseID)
@@ -318,7 +326,7 @@ func TestSubmitApplicationUsesStableIdempotencyKeyForRetries(t *testing.T) {
 	input := sampleSubmission(workspaceID, job.Slug, "")
 	first, err := svc.SubmitApplication(ctx, input)
 	require.NoError(t, err)
-	require.Equal(t, submissionIdempotencyKey(input), fake.ingestCalls[0].IdempotencyKey)
+	require.Equal(t, submissionIdempotencyKey(workspaceID, job.ID, "ada@example.com"), fake.ingestCalls[0].IdempotencyKey)
 	require.NotEmpty(t, first.Application.CaseID)
 
 	// A byte-identical resubmission (a retry, a double click) must succeed
@@ -332,10 +340,71 @@ func TestSubmitApplicationUsesStableIdempotencyKeyForRetries(t *testing.T) {
 	require.Equal(t, first.Applicant.ContactID, second.Applicant.ContactID)
 	require.Len(t, fake.ingestByKey, 1) // exactly one core contact+case created
 
-	// A submission that differs in any field gets a distinct key.
+	// A different candidate for the same job is a different application.
 	other := sampleSubmission(workspaceID, job.Slug, "")
 	other.Submission.Email = "grace@example.com"
-	require.NotEqual(t, submissionIdempotencyKey(input), submissionIdempotencyKey(other))
+	require.NotEqual(t,
+		submissionIdempotencyKey(workspaceID, job.ID, "ada@example.com"),
+		submissionIdempotencyKey(workspaceID, job.ID, "grace@example.com"),
+	)
+}
+
+func TestSubmitApplicationRetryWithFreshResumeUploadIsANoop(t *testing.T) {
+	svc, fake, workspaceID := setupATS(t)
+	ctx := context.Background()
+
+	job := createPublishedJob(t, svc, ctx, workspaceID)
+
+	firstUpload, err := svc.UploadCareerAttachment(ctx, workspaceID, "cv.pdf", "application/pdf", "resume", 11, strings.NewReader("%PDF-1.4 cv"))
+	require.NoError(t, err)
+	first, err := svc.SubmitApplication(ctx, sampleSubmission(workspaceID, job.Slug, firstUpload.ID))
+	require.NoError(t, err)
+	require.Len(t, fake.ingestByKey, 1)
+
+	// The receipt is single use, so a candidate whose submit response was lost
+	// uploads the resume again and resubmits with a brand new receipt. That used
+	// to fail the token check outright, and once past it the fresh receipt gave
+	// the ingest a different key, so core built a second case that the local
+	// unique constraint then orphaned.
+	secondUpload, err := svc.UploadCareerAttachment(ctx, workspaceID, "cv.pdf", "application/pdf", "resume", 11, strings.NewReader("%PDF-1.4 cv"))
+	require.NoError(t, err)
+	require.NotEqual(t, firstUpload.ID, secondUpload.ID)
+
+	second, err := svc.SubmitApplication(ctx, sampleSubmission(workspaceID, job.Slug, secondUpload.ID))
+	require.NoError(t, err)
+	require.Equal(t, first.Application.ID, second.Application.ID)
+	require.Equal(t, first.Application.CaseID, second.Application.CaseID)
+	require.Equal(t, first.Applicant.ContactID, second.Applicant.ContactID)
+
+	// No second core case, and the retry left the unused receipt alone.
+	require.Len(t, fake.ingestByKey, 1)
+	require.Len(t, fake.ingestCalls, 1)
+	require.Len(t, fake.casesByID, 1)
+	unusedUpload, err := svc.store.GetPublicAttachmentUpload(ctx, workspaceID, secondUpload.ID)
+	require.NoError(t, err)
+	require.Nil(t, unusedUpload.ConsumedAt)
+}
+
+func TestSubmitApplicationRetryAfterLocalCommitDoesNotReenterCore(t *testing.T) {
+	svc, fake, workspaceID := setupATS(t)
+	ctx := context.Background()
+
+	job := createPublishedJob(t, svc, ctx, workspaceID)
+	upload, err := svc.UploadCareerAttachment(ctx, workspaceID, "cv.pdf", "application/pdf", "resume", 11, strings.NewReader("%PDF-1.4 cv"))
+	require.NoError(t, err)
+
+	input := sampleSubmission(workspaceID, job.Slug, upload.ID)
+	first, err := svc.SubmitApplication(ctx, input)
+	require.NoError(t, err)
+
+	// Replaying the exact same request (the applicant's browser resends it) is a
+	// no-op: the consumed receipt is never looked at, and the host is not called
+	// again at all.
+	second, err := svc.SubmitApplication(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, first.Application.ID, second.Application.ID)
+	require.Equal(t, first.Application.CaseID, second.Application.CaseID)
+	require.Len(t, fake.ingestCalls, 1)
 }
 
 func TestChangeCandidateStageAppliesCaseChangeIdempotently(t *testing.T) {
@@ -365,6 +434,72 @@ func TestChangeCandidateStageAppliesCaseChangeIdempotently(t *testing.T) {
 	stored, err := svc.store.GetApplication(ctx, workspaceID, submitted.Application.ID)
 	require.NoError(t, err)
 	require.Equal(t, atsdomain.ApplicationStageScreening, stored.Stage)
+
+	// Replaying the same transition is a no-op rather than a domain error.
+	repeat, err := svc.ChangeCandidateStage(ctx, workspaceID, submitted.Application.ID, StageChangeInput{
+		Stage:     atsdomain.ApplicationStageScreening,
+		ActorName: "Hiring Manager",
+	})
+	require.NoError(t, err)
+	require.Equal(t, atsdomain.ApplicationStageScreening, repeat.Stage)
+	require.Len(t, fake.applyCalls, 1)
+	require.Equal(t, 1, fake.ruleFirings)
+}
+
+func TestChangeCandidateStageRetriesAfterHostFailure(t *testing.T) {
+	svc, fake, workspaceID := setupATS(t)
+	ctx := context.Background()
+
+	job := createPublishedJob(t, svc, ctx, workspaceID)
+	submitted, err := svc.SubmitApplication(ctx, sampleSubmission(workspaceID, job.Slug, ""))
+	require.NoError(t, err)
+
+	// The host is down when the recruiter rejects the candidate. Rejection is a
+	// terminal stage, so committing the ATS row first would have made this
+	// unrecoverable: the retry would read a terminal application, the domain
+	// would refuse the transition, and the core case would never move, so the
+	// rejection notification would never fire.
+	fake.applyErr = fmt.Errorf("host unavailable")
+	_, err = svc.ChangeCandidateStage(ctx, workspaceID, submitted.Application.ID, StageChangeInput{
+		Stage:     atsdomain.ApplicationStageRejected,
+		Reason:    "Not enough systems experience.",
+		ActorName: "Recruiter",
+		Note:      "Sending the rejection note.",
+	})
+	require.Error(t, err)
+	require.Len(t, fake.applyCalls, 1)
+	require.Equal(t, 0, fake.ruleFirings)
+
+	// Nothing was written locally, so the application is still retriable.
+	unchanged, err := svc.store.GetApplication(ctx, workspaceID, submitted.Application.ID)
+	require.NoError(t, err)
+	require.Equal(t, atsdomain.ApplicationStageReceived, unchanged.Stage)
+	notes, err := svc.store.ListRecruiterNotes(ctx, workspaceID, submitted.Application.ID)
+	require.NoError(t, err)
+	require.Empty(t, notes)
+
+	fake.applyErr = nil
+	rejected, err := svc.ChangeCandidateStage(ctx, workspaceID, submitted.Application.ID, StageChangeInput{
+		Stage:     atsdomain.ApplicationStageRejected,
+		Reason:    "Not enough systems experience.",
+		ActorName: "Recruiter",
+		Note:      "Sending the rejection note.",
+	})
+	require.NoError(t, err)
+	require.Equal(t, atsdomain.ApplicationStageRejected, rejected.Stage)
+
+	// Core caught up: the case carries the rejection and the rules fired once.
+	require.Equal(t, 1, fake.ruleFirings)
+	change := fake.applyCalls[len(fake.applyCalls)-1]
+	require.Equal(t, submitted.Application.CaseID, change.caseID)
+	require.Equal(t, string(atsdomain.ApplicationStageRejected), change.input.Patch.CustomFields["ats_application_stage"])
+	require.Equal(t, "Not enough systems experience.", change.input.Patch.CustomFields["ats_application_rejection_reason"])
+	require.Equal(t, string(atsdomain.ApplicationStageReceived), change.input.Changes["ats_application_previous_stage"])
+
+	stored, err := svc.store.GetApplication(ctx, workspaceID, submitted.Application.ID)
+	require.NoError(t, err)
+	require.Equal(t, atsdomain.ApplicationStageRejected, stored.Stage)
+	require.Equal(t, "Not enough systems experience.", stored.RejectionReason)
 }
 
 func TestUploadCareerAttachmentGoesThroughHost(t *testing.T) {

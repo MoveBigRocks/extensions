@@ -40,6 +40,7 @@ Canonical schema migrations:
 
 - `migrations/000001_init.up.sql`
 - `migrations/000002_rls.up.sql`
+- `migrations/000003_issue_case_claims.up.sql`
 
 Those files are the canonical schema history for
 `ext_demandops_error_tracking`. Their applied versions are recorded in
