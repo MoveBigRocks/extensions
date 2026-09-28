@@ -14,7 +14,7 @@ jobs:
     name: Validate First-Party Extensions
     runs-on: ubuntu-latest
     env:
-      PLATFORM_REF: main
+      GOWORK: "off"
     services:
       # Match production (PostgreSQL 18). The extension DB-backed tests skip when
       # no admin database is reachable, so without this they never run in CI.
@@ -35,27 +35,21 @@ jobs:
       - name: Checkout extension sources
         uses: actions/checkout@v6
 
-      - name: Checkout platform sources for CLI validation
-        uses: actions/checkout@v6
-        with:
-          repository: MoveBigRocks/platform
-          ref: ${{ env.PLATFORM_REF }}
-          path: platform
+      - name: Install pinned public CLI for contract validation
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/mbr_v1.0.14_linux_amd64.tar.gz"
+          curl --fail --location --retry 3 --output "$archive" \
+            https://github.com/MoveBigRocks/releases/releases/download/v1.0.14/mbr_v1.0.14_linux_amd64.tar.gz
+          echo "613f428c24844a634d2b696cb3f585387d21a22e611a40be3813bab053a12a63  $archive" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" mbr
+          "$RUNNER_TEMP/mbr" version --json | jq -e '.version == "v1.0.14"'
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.26.7'
-          cache-dependency-path: |
-            go.mod
-            platform/go.mod
-            platform/go.sum
-
-      - name: Set up Go workspace
-        run: |
-          rm -f go.work go.work.sum
-          go work init .
-          go work use ./platform
+          cache-dependency-path: go.sum
 
       - name: Check public extension boundary
         run: bash ./scripts/check-public-boundary.sh
@@ -86,10 +80,6 @@ jobs:
 
       - name: Build every runtime entrypoint
         run: go build ./cmd/...
-
-      - name: Build mbr CLI
-        working-directory: platform
-        run: go build -o "${RUNNER_TEMP}/mbr" ./cmd/mbr
 
       - name: Validate first-party extension contracts
         env:
