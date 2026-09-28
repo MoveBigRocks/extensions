@@ -35,6 +35,6 @@ Schema rules:
 
 - all workspace-scoped tables carry both `workspace_id` and `extension_install_id`
 - direct foreign keys stay within the extension schema, plus allowed references
-  to `public.workspaces` and `public.installed_extensions`
+  to `core_platform.workspaces` and `core_platform.installed_extensions`
 - git repository mappings move with the product because they are keyed by the
   error-tracking project/application identity

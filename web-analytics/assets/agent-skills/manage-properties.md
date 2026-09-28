@@ -29,8 +29,8 @@ admin UI and vice versa.
 
 ## Minting an agent token
 
-The calling agent needs a token scoped to the workspace where the
-web-analytics extension is installed:
+A human administrator uses a browser-backed CLI session to mint a token for
+the calling agent in the workspace where web analytics is installed:
 
 ```bash
 mbr agents tokens create <AGENT_ID> --name "web-analytics-properties" --expires-in-days 30
@@ -52,7 +52,8 @@ curl -sS -X POST "$MBR_URL/extensions/web-analytics/api/agent/properties" \
   }'
 ```
 
-On success (`201 Created`) the response body is:
+On success (`201 Created`) the response includes these fields (other property
+fields are omitted here):
 
 ```json
 {
@@ -60,8 +61,7 @@ On success (`201 Created`) the response body is:
     "id": "019d...",
     "domain": "example.com",
     "timezone": "Europe/Amsterdam",
-    "status": "active",
-    ...
+    "status": "active"
   }
 }
 ```
@@ -104,4 +104,5 @@ curl -sS -X DELETE -H "Authorization: Bearer $MBR_TOKEN" \
   updated to match. A mismatch causes silent data loss.
 - Do not register the same domain twice. The `domain` column has a
   case-insensitive unique index; the create call will return `400` if the
-  domain already exists in the workspace.
+  domain already exists anywhere in the shared analytics schema, including
+  another workspace. The domain index is instance-wide, not per workspace.

@@ -32,6 +32,9 @@ mbr extensions lint ./community-feature-requests --json
 mbr extensions verify ./community-feature-requests --workspace WORKSPACE_ID --json
 ```
 
-Runtime image tag pattern:
+Release Git tag: `community-feature-requests-v<version>`.
+Bundle OCI tag: `ghcr.io/movebigrocks/mbr-ext-community-feature-requests:v<version>`.
+Runtime OCI tag: `ghcr.io/movebigrocks/mbr-ext-community-feature-requests-runtime:v<version>`.
 
-- `community-feature-requests-v<version>`
+See the [publish/install runbook](../docs/PUBLISH_AND_INSTALL.md) for
+verification, runtime staging and activation.

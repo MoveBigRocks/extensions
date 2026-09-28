@@ -1,5 +1,16 @@
 # ATS V1 Requirements And Roadmap
 
+**Document role:** target requirements and delivery history, not a declaration
+that all V1 features ship. The April snapshot below is historical. The
+[current ATS README](../README.md), [manifest](../manifest.json),
+[contract](../extension.contract.json) and [migrations](../migrations/) describe
+the implemented surface. As reviewed on 27 September 2026, migrations already
+include queue IDs, source tracking, site privacy/CSS, setup state, media and
+application snapshots. Sections asking to add those fields record the original
+delivery plan; do not repeat those migrations or edit their released bytes.
+Structured interviewing, scheduling, analytics and broader governance remain
+targets, not completed V1 acceptance.
+
 This document defines the product requirements and delivery plan needed to make
 the Move Big Rocks ATS extension coherent, feature-complete, and competitive
 with products like Homerun, Teamtailor, Recruitee, Workable, Lever, Ashby, and

@@ -6,13 +6,15 @@ and recruiter workflow built on shared MBR primitives.
 
 ## What It Does
 
-- provisions a dedicated `Hiring` workspace on install
+- can provision a dedicated `Hiring` workspace when installed without an
+  explicit workspace using browser-backed administrator authentication
 - stores recruiting truth in the ATS-owned PostgreSQL schema
 - generates a branded public careers site at `/careers`
 - generates public job pages at `/careers/jobs/:slug`
 - supports a first-class general-application flow
 - accepts ATS-native public applications and opaque resume-upload receipts
-- creates one shared contact and one shared case for each ATS application
+- resolves a shared contact for each candidate and creates one shared case per
+  application; repeat applications can reuse the candidate contact
 - routes candidate work across shared queues, attachments, tags, and automation
 - lets recruiters manage stages, notes, saved views, stage presets, and
   talent-pool routing from the ATS admin surface at `/extensions/ats`
@@ -89,7 +91,9 @@ mbr extensions verify ./ats --workspace WORKSPACE_ID --json
 mbr extensions install ./ats --workspace WORKSPACE_ID
 ```
 
-Run the ATS runtime tests locally:
+Run from the repository root. Set `TEST_DATABASE_ADMIN_DSN` to a disposable
+PostgreSQL 18 test administrator connection so database tests run instead of
+skipping. Run the ATS runtime tests locally:
 
 ```bash
 go test ./ats/runtime/... -count=1

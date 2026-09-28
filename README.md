@@ -48,9 +48,9 @@ Source layout:
 - `ats/runtime/domain/` defines Go concepts like vacancies, vacancy catalogs,
   applicants, and applications
 - `web-analytics/runtime/` contains the web analytics runtime source
-- `web-analytics/templates/` contains the analytics admin templates
+- `web-analytics/runtimeui/templates/` contains the analytics admin templates
 - `error-tracking/runtime/` contains the error tracking runtime source
-- `error-tracking/templates/` contains the error tracking admin templates
+- `error-tracking/runtimeui/templates/` contains the error tracking admin templates
 - `error-tracking/sql-models/` contains the SQL model definitions used by the
   error tracking runtime
 - `sales-pipeline/runtime/` contains the sales board runtime and deal storage
@@ -305,7 +305,8 @@ free public signed bundle set installs without a token.
 
 ## Publication Model
 
-This repo is the canonical source for every first-party extension.
+This repo is the canonical source for the public first-party extensions.
+Private first-party extensions live in `MoveBigRocks/private-extensions`.
 
 The public OCI publication surface in this repo is:
 
@@ -329,7 +330,8 @@ The machine-readable catalog for the public bundle set lives in
 Packages are created by
 [`public-bundles.yml`](./.github/workflows/public-bundles.yml) when one of the
 release tags below is pushed. If the GitHub Packages tab is empty, the first
-tagged publish has not completed yet.
+tagged publication may not have completed, or package visibility/access may
+prevent it from appearing. Check the workflow result and registry digest.
 
 Operational note: after the first GHCR publication for each package, set the
 package visibility to `Public` in GitHub Packages so the OCI refs are
@@ -341,7 +343,7 @@ The end-to-end publish and install runbook lives in
 ## Repo Rules
 
 - keep first-party extensions installable from source checkout
-- keep every first-party extension source here
+- keep public first-party extension source here; keep private products in the private repository
 - publish the free public first-party bundle set from this public repo
 - keep examples and scaffolds in
   [`MoveBigRocks/extension-sdk`](https://github.com/MoveBigRocks/extension-sdk),

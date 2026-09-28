@@ -34,6 +34,9 @@ mbr extensions lint ./sales-pipeline --json
 mbr extensions verify ./sales-pipeline --workspace WORKSPACE_ID --json
 ```
 
-Runtime image tag pattern:
+Release Git tag: `sales-pipeline-v<version>`.
+Bundle OCI tag: `ghcr.io/movebigrocks/mbr-ext-sales-pipeline:v<version>`.
+Runtime OCI tag: `ghcr.io/movebigrocks/mbr-ext-sales-pipeline-runtime:v<version>`.
 
-- `sales-pipeline-v<version>`
+See the [publish/install runbook](../docs/PUBLISH_AND_INSTALL.md) for
+verification, runtime staging and activation.

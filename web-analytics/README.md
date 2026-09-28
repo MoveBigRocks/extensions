@@ -22,8 +22,8 @@ The public runtime source for `web-analytics` is in this directory:
   [`runtimeui/templates/`](./runtimeui/templates)
 
 This directory is the runtime source that people should inspect and learn from.
-Platform-owned host contracts it depends on are exposed through public packages,
-not through core repo internals.
+It consumes the public `extension-sdk` and the host wire API. It does not
+import platform Go packages or access core stores directly.
 
 Package scope:
 
@@ -43,7 +43,8 @@ Those files are the canonical schema history for
 `core_extension_runtime.schema_migration_history`, not in
 `public.schema_migrations`.
 
-Runtime targets used by the in-process service-target runtime:
+Selected service targets dispatched to the supervised child process over
+`unix_socket_http` (see `manifest.json` for the full endpoint catalog):
 
 - `analytics.asset.script`
 - `analytics.ingest.event`
@@ -56,7 +57,7 @@ Distribution status:
 
 - intended to ship as a free public signed first-party bundle
 - intended public OCI ref:
-  `ghcr.io/movebigrocks/mbr-ext-web-analytics:<version>`
+  `ghcr.io/movebigrocks/mbr-ext-web-analytics:v<version>`
 - release tag pattern:
   `web-analytics-v<version>`
 

@@ -1,5 +1,16 @@
 # ATS Gap-Closure Implementation Plan
 
+**Document role:** target requirements and delivery history, not a declaration
+that all V1 features ship. The April snapshot below is historical. The
+[current ATS README](../README.md), [manifest](../manifest.json),
+[contract](../extension.contract.json) and [migrations](../migrations/) describe
+the implemented surface. As reviewed on 27 September 2026, migrations already
+include queue IDs, source tracking, site privacy/CSS, setup state, media and
+application snapshots. Sections asking to add those fields record the original
+delivery plan; do not repeat those migrations or edit their released bytes.
+Structured interviewing, scheduling, analytics and broader governance remain
+targets, not completed V1 acceptance.
+
 This document translates the ATS V1 product requirements into a detailed
 implementation plan that closes the gap between the current ATS extension and
 the target state.
@@ -216,14 +227,14 @@ static public assets for the generated careers site.
 
 | Gap | Current state | Target state | Closure milestone |
 | --- | --- | --- | --- |
-| Setup flow | none | guided onboarding wizard | M2 |
-| Intake contract | ATS-native runtime plus lingering form-native contract | one canonical ATS-native flow | M1 |
-| Queue linkage | slug only | durable queue ID + slug mirror | M1 |
-| Branding source of truth | ATS SQL plus overlapping extension config | ATS SQL canonical, config seeds only | M1/M2 |
-| Managed media | URL-only inputs | uploaded managed assets | M2 |
+| Setup flow | persistent checklist and setup editor implemented; guided wizard remains | guided onboarding wizard | M2 |
+| Intake contract | ATS-native submission path with form compatibility metadata | one canonical ATS-native flow | M1 |
+| Queue linkage | durable queue ID and slug mirror implemented in migration 000004 | durable queue ID + slug mirror | M1 |
+| Branding source of truth | ATS SQL owns edited site content; config supplies defaults | ATS SQL canonical, config seeds only | M1/M2 |
+| Managed media | uploads, owned metadata and artifact publication implemented | uploaded managed assets | M2 |
 | Public careers quality | good but basic | inspiration-grade, configurable, complete | M2 |
 | Candidate ops UI | inbox, detail, notes, routing, and bulk actions are live | deeper recruiter workflow polish | M3/M4 |
-| Talent pool/general applications | seeded queues only | real ATS workflow surfaces | M3 |
+| Talent pool/general applications | runtime intake and candidate routing implemented | real ATS workflow surfaces | M3 |
 | Saved views/stage presets | usable admin UI is live | richer recruiter workflow integration | M3/M4 |
 | Structured hiring | minimal stage model | interview plans and feedback foundations | M4 |
 | Scheduling | none | first-class scheduling workflow | M4 |

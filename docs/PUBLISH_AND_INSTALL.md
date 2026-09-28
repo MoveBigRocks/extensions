@@ -1,193 +1,160 @@
 # Publish And Install First-Party Extensions
 
-This runbook turns the source in this repo into real public GHCR packages and
-then installs those packages into the DemandOps Move Big Rocks instance.
+This runbook covers the five public bundles in
+[the catalog](../catalog/public-bundles.json). Customer deployment intent lives
+in each private instance repository; this document does not record live
+DemandOps workspace assignments or installed versions.
 
-## What Actually Creates The Packages
+## Sources of version truth
 
-GitHub Packages does not populate itself from folders in this repo.
+| Input | Source |
+| --- | --- |
+| Extension source version and endpoints | Each extension's `manifest.json` |
+| Expected extension surface | Each `extension.contract.json` |
+| Public bundle/runtime repository names and Git tag patterns | `catalog/public-bundles.json` |
+| Bundle build/sign tooling version | `SDK_REF` in [public-bundles.yml](../.github/workflows/public-bundles.yml) |
+| Runtime Go SDK dependency | `go.mod` and `vendor/modules.txt` |
+| Desired installed version | The target instance's `extensions/desired-state.yaml` |
+| Accepted published bytes | Successful workflow output and verified registry digest |
 
-The packages are created only when
-[`../.github/workflows/public-bundles.yml`](../.github/workflows/public-bundles.yml)
-runs successfully for one of these release tags:
-
-- `ats-v<version>`
-- `community-feature-requests-v<version>`
-- `error-tracking-v<version>`
-- `sales-pipeline-v<version>`
-- `web-analytics-v<version>`
-
-That workflow:
-
-- builds the bundle from the extension directory
-- checks out the pinned `MoveBigRocks/extension-sdk` release used for tooling
-- signs it with `MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64`
-- publishes it to GHCR
-- uploads the signed bundle and publisher-key snippet as artifacts
-
-The current pinned SDK tooling ref is `MoveBigRocks/extension-sdk@v0.8.23`.
-When the SDK tooling changes, cut a new SDK tag first and then update the
-workflow pin in this repo.
-
-Before tagging and publishing, each extension directory should pass:
+The tooling pin and runtime SDK dependency are separate inputs. Read them from
+source instead of copying a version number from an old runbook:
 
 ```bash
-mbr extensions lint ./EXTENSION_DIR --json
+rg 'SDK_REF:' .github/workflows/public-bundles.yml
+rg 'github.com/movebigrocks/extension-sdk ' go.mod
+jq -r '.version' ats/manifest.json
+```
+
+## Validate before publication
+
+From the repository root, using the intended platform CLI:
+
+```bash
+bash scripts/check-public-boundary.sh
+MBR_BIN=/path/to/mbr bash scripts/validate-first-party.sh
+GOWORK=off go test -race ./...
+GOWORK=off go build ./cmd/...
+```
+
+Set `TEST_DATABASE_ADMIN_DSN` to a disposable PostgreSQL 18 administrator
+connection before running tests. The database helpers can skip when it is
+absent; skipped database tests are not evidence of a successful integration run.
+The Go version/toolchain is specified in `go.mod`.
+
+The validation script runs local `extensions lint` across all five source
+packages. It does not install, activate, or prove a live product workflow.
+Run those checks against an isolated test instance as well:
+
+```bash
 mbr extensions verify ./EXTENSION_DIR --workspace WORKSPACE_ID --json
 mbr extensions nav --instance --json
 mbr extensions widgets --instance --json
 ```
 
-If the declared extension surface changed intentionally, refresh the checked-in
-contract file first:
+Verify both workspace navigation and an instance administrator with no selected
+workspace. If the declared surface changes intentionally, review and refresh
+its contract with `mbr extensions lint ./EXTENSION_DIR --write-contract --json`.
+Do not refresh a contract merely to suppress an unexpected difference.
+
+## Signing prerequisites
+
+Configure the Actions secret `MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64` and package
+write permissions. Generate a signing seed and publisher snippet from a checkout
+of the SDK tooling version selected by the publication workflow:
 
 ```bash
-mbr extensions lint ./EXTENSION_DIR --write-contract --json
-```
-
-Do not treat the workspace-scoped happy path as sufficient proof on its own.
-For any extension with admin UI, also confirm that an instance admin with no
-active workspace selection can still discover and open the extension cleanly.
-
-For the public first-party catalog, the repo-level proof loop is:
-
-```bash
-MBR_BIN=/path/to/mbr bash ./scripts/validate-first-party.sh
-bash ./scripts/report-first-party-release-state.sh
-```
-
-Only cut a semver release tag when the manifest version you want to publish is
-already in source and the release-state report shows that the matching tag does
-not yet exist on `origin`.
-
-## Prerequisites
-
-Before the first publish, make sure the `MoveBigRocks/extensions` repo has:
-
-- the GitHub Actions secret `MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64`
-- package publish permissions enabled for Actions
-- the repo public, so the source and package lineage are public
-
-The workflow publishes these package names:
-
-- `ghcr.io/movebigrocks/mbr-ext-ats`
-- `ghcr.io/movebigrocks/mbr-ext-community-feature-requests`
-- `ghcr.io/movebigrocks/mbr-ext-error-tracking`
-- `ghcr.io/movebigrocks/mbr-ext-sales-pipeline`
-- `ghcr.io/movebigrocks/mbr-ext-web-analytics`
-
-Generate the signing seed and trusted publisher JSON once from the SDK:
-
-```bash
-go run ./scripts/generate-signing-key.go \
+go run ./scripts/generate-signing-key \
   --publisher DemandOps \
   --key-id demandops-public-1 \
   --seed-out secrets/demandops-public-1.seed.b64 \
   --trusted-publishers-out dist/demandops-public-1.publisher.json
 ```
 
-Then:
+Keep the seed out of Git. Put its raw base64 value into the Actions secret and
+configure the public publisher snippet as `EXTENSION_TRUSTED_PUBLISHERS_JSON`
+on the target instance. Signature verification checks origin and integrity;
+operators still review runtime permissions, behavior and required credentials.
 
-- put the seed file content into the GitHub Actions secret `MBR_EXTENSION_SIGNING_PRIVATE_KEY_B64`
-- add the trusted publisher JSON to the instance config as `EXTENSION_TRUSTED_PUBLISHERS_JSON`
-- if the publish workflow fails in `Sign public bundle`, first verify that the secret exists and contains the raw base64 seed or private key with no extra quoting
+## Publish a selected extension
 
-## First Publish
-
-From a checkout of this repo, cut tags that match the manifest versions in the
-extension directories. Publish only the extensions you are intentionally
-releasing. For the current ATS source that means `ats-v0.8.32`:
+Choose the extension deliberately and ensure the working tree is clean, its
+changes are tested, and its source version is the intended release. For ATS:
 
 ```bash
-git tag ats-v0.8.32
-git push origin ats-v0.8.32
+extension=ats
+version="$(jq -r '.version' "$extension/manifest.json")"
+bash scripts/report-first-party-release-state.sh
+git tag "${extension}-v${version}"
+git push origin "${extension}-v${version}"
 ```
 
-That should trigger one workflow run and create the ATS GHCR package for that
-version. Use `bash ./scripts/report-first-party-release-state.sh` to see which
-other publishable extensions have manifest versions that still need matching
-release tags.
+Run the tag/push steps only when the report and remote tag inventory confirm that
+this is a new intended release. Do not move or reuse an existing release tag.
 
-Do not use `workflow_dispatch` to publish semver tags. Manual dispatch is for
-preview refs such as `sha-<commit>` only. Versioned public refs should always
-come from matching git tags so the bundle provenance is obvious.
+The [publication workflow](../.github/workflows/public-bundles.yml):
 
-## After The First Publish
+1. Builds the Linux amd64 runtime executable from the extension repository.
+2. Publishes its archive to `mbr-ext-<slug>-runtime:v<version>` and resolves the digest.
+3. Copies bundle source into a staging directory and injects the runtime ref,
+   digest and release version into the staged manifest.
+4. Uses the pinned SDK tooling to build and sign the bundle.
+5. Publishes `mbr-ext-<slug>:v<version>` and records bundle/runtime digests.
+6. Uploads signed bundle and publisher-key artifacts.
 
-For each package, open GitHub Packages and set visibility to `Public`:
+Source manifests use `sha256:pending` before staging. They are development input,
+not proof of a deployable runtime digest. The workflow stamps the version from
+the release tag; keeping the source version aligned is an operator release rule,
+not a claim that the workflow rejects every mismatch.
 
-- `mbr-ext-ats`
-- `mbr-ext-community-feature-requests`
-- `mbr-ext-error-tracking`
-- `mbr-ext-sales-pipeline`
-- `mbr-ext-web-analytics`
+Manual dispatch is for preview tags such as `sha-<commit>`. The workflow rejects
+semver-like manual tags and manual `latest` promotion. Git release tags publish
+versioned refs and also update `latest`; production instances should pin reviewed
+versions/digests rather than follow `latest`.
 
-Then verify that the install refs you expect to use are the real published
-ones. For ATS that means:
+## Verify registry publication
 
-- `ghcr.io/movebigrocks/mbr-ext-ats:v0.8.32`
+After the first publication, ensure each intended public package is anonymously
+pullable. Inspect package visibility and the successful workflow summary; an
+empty Packages tab alone does not explain whether publication failed or access
+is restricted. Verify both bundle and runtime digests before deploying.
 
-For other first-party extensions, use the version that is both:
+A Git tag or manifest version alone does not prove a registry artifact exists.
+`report-first-party-release-state.sh` reports source/tag state, not signature,
+runtime startup or installed-instance acceptance.
 
-- present in the extension manifest
-- confirmed as tagged on `origin` by `bash ./scripts/report-first-party-release-state.sh`
+## Install and reconcile
 
-## Install Into DemandOps
+The production control plane is the private instance repository. Record verified
+refs, scope, workspace and configuration in `extensions/desired-state.yaml`, run
+that repo's validator, then use its deploy/reconcile workflow. Runtime binaries
+must be staged where the host supervisor expects them before activation.
 
-The DemandOps instance repo already records the intended refs in
-`mbr-prod/extensions/desired-state.yaml`.
-
-Authenticate to the live instance first:
+For an explicit development or repair install, authenticate to the target host
+and resolve the real workspace ID:
 
 ```bash
-mbr auth login --url https://mbr.demandops.com
+mbr auth login --url https://admin.example.com
+mbr workspaces list --url https://admin.example.com
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v<VERSION> \
+  --url https://admin.example.com --workspace WORKSPACE_ID --json
+mbr extensions validate --url https://admin.example.com --id EXTENSION_ID
+mbr extensions activate --url https://admin.example.com --id EXTENSION_ID
+mbr extensions monitor --url https://admin.example.com --id EXTENSION_ID
 ```
 
-Resolve the live workspace IDs:
+Substitute the selected, verified version and use the base URL required by the
+instance's CLI routing. Public signed bundles do not require `--license-token`;
+controlled instance-bound distribution can require it. Reflect manual changes
+in desired state so the next reconciliation does not undo them.
 
-```bash
-mbr workspaces list --url https://mbr.demandops.com
-```
+## Dedicated workspaces and preview scope
 
-The current DemandOps desired-state mapping is:
+ATS, sales pipeline and community feature requests declare dedicated-workspace
+plans. Omitting `--workspace` with browser-backed administrator authentication
+allows the host to apply that plan. Passing a workspace explicitly selects that
+workspace; it does not imply provisioning a separate one.
 
-- ATS -> `default`
-- web analytics -> `marketing`
-- error tracking -> `engineering`
-
-Install, validate, and activate with the real workspace IDs:
-
-```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-ats:v0.8.32 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_DEFAULT --json
-mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
-mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
-```
-
-```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-web-analytics:v0.8.22 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_MARKETING --json
-mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
-mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
-```
-
-```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v0.8.21 --url https://mbr.demandops.com --workspace WORKSPACE_ID_FOR_ENGINEERING --json
-mbr extensions validate --url https://mbr.demandops.com --id EXTENSION_ID
-mbr extensions activate --url https://mbr.demandops.com --id EXTENSION_ID
-```
-
-Public signed bundles do not need `--license-token`.
-
-Before changing an instance repo to a new extension ref, validate the desired
-state there first:
-
-```bash
-scripts/validate-extension-desired-state.sh extensions/desired-state.yaml
-```
-
-## ATS Dedicated Workspace Option
-
-The ATS manifest supports `workspacePlan.mode = provision_dedicated_workspace`.
-If DemandOps wants ATS in a dedicated `hiring` workspace instead of the
-existing `people` workspace, install ATS without `--workspace` while using
-browser-backed session auth, then update the DemandOps desired-state file to
-match that decision.
+Use an isolated instance for untrusted code or incompatible runtime experiments.
+A preview workspace scopes data; it does not isolate processes, shared runtimes
+or public route namespaces. Public routes can collide across workspace installs.

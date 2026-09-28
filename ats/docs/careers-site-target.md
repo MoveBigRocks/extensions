@@ -1,9 +1,10 @@
 # ATS Careers Site Target
 
-This document captures what the inspiration site in the sibling `careers/`
-folder actually contains, how that compares to the current ATS extension, and
-what the ATS extension needs in order to generate a comparable careers site
-from structured ATS data instead of hard-coded demo HTML.
+This document preserves the April 2026 design reference for a generated ATS
+careers site. The original sibling `careers/` inspiration folder is not part
+of this repository or a required build input. For the current implementation,
+use the [ATS README](../README.md), [manifest](../manifest.json) and
+[runtime source](../runtime/).
 
 Status on April 4, 2026:
 
@@ -226,14 +227,14 @@ careers-site gaps are now higher-order product concerns:
 | team grid | `careers_team_members` |
 | gallery | `careers_gallery_items` |
 
-## Current Recommendation
+## Original Design Direction (baseline now implemented)
 
-The ATS extension should move toward a generated public careers product with:
+The baseline implements the original direction:
 
 1. ATS-owned structured vacancy content
 2. ATS-owned site-profile publishing data
 3. runtime-rendered or generated public pages
 4. asset-backed branding and imagery
 
-That will let the extension produce a site in the shape of the inspiration
-implementation while keeping the branding configurable per installation.
+Further parity work is tracked separately in the requirements roadmap; this
+baseline does not establish completion of that broader product scope.

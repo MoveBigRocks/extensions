@@ -33,4 +33,4 @@ Schema rules:
 
 - workspace-scoped tables carry both `workspace_id` and `extension_install_id`
 - salts remain instance-scoped and therefore do not use workspace RLS
-- extension tables reference only `public.workspaces` and `public.installed_extensions`
+- foreign keys stay within the owned schema, with core references limited to `core_platform.workspaces` and `core_platform.installed_extensions`
