@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "slug": "operational-health",
+  "name": "Operational Health",
+  "version": "0.1.0",
+  "publisher": "DemandOps",
+  "kind": "operational",
+  "scope": "workspace",
+  "risk": "standard",
+  "runtimeClass": "service_backed",
+  "storageClass": "owned_schema",
+  "schema": {
+    "name": "ext_demandops_operational_health",
+    "packageKey": "demandops/operational-health",
+    "targetVersion": "000001",
+    "migrationEngine": "postgres_sql"
+  },
+  "runtime": {
+    "protocol": "unix_socket_http",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-operational-health-runtime:v0.1.0",
+    "digest": "sha256:pending"
+  },
+  "description": "Durable incident cases, current service evidence and governed operational response.",
+  "permissions": [
+    "case:read",
+    "case:write",
+    "queue:read"
+  ],
+  "queues": [
+    {
+      "slug": "incidents",
+      "name": "Incidents",
+      "description": "Service incident response and recovery verification."
+    }
+  ],
+  "endpoints": [
+    {
+      "name": "health-ingest-alerts",
+      "class": "public_ingest",
+      "mountPath": "/api/operational-health/sources/:sourceID/alerts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "operational-health.ingest.alerts",
+      "contentTypes": [
+        "application/json"
+      ],
+      "maxBodyBytes": 1048576,
+      "rateLimitPerMinute": 1200
+    },
+    {
+      "name": "health-ingest-observations",
+      "class": "public_ingest",
+      "mountPath": "/api/operational-health/sources/:sourceID/observations",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "operational-health.ingest.observations",
+      "contentTypes": [
+        "application/json"
+      ],
+      "maxBodyBytes": 1048576,
+      "rateLimitPerMinute": 1200
+    },
+    {
+      "name": "health-ingest-deployments",
+      "class": "public_ingest",
+      "mountPath": "/api/operational-health/sources/:sourceID/deployments",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "operational-health.ingest.deployments",
+      "contentTypes": [
+        "application/json"
+      ],
+      "maxBodyBytes": 1048576,
+      "rateLimitPerMinute": 1200
+    },
+    {
+      "name": "health-ingest-snapshot",
+      "class": "public_ingest",
+      "mountPath": "/api/operational-health/sources/:sourceID/snapshot",
+      "methods": [
+        "POST"
+      ],
+      "auth": "public",
+      "workspaceBinding": "none",
+      "serviceTarget": "operational-health.ingest.snapshot",
+      "contentTypes": [
+        "application/json"
+      ],
+      "maxBodyBytes": 1048576,
+      "rateLimitPerMinute": 1200
+    },
+    {
+      "name": "health-status",
+      "class": "extension_api",
+      "mountPath": "/extensions/operational-health/api/status",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "operational-health.status",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-list",
+      "class": "extension_api",
+      "mountPath": "/extensions/operational-health/api/incidents",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "operational-health.list",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-get",
+      "class": "extension_api",
+      "mountPath": "/extensions/operational-health/api/incidents/:id",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "operational-health.get",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-agent-status",
+      "class": "extension_api",
+      "mountPath": "/extensions/operational-health/api/agent/status",
+      "methods": [
+        "GET"
+      ],
+      "auth": "agent_token",
+      "workspaceBinding": "workspace_from_agent_token",
+      "serviceTarget": "operational-health.status",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-agent-list",
+      "class": "extension_api",
+      "mountPath": "/extensions/operational-health/api/agent/incidents",
+      "methods": [
+        "GET"
+      ],
+      "auth": "agent_token",
+      "workspaceBinding": "workspace_from_agent_token",
+      "serviceTarget": "operational-health.list",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-agent-get",
+      "class": "extension_api",
+      "mountPath": "/extensions/operational-health/api/agent/incidents/:id",
+      "methods": [
+        "GET"
+      ],
+      "auth": "agent_token",
+      "workspaceBinding": "workspace_from_agent_token",
+      "serviceTarget": "operational-health.get",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-redrive",
+      "class": "admin_action",
+      "mountPath": "/extensions/operational-health/api/projections/:id/retry",
+      "methods": [
+        "POST"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "operational-health.redrive",
+      "contentTypes": [
+        "application/json"
+      ],
+      "maxBodyBytes": 1048576,
+      "rateLimitPerMinute": 1200,
+      "requiredPermissions": [
+        "case:write"
+      ]
+    },
+    {
+      "name": "health-dashboard",
+      "class": "admin_page",
+      "mountPath": "/extensions/operational-health",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "operational-health.dashboard",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-script",
+      "class": "extension_api",
+      "mountPath": "/extensions/operational-health/assets/app.js",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "operational-health.script",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "health-runtime",
+      "class": "health",
+      "mountPath": "/extensions/operational-health/health",
+      "methods": [
+        "GET"
+      ],
+      "auth": "internal_only",
+      "workspaceBinding": "instance_scoped",
+      "serviceTarget": "operational-health.health"
+    }
+  ],
+  "adminNavigation": [
+    {
+      "name": "operational-health",
+      "section": "Operations",
+      "title": "Incidents",
+      "icon": "activity",
+      "endpoint": "health-dashboard",
+      "activePage": "operational-health"
+    }
+  ],
+  "scheduledJobs": [
+    {
+      "name": "incident-projection",
+      "description": "Deliver pending incident cases and evidence, reconcile case status and expire retained telemetry.",
+      "intervalSeconds": 10,
+      "serviceTarget": "operational-health.project"
+    }
+  ],
+  "commands": [
+    {
+      "name": "operational-health.status",
+      "description": "Read current source health and evidence freshness."
+    },
+    {
+      "name": "operational-health.incidents.list",
+      "description": "Read a bounded incident page."
+    },
+    {
+      "name": "operational-health.incidents.get",
+      "description": "Read one scoped incident and its case reference."
+    }
+  ],
+  "defaultConfig": {
+    "queueSlug": "incidents",
+    "sources": []
+  }
+}

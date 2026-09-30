@@ -3,11 +3,13 @@ package runtimehttp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -44,11 +46,7 @@ func ListenAndServeUnixSocket(handler http.Handler, packageKey string) error {
 	if socketPath == "" {
 		socketPath = runtimeproto.SocketPath("", packageKey)
 	}
-	if err := os.MkdirAll(filepath.Dir(socketPath), 0o755); err != nil {
-		return err
-	}
-	_ = os.Remove(socketPath)
-	listener, err := net.Listen("unix", socketPath)
+	server, listener, err := newRuntimeServer(handler, socketPath)
 	if err != nil {
 		return err
 	}
@@ -56,11 +54,31 @@ func ListenAndServeUnixSocket(handler http.Handler, packageKey string) error {
 		_ = listener.Close()
 		_ = os.Remove(socketPath)
 	}()
-	if err := os.Chmod(socketPath, 0o666); err != nil {
-		return err
-	}
-	server := &http.Server{Handler: handler}
 	return server.Serve(listener)
+}
+
+// newRuntimeServer binds socketPath so that only the account this runtime runs
+// as can connect, and returns a server that sees a connection only once the
+// peer's credentials have been checked against that account. Every accepted
+// connection is marked verified, which is the marker ForwardedContextMiddleware
+// requires before it will read host-asserted identity from a request.
+func newRuntimeServer(handler http.Handler, socketPath string) (*http.Server, net.Listener, error) {
+	if !peerCredentialsSupported() {
+		return nil, nil, fmt.Errorf("cannot authenticate runtime socket peers on %s, refusing to serve", runtime.GOOS)
+	}
+	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
+		return nil, nil, err
+	}
+	_ = os.Remove(socketPath)
+	listener, err := listenPrivateUnix(socketPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	server := &http.Server{
+		Handler:     handler,
+		ConnContext: peerConnContext,
+	}
+	return server, newVerifiedPeerListener(listener), nil
 }
 
 func RegisterInternalRoutes(
@@ -208,8 +226,18 @@ func APIBaseURL(c *gin.Context) string {
 	return strings.TrimSpace(c.GetString("api_base_url"))
 }
 
+// ForwardedContextMiddleware reads the identity and context the host asserts
+// for a proxied request. Those headers are only worth anything on a connection
+// whose peer this runtime authenticated, so a request that arrives without one
+// is refused outright rather than served with an empty identity: TenantContext
+// keys row-level security off the workspace set here, and a local process the
+// runtime cannot identify must not get to choose it.
 func ForwardedContextMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request == nil || !PeerVerified(c.Request.Context()) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "unverified runtime peer"})
+			return
+		}
 		if extensionID := strings.TrimSpace(c.GetHeader(runtimeproto.HeaderExtensionID)); extensionID != "" {
 			c.Set("extension_id", extensionID)
 		}

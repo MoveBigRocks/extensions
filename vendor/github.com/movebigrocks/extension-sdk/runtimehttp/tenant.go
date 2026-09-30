@@ -27,7 +27,8 @@ type AdminScoper interface {
 // it for extensions whose requests each belong to a single workspace. Requests
 // with no workspace (health checks, public assets) pass through unwrapped.
 // ForwardedContextMiddleware, applied by DefaultEngine, sets workspace_id, so
-// register this after it.
+// register this after it: the workspace a request is confined to then only ever
+// comes from a connection whose peer credentials the runtime verified.
 func TenantContext(scoper TenantScoper) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		workspaceID := c.GetString("workspace_id")

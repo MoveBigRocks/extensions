@@ -38,12 +38,12 @@ jobs:
       - name: Install pinned public CLI for contract validation
         run: |
           set -euo pipefail
-          archive="$RUNNER_TEMP/mbr_v1.0.14_linux_amd64.tar.gz"
+          archive="$RUNNER_TEMP/mbr_v1.1.1_linux_amd64.tar.gz"
           curl --fail --location --retry 3 --output "$archive" \
-            https://github.com/MoveBigRocks/releases/releases/download/v1.0.14/mbr_v1.0.14_linux_amd64.tar.gz
-          echo "613f428c24844a634d2b696cb3f585387d21a22e611a40be3813bab053a12a63  $archive" | sha256sum --check --strict
+            https://github.com/MoveBigRocks/releases/releases/download/v1.1.1/mbr_v1.1.1_linux_amd64.tar.gz
+          echo "b8ad3ca1ab1d424f8fe58160019337865f387b0b1772bd66f9eb68e1fb5772c7  $archive" | sha256sum --check --strict
           tar -xzf "$archive" -C "$RUNNER_TEMP" mbr
-          "$RUNNER_TEMP/mbr" version --json | jq -e '.version == "v1.0.14"'
+          "$RUNNER_TEMP/mbr" version --json | jq -e '.version == "v1.1.1"'
 
       - name: Set up Go
         uses: actions/setup-go@v6

@@ -8,6 +8,7 @@ on:
       - 'error-tracking-v*'
       - 'sales-pipeline-v*'
       - 'web-analytics-v*'
+      - 'operational-health-v*'
   workflow_dispatch:
     inputs:
       extension:
@@ -20,6 +21,7 @@ on:
           - error-tracking
           - sales-pipeline
           - web-analytics
+          - operational-health
       publish_tag:
         description: Optional OCI tag override for preview builds only (defaults to sha-<commit>)
         required: false
@@ -41,7 +43,7 @@ jobs:
       SIGNING_KEY_ID: demandops-public-1
       GOFLAGS: -mod=vendor
       SDK_REPOSITORY: MoveBigRocks/extension-sdk
-      SDK_REF: v0.8.24
+      SDK_REF: v0.8.33
     steps:
       - name: Checkout extension sources
         uses: actions/checkout@v4
@@ -112,6 +114,15 @@ jobs:
                 needs_runtime="true"
                 publish_tag="${ref_name#sales-pipeline-}"
                 ;;
+              operational-health-v*)
+                extension="operational-health"
+                source_dir="operational-health"
+                image="ghcr.io/movebigrocks/mbr-ext-operational-health"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-operational-health-runtime"
+                runtime_cmd="./cmd/operational-health-runtime"
+                needs_runtime="true"
+                publish_tag="${ref_name#operational-health-}"
+                ;;
               web-analytics-v*)
                 extension="web-analytics"
                 source_dir="web-analytics"
@@ -156,6 +167,14 @@ jobs:
                 image="ghcr.io/movebigrocks/mbr-ext-sales-pipeline"
                 runtime_image="ghcr.io/movebigrocks/mbr-ext-sales-pipeline-runtime"
                 runtime_cmd="./cmd/sales-pipeline-runtime"
+                needs_runtime="true"
+                ;;
+              operational-health)
+                extension="operational-health"
+                source_dir="operational-health"
+                image="ghcr.io/movebigrocks/mbr-ext-operational-health"
+                runtime_image="ghcr.io/movebigrocks/mbr-ext-operational-health-runtime"
+                runtime_cmd="./cmd/operational-health-runtime"
                 needs_runtime="true"
                 ;;
               web-analytics)

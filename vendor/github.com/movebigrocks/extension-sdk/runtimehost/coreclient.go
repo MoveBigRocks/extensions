@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -43,6 +44,7 @@ type HostCase struct {
 	Priority     string         `json:"priority,omitempty"`
 	Channel      string         `json:"channel,omitempty"`
 	Category     string         `json:"category,omitempty"`
+	AssignedToID string         `json:"assignedToId,omitempty"`
 	QueueID      string         `json:"queueId,omitempty"`
 	Tags         []string       `json:"tags,omitempty"`
 	ContactID    string         `json:"contactId,omitempty"`
@@ -54,20 +56,22 @@ type HostCase struct {
 // the workspace supplied by the host from the extension's scope rather than the
 // caller. Priority and Channel are the string forms of the core enums.
 type CreateCaseInput struct {
-	WorkspaceID  string         `json:"workspaceId,omitempty"`
-	Subject      string         `json:"subject"`
-	Description  string         `json:"description,omitempty"`
-	Priority     string         `json:"priority,omitempty"`
-	Channel      string         `json:"channel,omitempty"`
-	Category     string         `json:"category,omitempty"`
-	QueueID      string         `json:"queueId,omitempty"`
-	ContactID    string         `json:"contactId,omitempty"`
-	ContactName  string         `json:"contactName,omitempty"`
-	ContactEmail string         `json:"contactEmail,omitempty"`
-	TeamID       string         `json:"teamId,omitempty"`
-	AssignedToID string         `json:"assignedToId,omitempty"`
-	Tags         []string       `json:"tags,omitempty"`
-	CustomFields map[string]any `json:"customFields,omitempty"`
+	// IdempotencyKey binds retries to the same request and original case.
+	IdempotencyKey string         `json:"idempotencyKey,omitempty"`
+	WorkspaceID    string         `json:"workspaceId,omitempty"`
+	Subject        string         `json:"subject"`
+	Description    string         `json:"description,omitempty"`
+	Priority       string         `json:"priority,omitempty"`
+	Channel        string         `json:"channel,omitempty"`
+	Category       string         `json:"category,omitempty"`
+	QueueID        string         `json:"queueId,omitempty"`
+	ContactID      string         `json:"contactId,omitempty"`
+	ContactName    string         `json:"contactName,omitempty"`
+	ContactEmail   string         `json:"contactEmail,omitempty"`
+	TeamID         string         `json:"teamId,omitempty"`
+	AssignedToID   string         `json:"assignedToId,omitempty"`
+	Tags           []string       `json:"tags,omitempty"`
+	CustomFields   map[string]any `json:"customFields,omitempty"`
 }
 
 // CreateCase creates a core case in the extension's workspace and returns it.
@@ -142,21 +146,30 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body, out any)
 	if client == nil {
 		client = defaultHostHTTPClient()
 	}
-	resp, err := client.Do(req)
+	boundedClient := *client
+	boundedClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := boundedClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("call %s: %w", path, err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 400 {
+	payload, err := io.ReadAll(io.LimitReader(resp.Body, (2<<20)+1))
+	if err != nil {
+		return fmt.Errorf("read host response: %w", err)
+	}
+	if len(payload) > 2<<20 {
+		return fmt.Errorf("host response exceeds size limit")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var failure ErrorResponse
-		if decErr := json.NewDecoder(resp.Body).Decode(&failure); decErr == nil && strings.TrimSpace(failure.Message) != "" {
+		if decErr := json.Unmarshal(payload, &failure); decErr == nil && strings.TrimSpace(failure.Message) != "" {
 			return &hostError{status: resp.StatusCode, message: strings.TrimSpace(failure.Message)}
 		}
 		return &hostError{status: resp.StatusCode, message: resp.Status}
 	}
 	if out != nil {
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		if err := json.Unmarshal(payload, out); err != nil {
 			return fmt.Errorf("decode %s response: %w", path, err)
 		}
 	}
@@ -176,4 +189,13 @@ func isNotFound(err error) bool {
 		return he.status == http.StatusNotFound
 	}
 	return false
+}
+
+// StatusCode returns a host rejection status, or zero for an uncertain transport outcome.
+func StatusCode(err error) int {
+	var e *hostError
+	if errors.As(err, &e) {
+		return e.status
+	}
+	return 0
 }

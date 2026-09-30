@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "extensionSlug": "operational-health",
+  "resolvedAdminNavigation": [
+    {
+      "section": "Operations",
+      "title": "Incidents",
+      "icon": "activity",
+      "href": "/extensions/operational-health",
+      "activePage": "operational-health"
+    }
+  ],
+  "seededQueues": [
+    "incidents"
+  ],
+  "publicPaths": [
+    "/api/operational-health/sources/:sourceID/alerts",
+    "/api/operational-health/sources/:sourceID/deployments",
+    "/api/operational-health/sources/:sourceID/observations",
+    "/api/operational-health/sources/:sourceID/snapshot"
+  ],
+  "adminPaths": [
+    "/extensions/operational-health",
+    "/extensions/operational-health/api/incidents",
+    "/extensions/operational-health/api/incidents/:id",
+    "/extensions/operational-health/api/projections/:id/retry",
+    "/extensions/operational-health/api/status",
+    "/extensions/operational-health/assets/app.js"
+  ],
+  "agentPaths": [
+    "/extensions/operational-health/api/agent/incidents",
+    "/extensions/operational-health/api/agent/incidents/:id",
+    "/extensions/operational-health/api/agent/status"
+  ],
+  "healthPaths": [
+    "/extensions/operational-health/health"
+  ],
+  "commands": [
+    "operational-health.incidents.get",
+    "operational-health.incidents.list",
+    "operational-health.status"
+  ]
+}

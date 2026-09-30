@@ -43,6 +43,10 @@ func SetupPostgres(t testing.TB) (string, func()) {
 		_ = adminDB.Close()
 		t.Skipf("postgres admin database unavailable: %v", err)
 	}
+	if err := requirePostgres18(ctx, adminDB); err != nil {
+		_ = adminDB.Close()
+		t.Fatal(err)
+	}
 	if _, err := adminDB.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %s", databaseName)); err != nil {
 		_ = adminDB.Close()
 		t.Fatalf("create postgres test database %s: %v", databaseName, err)
@@ -59,6 +63,21 @@ func SetupPostgres(t testing.TB) (string, func()) {
 		}
 	}
 	return testDSN, cleanup
+}
+
+// requirePostgres18 fails fast when the server predates PostgreSQL 18, which
+// production runs and the platform relies on (uuidv7 and other built-ins).
+// Matching the production major avoids cryptic mid-migration failures on an
+// older local server.
+func requirePostgres18(ctx context.Context, db *sql.DB) error {
+	var versionNum int
+	if err := db.QueryRowContext(ctx, "SELECT current_setting('server_version_num')::int").Scan(&versionNum); err != nil {
+		return fmt.Errorf("read postgres server version: %w", err)
+	}
+	if versionNum < 180000 {
+		return fmt.Errorf("tests require PostgreSQL 18 or newer (server_version_num=%d); use PostgreSQL 18+ to match production", versionNum)
+	}
+	return nil
 }
 
 func postgresAdminDSN(t testing.TB) string {
