@@ -61,7 +61,7 @@ func (s *ErrorMonitoringStore) CreateErrorEvent(ctx context.Context, event *obse
 		INSERT INTO ${SCHEMA_NAME}.error_events (
 			id, workspace_id, extension_install_id, event_id, project_id, issue_id, timestamp, received, message, level,
 			logger, platform, environment, release, dist, exception, stacktrace,
-			user, request, tags, extra, contexts, breadcrumbs, fingerprint,
+			"user", request, tags, extra, contexts, breadcrumbs, fingerprint,
 			data_url, size, processed_at, grouped_at
 		) VALUES (
 			COALESCE(NULLIF(?, '')::uuid, uuidv7()), ?, ?, ?, ?, ?, ?, ?, ?, ?,
@@ -82,7 +82,7 @@ func (s *ErrorMonitoringStore) CreateErrorEvent(ctx context.Context, event *obse
 
 func (s *ErrorMonitoringStore) GetErrorEvent(ctx context.Context, eventID string) (*observabilitydomain.ErrorEvent, error) {
 	var model models.ErrorEvent
-	query := `SELECT * FROM ${SCHEMA_NAME}.error_events WHERE id = ? OR event_id = ?`
+	query := `SELECT * FROM ${SCHEMA_NAME}.error_events WHERE id::text = ? OR event_id = ?`
 	err := s.getContext(ctx, &model, query, eventID, eventID)
 	if err != nil {
 		return nil, TranslateSqlxError(err, "error_events")

@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -257,4 +258,16 @@ func gzipBytes(t *testing.T, raw string) []byte {
 	require.NoError(t, writer.Close())
 
 	return buffer.Bytes()
+}
+
+func TestEnvelopeSizeLimitAlsoAppliesAfterDecompression(t *testing.T) {
+	payload := strings.Repeat("x", 1024*1024+1)
+	for _, encoding := range []string{"", "gzip"} {
+		data := []byte(payload)
+		if encoding == "gzip" {
+			data = gzipBytes(t, payload)
+		}
+		_, err := readSentryEnvelopeBody(io.NopCloser(bytes.NewReader(data)), encoding)
+		require.ErrorContains(t, err, "size limit")
+	}
 }

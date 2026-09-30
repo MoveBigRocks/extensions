@@ -12,6 +12,7 @@ import (
 
 	"github.com/movebigrocks/extension-sdk/extdb"
 	"github.com/movebigrocks/extension-sdk/testdb"
+	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
 )
 
 // setupIssueCaseStore brings the owned schema up on a bare database by running
@@ -160,4 +161,18 @@ func TestStaleIssueCaseClaimIsTakenOver(t *testing.T) {
 	claimed, err = store.ClaimIssueCase(ctx, workspaceID, issueID, "email:a@example.com")
 	require.NoError(t, err)
 	require.True(t, claimed)
+}
+
+func TestErrorEventPersistsAndReadsBySentryEventID(t *testing.T) {
+	store, _, _ := setupIssueCaseStore(t)
+	event := observabilitydomain.NewErrorEvent("44444444-4444-4444-8444-444444444444", "891b24ccf8a147219e873b6798e17bc6")
+	event.Message = "SDK acceptance"
+	event.Environment = "staging"
+	event.User = &observabilitydomain.UserContext{ID: "scoped-user"}
+	require.NoError(t, store.CreateErrorEvent(context.Background(), event))
+	stored, err := store.GetErrorEvent(context.Background(), event.EventID)
+	require.NoError(t, err)
+	require.Equal(t, event.ID, stored.ID)
+	require.Equal(t, event.User.ID, stored.User.ID)
+	require.Equal(t, "staging", stored.Environment)
 }

@@ -157,18 +157,26 @@ func validateSentryEnvelopeRequest(c *gin.Context) error {
 
 func readSentryEnvelopeBody(body io.ReadCloser, contentEncoding string) ([]byte, error) {
 	defer body.Close()
+	const maxEnvelopeBytes = 1024 * 1024
+	var reader io.Reader = io.LimitReader(body, maxEnvelopeBytes+1)
 
 	encoded := strings.ToLower(contentEncoding)
 	if strings.Contains(encoded, "gzip") {
-		gz, err := gzip.NewReader(body)
+		gz, err := gzip.NewReader(reader)
 		if err != nil {
 			return nil, err
 		}
 		defer gz.Close()
-		return io.ReadAll(gz)
+		reader = gz
 	}
-
-	return io.ReadAll(body)
+	data, err := io.ReadAll(io.LimitReader(reader, maxEnvelopeBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxEnvelopeBytes {
+		return nil, fmt.Errorf("envelope exceeds size limit")
+	}
+	return data, nil
 }
 
 func parseSentryAuth(header string) (string, bool) {
