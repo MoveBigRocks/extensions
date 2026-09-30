@@ -45,7 +45,8 @@
     "automation:read",
     "automation:write",
     "workspace:read",
-    "event:publish"
+    "event:publish",
+    "issue:read"
   ],
   "events": {
     "publishes": [
@@ -250,7 +251,7 @@
       "workspaceBinding": "workspace_from_session",
       "serviceTarget": "error-tracking.list",
       "requiredPermissions": [
-        "case:read"
+        "issue:read"
       ]
     },
     {
@@ -264,7 +265,7 @@
       "workspaceBinding": "workspace_from_session",
       "serviceTarget": "error-tracking.get",
       "requiredPermissions": [
-        "case:read"
+        "issue:read"
       ]
     },
     {
@@ -278,7 +279,7 @@
       "workspaceBinding": "workspace_from_agent_token",
       "serviceTarget": "error-tracking.list",
       "requiredPermissions": [
-        "case:read"
+        "issue:read"
       ]
     },
     {
@@ -292,7 +293,7 @@
       "workspaceBinding": "workspace_from_agent_token",
       "serviceTarget": "error-tracking.get",
       "requiredPermissions": [
-        "case:read"
+        "issue:read"
       ]
     }
   ],

@@ -38,7 +38,7 @@ Package scope:
 
 Workspace-scoped issue reads use `GET /extensions/error-tracking/api/agent/issues`
 and `GET /extensions/error-tracking/api/agent/issues/:id` with an agent token,
-the token's workspace in `?workspace=`, and `case:read`. Session equivalents omit
+the token's workspace in `?workspace=`, and `issue:read`. Session equivalents omit
 `/agent`. The versioned response contract is `error-tracking/v1`; the host checks
 current authority and the runtime always applies a workspace predicate.
 
