@@ -133,6 +133,11 @@ func (r *errorTrackingRuntime) Close() error {
 }
 
 func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRuntime, apiBaseURL string) {
+	issueReader := &observabilityhandlers.IssueReadHandler{Service: runtime.issueService}
+	for _, prefix := range []string{"/extensions/error-tracking/api", "/extensions/error-tracking/api/agent"} {
+		engine.GET(prefix+"/issues", issueReader.List)
+		engine.GET(prefix+"/issues/:id", issueReader.Get)
+	}
 	adminHandler := errortrackingruntime.NewErrorTrackingAdminHandler(
 		hostclient.FromContext,
 		runtime.issueService,

@@ -88,7 +88,10 @@
       "name": "error-tracking-admin-applications",
       "class": "admin_page",
       "mountPath": "/extensions/error-tracking/applications",
-      "methods": ["GET", "HEAD"],
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.applications"
@@ -97,7 +100,10 @@
       "name": "error-tracking-admin-application-new",
       "class": "admin_page",
       "mountPath": "/extensions/error-tracking/applications/new",
-      "methods": ["GET", "HEAD"],
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.detail"
@@ -106,7 +112,10 @@
       "name": "error-tracking-admin-application-detail",
       "class": "admin_page",
       "mountPath": "/extensions/error-tracking/applications/:id",
-      "methods": ["GET", "HEAD"],
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.detail"
@@ -115,7 +124,9 @@
       "name": "error-tracking-admin-application-create",
       "class": "admin_action",
       "mountPath": "/extensions/error-tracking/applications",
-      "methods": ["POST"],
+      "methods": [
+        "POST"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.create"
@@ -124,7 +135,9 @@
       "name": "error-tracking-admin-application-read",
       "class": "admin_action",
       "mountPath": "/extensions/error-tracking/applications/:id",
-      "methods": ["GET"],
+      "methods": [
+        "GET"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.get"
@@ -133,7 +146,9 @@
       "name": "error-tracking-admin-application-update",
       "class": "admin_action",
       "mountPath": "/extensions/error-tracking/applications/:id",
-      "methods": ["PUT"],
+      "methods": [
+        "PUT"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.update"
@@ -142,7 +157,9 @@
       "name": "error-tracking-admin-application-delete",
       "class": "admin_action",
       "mountPath": "/extensions/error-tracking/applications/:id",
-      "methods": ["DELETE"],
+      "methods": [
+        "DELETE"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.application.delete"
@@ -151,7 +168,10 @@
       "name": "error-tracking-admin-issues",
       "class": "admin_page",
       "mountPath": "/extensions/error-tracking/issues",
-      "methods": ["GET", "HEAD"],
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.issues"
@@ -160,7 +180,10 @@
       "name": "error-tracking-admin-issue-detail",
       "class": "admin_page",
       "mountPath": "/extensions/error-tracking/issues/:id",
-      "methods": ["GET", "HEAD"],
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
       "auth": "session",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.admin.issue.detail"
@@ -169,37 +192,108 @@
       "name": "sentry-envelope",
       "class": "public_ingest",
       "mountPath": "/api/envelope",
-      "methods": ["POST"],
+      "methods": [
+        "POST"
+      ],
       "auth": "public",
-      "contentTypes": ["application/x-sentry-envelope"],
+      "contentTypes": [
+        "application/x-sentry-envelope"
+      ],
       "serviceTarget": "error-tracking.ingest.envelope"
     },
     {
       "name": "sentry-envelope-project",
       "class": "public_ingest",
       "mountPath": "/api/:projectNumber/envelope",
-      "methods": ["POST"],
+      "methods": [
+        "POST"
+      ],
       "auth": "public",
-      "contentTypes": ["application/x-sentry-envelope"],
+      "contentTypes": [
+        "application/x-sentry-envelope"
+      ],
       "serviceTarget": "error-tracking.ingest.envelope.project"
     },
     {
       "name": "sentry-envelope-v1",
       "class": "public_ingest",
       "mountPath": "/1/envelope",
-      "methods": ["POST"],
+      "methods": [
+        "POST"
+      ],
       "auth": "public",
-      "contentTypes": ["application/x-sentry-envelope"],
+      "contentTypes": [
+        "application/x-sentry-envelope"
+      ],
       "serviceTarget": "error-tracking.ingest.envelope"
     },
     {
       "name": "error-tracking-runtime-health",
       "class": "health",
       "mountPath": "/extensions/error-tracking/health",
-      "methods": ["GET", "HEAD"],
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
       "auth": "internal_only",
       "workspaceBinding": "instance_scoped",
       "serviceTarget": "error-tracking.runtime.health"
+    },
+    {
+      "name": "error-tracking-list",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/issues",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.list",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "error-tracking-get",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/issues/:id",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.get",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "error-tracking-agent-list",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/agent/issues",
+      "methods": [
+        "GET"
+      ],
+      "auth": "agent_token",
+      "workspaceBinding": "workspace_from_agent_token",
+      "serviceTarget": "error-tracking.list",
+      "requiredPermissions": [
+        "case:read"
+      ]
+    },
+    {
+      "name": "error-tracking-agent-get",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/agent/issues/:id",
+      "methods": [
+        "GET"
+      ],
+      "auth": "agent_token",
+      "workspaceBinding": "workspace_from_agent_token",
+      "serviceTarget": "error-tracking.get",
+      "requiredPermissions": [
+        "case:read"
+      ]
     }
   ],
   "commands": [

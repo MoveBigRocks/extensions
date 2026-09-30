@@ -23,6 +23,8 @@
     "/api/envelope"
   ],
   "adminPaths": [
+    "/extensions/error-tracking/api/issues",
+    "/extensions/error-tracking/api/issues/:id",
     "/extensions/error-tracking/applications",
     "/extensions/error-tracking/applications/:id",
     "/extensions/error-tracking/applications/new",
@@ -34,5 +36,9 @@
   ],
   "commands": [
     "error-tracking.issues.list"
+  ],
+  "agentPaths": [
+    "/extensions/error-tracking/api/agent/issues",
+    "/extensions/error-tracking/api/agent/issues/:id"
   ]
 }

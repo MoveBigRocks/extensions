@@ -299,7 +299,7 @@ func (s *ErrorMonitoringStore) ListIssues(ctx context.Context, filters storecont
 		return nil, 0, TranslateSqlxError(err, "issues")
 	}
 
-	selectQuery := "SELECT * " + baseQuery + " ORDER BY last_seen DESC"
+	selectQuery := "SELECT * " + baseQuery + " ORDER BY last_seen DESC, id DESC"
 
 	if filters.Limit > 0 {
 		selectQuery += " LIMIT ?"

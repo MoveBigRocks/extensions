@@ -36,6 +36,19 @@ Package scope:
   - `/1/envelope`
 - owned PostgreSQL schema `ext_demandops_error_tracking`
 
+Workspace-scoped issue reads use `GET /extensions/error-tracking/api/agent/issues`
+and `GET /extensions/error-tracking/api/agent/issues/:id` with an agent token,
+the token's workspace in `?workspace=`, and `case:read`. Session equivalents omit
+`/agent`. The versioned response contract is `error-tracking/v1`; the host checks
+current authority and the runtime always applies a workspace predicate.
+
+Lists accept `project`, `status`, `level`, `limit` (1–100) and `offset` and return
+`issues.nextOffset`. They are live views ordered by last seen and ID; deduplicate
+IDs if new events arrive between pages. Detail returns the latest event's release,
+environment and bounded exception/stack evidence. It excludes request headers,
+users, local variables, breadcrumbs and arbitrary context. Error messages remain
+untrusted application content. These reads do not change issue or case state.
+
 Canonical schema migrations:
 
 - `migrations/000001_init.up.sql`
