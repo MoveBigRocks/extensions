@@ -146,6 +146,21 @@ func (s *Store) applySignal(ctx context.Context, ws string, cfg domain.Config, s
 				priority = "urgent"
 			}
 			create := runtimehost.CreateCaseInput{WorkspaceID: ws, IdempotencyKey: "incident/" + incidentID, Subject: fmt.Sprintf("[%s] %s: %s", src.Environment, in.Component, in.AlertName), Description: "Operational incident. Follow linked evidence and verify current health before closure.", Priority: priority, Channel: "api", Category: "incident", QueueID: cfg.QueueID, AssignedToID: target.OwnerID, Tags: []string{"operational-health", src.Environment, in.Component}, CustomFields: map[string]any{"incident_id": incidentID, "source_id": src.ID, "environment": src.Environment, "component": in.Component, "canary": src.Canary}}
+			var previous struct {
+				ID     string
+				CaseID string `db:"case_id"`
+			}
+			previousErr := s.DB.Get(ctx).GetContext(ctx, &previous, query(`SELECT id,COALESCE(case_id::text,'') AS case_id FROM {s}.incidents WHERE workspace_id=? AND source_id=? AND component=? AND closed_at IS NOT NULL ORDER BY closed_at DESC,id DESC LIMIT 1`), ws, src.ID, in.Component)
+			if previousErr != nil && !errors.Is(previousErr, sql.ErrNoRows) {
+				return previousErr
+			}
+			if previous.ID != "" {
+				create.Description += " Previous incident: " + previous.ID + "; previous case: " + previous.CaseID + "."
+				create.CustomFields["previous_incident_id"] = previous.ID
+				if err = s.enqueue(ctx, ws, previous.ID, "successor/"+incidentID, "note", ProjectionPayload{Body: "A new alert episode opened successor incident " + incidentID + ". The closed incident remains closed."}); err != nil {
+					return err
+				}
+			}
 			if err = s.enqueue(ctx, ws, incidentID, create.IdempotencyKey, "create", ProjectionPayload{Create: &create}); err != nil {
 				return err
 			}
@@ -190,9 +205,14 @@ func (s *Store) Observe(ctx context.Context, ws string, src domain.Source, obser
 			if err != nil {
 				return err
 			}
-			_, err = s.DB.Get(tx).ExecContext(tx, query(`INSERT INTO {s}.observations(workspace_id,source_id,component,observed_at,received_at,payload) VALUES(?,?,?,?,?,?::jsonb) ON CONFLICT(workspace_id,source_id,component,observed_at) DO NOTHING`), ws, src.ID, o.Component, o.ObservedAt, now, string(body))
+			result, err := s.DB.Get(tx).ExecContext(tx, query(`INSERT INTO {s}.observations(workspace_id,source_id,component,observed_at,received_at,payload) VALUES(?,?,?,?,?,?::jsonb) ON CONFLICT(workspace_id,source_id,component,observed_at) DO UPDATE SET payload={s}.observations.payload WHERE {s}.observations.payload=EXCLUDED.payload`), ws, src.ID, o.Component, o.ObservedAt, now, string(body))
 			if err != nil {
 				return err
+			}
+			if n, err := result.RowsAffected(); err != nil {
+				return err
+			} else if n != 1 {
+				return domain.ErrConflict
 			}
 		}
 		return nil
@@ -204,8 +224,16 @@ func (s *Store) Deploy(ctx context.Context, ws string, src domain.Source, d doma
 		if err != nil {
 			return err
 		}
-		_, err = s.DB.Get(tx).ExecContext(tx, query(`INSERT INTO {s}.deployments(workspace_id,source_id,component,run_id,starts_at,expires_at,state,payload,received_at) VALUES(?,?,?,?,?,?,?,?::jsonb,?) ON CONFLICT(workspace_id,source_id,component,run_id,state) DO NOTHING`), ws, src.ID, d.Component, d.RunID, d.StartsAt, d.ExpiresAt, d.State, string(body), now)
-		return err
+		result, err := s.DB.Get(tx).ExecContext(tx, query(`INSERT INTO {s}.deployments(workspace_id,source_id,component,run_id,starts_at,expires_at,state,payload,received_at) VALUES(?,?,?,?,?,?,?,?::jsonb,?) ON CONFLICT(workspace_id,source_id,component,run_id,state) DO UPDATE SET payload={s}.deployments.payload WHERE {s}.deployments.payload=EXCLUDED.payload`), ws, src.ID, d.Component, d.RunID, d.StartsAt, d.ExpiresAt, d.State, string(body), now)
+		if err != nil {
+			return err
+		}
+		if n, err := result.RowsAffected(); err != nil {
+			return err
+		} else if n != 1 {
+			return domain.ErrConflict
+		}
+		return nil
 	})
 }
 

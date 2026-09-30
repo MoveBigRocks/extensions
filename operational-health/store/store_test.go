@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/movebigrocks/extension-sdk/extdb"
+	"github.com/movebigrocks/extension-sdk/runtimehost"
 	"github.com/movebigrocks/extension-sdk/testdb"
 	"github.com/movebigrocks/extensions/operational-health/domain"
 	"github.com/movebigrocks/extensions/operational-health/migrations"
@@ -18,6 +19,62 @@ import (
 )
 
 const testWS = "0199a0c0-0000-7000-8000-000000000001"
+
+func TestEvidenceRetriesRejectChangedPayloadWithoutPartialWrites(t *testing.T) {
+	s, cfg, src := fixture(t)
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	o := domain.Observation{Component: "api", ObservedAt: now, Checks: []domain.Check{{Name: "readiness", State: "healthy"}}}
+	require.NoError(t, s.Observe(t.Context(), testWS, src, []domain.Observation{o}, now))
+	require.NoError(t, s.Observe(t.Context(), testWS, src, []domain.Observation{o}, now.Add(time.Second)))
+	changed := o
+	changed.Release = "different"
+	later := o
+	later.ObservedAt = now.Add(time.Second)
+	later.Checks = []domain.Check{{Name: "readiness", State: "unhealthy"}}
+	require.ErrorIs(t, s.Observe(t.Context(), testWS, src, []domain.Observation{later, changed}, now), domain.ErrConflict)
+	status, err := s.Status(t.Context(), testWS, cfg, now)
+	require.NoError(t, err)
+	require.NotNil(t, status[0].Observation)
+	require.True(t, now.Equal(status[0].Observation.ObservedAt))
+	require.Equal(t, "healthy", status[0].Observation.Checks[0].State)
+	d := domain.Deployment{RunID: "run-1", Component: "api", StartsAt: now, ExpiresAt: now.Add(time.Minute), State: "started"}
+	require.NoError(t, s.Deploy(t.Context(), testWS, src, d, now))
+	require.NoError(t, s.Deploy(t.Context(), testWS, src, d, now.Add(time.Second)))
+	d.ExpiresAt = now.Add(time.Hour)
+	require.ErrorIs(t, s.Deploy(t.Context(), testWS, src, d, now), domain.ErrConflict)
+}
+
+func TestNewEpisodeLinksClosedIncidentWithoutReopeningIt(t *testing.T) {
+	s, cfg, src := fixture(t)
+	now := time.Now().UTC()
+	sig := domain.Signal{Component: "api", AlertName: "APIDown", Severity: "critical", Fingerprint: "0123456789abcdef", StartsAt: now, Status: "firing"}
+	_, err := s.Ingest(t.Context(), testWS, cfg, src, []domain.Signal{sig}, 0, false, now)
+	require.NoError(t, err)
+	page, err := s.List(t.Context(), testWS, domain.Filter{Limit: 10})
+	require.NoError(t, err)
+	first := page.Items[0].ID
+	p, err := s.Claim(t.Context(), testWS, now.Add(time.Second))
+	require.NoError(t, err)
+	require.Equal(t, "create", p.Kind)
+	caseID := "0199a0c0-0000-7000-8000-000000000077"
+	require.NoError(t, s.Complete(t.Context(), testWS, *p, caseID, now))
+	require.NoError(t, s.SyncCase(t.Context(), testWS, first, runtimehost.HostCase{ID: caseID, WorkspaceID: testWS, Status: "resolved"}, now))
+	sig.StartsAt = now.Add(time.Minute)
+	_, err = s.Ingest(t.Context(), testWS, cfg, src, []domain.Signal{sig}, 0, false, now.Add(time.Minute))
+	require.NoError(t, err)
+	page, err = s.List(t.Context(), testWS, domain.Filter{Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 2)
+	require.NotEqual(t, first, page.Items[0].ID)
+	require.NotNil(t, page.Items[1].ClosedAt)
+	var payloads []string
+	err = s.scoped(t.Context(), testWS, func(ctx context.Context) error {
+		return s.DB.Get(ctx).SelectContext(ctx, &payloads, query(`SELECT payload::text FROM {s}.projection_outbox WHERE workspace_id=? AND operation_key=?`), testWS, "successor/"+page.Items[0].ID)
+	})
+	require.NoError(t, err)
+	require.Len(t, payloads, 1)
+	require.Contains(t, payloads[0], page.Items[0].ID)
+}
 
 func fixture(t *testing.T) (*Store, domain.Config, domain.Source) {
 	t.Helper()
