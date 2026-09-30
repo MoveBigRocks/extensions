@@ -49,6 +49,13 @@ environment and bounded exception/stack evidence. It excludes request headers,
 users, local variables, breadcrumbs and arbitrary context. Error messages remain
 untrusted application content. These reads do not change issue or case state.
 
+Installation is instance-scoped; projects and issue reads retain workspace
+isolation. A successful SDK flush or ingest HTTP response confirms acceptance,
+not completed asynchronous issue projection. For a deployment canary, send a
+labelled event with the actual application's environment/release settings, then
+poll the scoped issue detail with a deadline and verify the exact event ID,
+environment and release. Missing readback fails the canary.
+
 Canonical schema migrations:
 
 - `migrations/000001_init.up.sql`
@@ -69,8 +76,9 @@ Selected service targets dispatched to the supervised child process over
 
 Distribution status:
 
-- intended to ship as a free public signed first-party bundle
-- intended public OCI ref:
+- published as a free public signed first-party bundle through the
+  [publication workflow](../.github/workflows/public-bundles.yml)
+- public OCI ref:
   `ghcr.io/movebigrocks/mbr-ext-error-tracking:v<version>`
 - release tag pattern:
   `error-tracking-v<version>`
@@ -85,7 +93,7 @@ mbr extensions verify ./error-tracking --workspace WORKSPACE_ID --json
 Install from the published bundle ref:
 
 ```bash
-mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v<VERSION> --workspace WORKSPACE_ID
+mbr extensions install ghcr.io/movebigrocks/mbr-ext-error-tracking:v<VERSION>
 ```
 
 Public signed bundle installs do not need a token. Keep `--license-token` for

@@ -55,6 +55,8 @@ Source layout:
   error tracking runtime
 - `sales-pipeline/runtime/` contains the sales board runtime and deal storage
 - `community-feature-requests/runtime/` contains the public idea-board runtime
+- `operational-health/` contains authenticated alert ingestion, health observations,
+  incident projections and the shared operator/agent read contract
 
 The service-backed runtime source that first-party and external authors should
 inspect is in this repo, with shared host-facing contracts exposed
@@ -79,6 +81,7 @@ The point of this repo is simple:
 - get privacy-first website analytics without bolting on another silo
 - keep lightweight sales flow inside the same operating base
 - collect community roadmap feedback without another voting SaaS
+- connect existing monitoring to incident cases, ownership and current evidence
 - inspect real extension source if you want to build your own
 
 Enterprise SSO remains a private first-party extension in the sibling
@@ -158,6 +161,25 @@ Good fit:
 
 - source: [`ats/`](./ats)
 - install ref: `ghcr.io/movebigrocks/mbr-ext-ats:v<version>`
+
+### Operational Health
+
+Connect existing Alertmanager alerts and bounded health collectors to incident
+cases, ownership and runbooks. The extension retains source episodes, delivery
+receipts, deployment windows and observations in its own schema, then projects
+work through the host's idempotent case contracts.
+
+A recovered signal does not close a case, and a closed case does not prove
+service recovery. Stale or missing observations remain unknown. CLI and built-in
+MCP reads share the workspace-scoped contract; infrastructure changes remain in
+the authorized operator or deployment workflow.
+
+Configure sources, allowed targets, credentials, owners and runbooks before
+enabling delivery. Retain an independent alert path for hub or delivery failure.
+
+- source: [`operational-health/`](./operational-health)
+- contract: [`operational-health/extension.contract.json`](./operational-health/extension.contract.json)
+- install ref: `ghcr.io/movebigrocks/mbr-ext-operational-health:v<version>`
 
 ### Error Tracking
 

@@ -1,6 +1,6 @@
 # Publish And Install First-Party Extensions
 
-This runbook covers the five public bundles in
+This runbook covers the public bundles in
 [the catalog](../catalog/public-bundles.json). Customer deployment intent lives
 in each private instance repository; this document does not record live
 DemandOps workspace assignments or installed versions.
@@ -40,9 +40,11 @@ GOWORK=off go build ./cmd/...
 Set `TEST_DATABASE_ADMIN_DSN` to a disposable PostgreSQL 18 administrator
 connection before running tests. The database helpers can skip when it is
 absent; skipped database tests are not evidence of a successful integration run.
-The Go version/toolchain is specified in `go.mod`.
+The Go version/toolchain is specified in `go.mod`. The catalog regression test
+checks that every source manifest is discoverable and that its published catalog
+classification, including installation scope, agrees with the manifest.
 
-The validation script runs local `extensions lint` across all five source
+The validation script runs local `extensions lint` across all discovered source
 packages. It does not install, activate, or prove a live product workflow.
 Run those checks against an isolated test instance as well:
 
