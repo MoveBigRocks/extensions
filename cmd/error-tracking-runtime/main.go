@@ -13,6 +13,7 @@ import (
 	"github.com/movebigrocks/extension-sdk/extdb"
 	"github.com/movebigrocks/extension-sdk/logger"
 	"github.com/movebigrocks/extension-sdk/runtimehttp"
+	"github.com/movebigrocks/extension-sdk/runtimeproto"
 	errortrackingruntime "github.com/movebigrocks/extensions/error-tracking/runtime"
 	"github.com/movebigrocks/extensions/error-tracking/runtime/config"
 	observabilityhandlers "github.com/movebigrocks/extensions/error-tracking/runtime/handlers"
@@ -27,7 +28,7 @@ type errorTrackingRuntime struct {
 	db             *extdb.DB
 	issueService   *observabilityservices.IssueService
 	projectService *observabilityservices.ProjectService
-	processor      *observabilityservices.ErrorProcessor
+	ingestion      *observabilityservices.ErrorIngestion
 	errorStore     *errortrackingruntime.ErrorMonitoringStore
 }
 
@@ -55,7 +56,7 @@ func main() {
 	// The admin role applies only to the extension-owned schema. Core data is
 	// reached through the host client, where instance scope and permissions are
 	// enforced independently for every operation.
-	engine.Use(runtimehttp.AdminContext(runtime.db))
+	engine.Use(errorTrackingRequestScope(runtime.db))
 	tmpl, err := errortrackingui.ParseTemplates()
 	if err != nil {
 		log.Error("Failed to parse error-tracking templates", "error", err)
@@ -66,9 +67,11 @@ func main() {
 	registerErrorTrackingRoutes(engine, runtime, cfg.APIBaseURL)
 	runtimehttp.RegisterInternalRoutes(engine, map[string]func(context.Context, []byte) error{
 		"error-tracking.consumer.errors":       newErrorConsumer(runtime),
-		"error-tracking.consumer.issue-events": newIssueConsumer(runtime),
-		"error-tracking.consumer.case-events":  newCaseConsumer(runtime),
-	}, nil)
+		"error-tracking.consumer.issue-events": scopedConsumer(runtime.db, newIssueConsumer(runtime)),
+		"error-tracking.consumer.case-events":  scopedConsumer(runtime.db, newCaseConsumer(runtime)),
+	}, map[string]func(context.Context) error{
+		"error-tracking.recover": runtime.ingestion.RecoverPendingEvents,
+	})
 
 	log.Info("Starting error-tracking extension runtime", "package_key", packageKey)
 	if err := runtimehttp.ListenAndServeUnixSocket(engine, packageKey); err != nil && err != http.ErrServerClosed {
@@ -99,17 +102,13 @@ func newErrorTrackingRuntime(cfg *config.Config, log *logger.Logger) (*errorTrac
 	)
 	projectService := observabilityservices.NewProjectService(errorStore)
 	errorGrouping := observabilityservices.NewErrorGroupingService(errorStore, errorStore, publisher)
-	processor := observabilityservices.NewErrorProcessorFromConfig(errorGrouping, cfg.ErrorProcessing, db)
-	if err := processor.StartWorkers(context.Background(), cfg.ErrorProcessing.WorkerCount); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("start error processor workers: %w", err)
-	}
+	ingestion := observabilityservices.NewErrorIngestion(errorStore, errorGrouping, db)
 
 	return &errorTrackingRuntime{
 		db:             db,
 		issueService:   issueService,
 		projectService: projectService,
-		processor:      processor,
+		ingestion:      ingestion,
 		errorStore:     errorStore,
 	}, nil
 }
@@ -119,11 +118,7 @@ func (r *errorTrackingRuntime) Close() error {
 		return nil
 	}
 	var firstErr error
-	if r.processor != nil {
-		if err := r.processor.StopWorkers(); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
+
 	if r.db != nil {
 		if err := r.db.Close(); err != nil && firstErr == nil {
 			firstErr = err
@@ -146,9 +141,9 @@ func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRunti
 	)
 
 	sentryIngestHandler := observabilityhandlers.NewSentryIngestHandler(
-		runtime.projectService,
-		runtime.errorStore,
-		runtime.processor,
+		runtime.ingestion,
+		runtime.ingestion,
+		runtime.ingestion,
 		logger.New().WithField("handler", "error-tracking-ingest"),
 	)
 
@@ -184,7 +179,7 @@ func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRunti
 
 func newErrorConsumer(runtime *errorTrackingRuntime) func(context.Context, []byte) error {
 	handler := observabilityhandlers.NewErrorEventHandler(
-		runtime.processor,
+		runtime.ingestion,
 		logger.New().WithField("handler", "error-tracking-consumer-errors"),
 	)
 	return handler.HandleErrorEvent
@@ -231,5 +226,26 @@ func newCaseConsumer(runtime *errorTrackingRuntime) func(context.Context, []byte
 		default:
 			return nil
 		}
+	}
+}
+
+// Ingest and background work own their transaction boundaries and commit before
+// returning success. UI handlers retain the request-scoped admin transaction.
+func errorTrackingRequestScope(db runtimehttp.AdminScoper) gin.HandlerFunc {
+	admin := runtimehttp.AdminContext(db)
+	return func(c *gin.Context) {
+		path := c.FullPath()
+		if path == "/api/envelope" || path == "/api/:projectNumber/envelope" || path == "/1/envelope" ||
+			strings.HasPrefix(path, runtimeproto.InternalConsumerPathPrefix) || strings.HasPrefix(path, runtimeproto.InternalJobPathPrefix) {
+			c.Next()
+			return
+		}
+		admin(c)
+	}
+}
+
+func scopedConsumer(db runtimehttp.AdminScoper, consume func(context.Context, []byte) error) func(context.Context, []byte) error {
+	return func(ctx context.Context, payload []byte) error {
+		return db.WithAdminContext(ctx, func(tx context.Context) error { return consume(tx, payload) })
 	}
 }

@@ -45,51 +45,11 @@ func (h *IssueEventHandler) HandleIssueCreated(ctx context.Context, eventData []
 		"workspace_id": event.WorkspaceID,
 	}).Info("Processing IssueCreated event")
 
-	// Reconstruct the issue from the event
-	issue := &observabilitydomain.Issue{
-		ID:          event.IssueID,
-		WorkspaceID: event.WorkspaceID,
-		ProjectID:   event.ProjectID,
-		Title:       event.Title,
-		Level:       event.Level,
-		Fingerprint: event.Fingerprint,
-		Platform:    event.Platform,
-		Culprit:     event.Culprit,
-		Status:      observabilitydomain.IssueStatusUnresolved,
-		FirstSeen:   event.CreatedAt,
-		LastSeen:    event.CreatedAt,
-		EventCount:  1,
-		UserCount:   0,
-		LastEventID: event.FirstEventID,
-		Tags:        make(map[string]string),
-	}
-
-	// 1. Use atomic upsert to prevent race conditions
-	// If another worker already created an issue with the same fingerprint,
-	// this will update the existing issue instead of failing or creating a duplicate.
-	resultIssue, wasCreated, err := h.issueService.CreateOrUpdateIssueByFingerprint(ctx, issue)
+	resultIssue, wasCreated, err := h.issueService.ProjectIssueCreated(ctx, event)
 	if err != nil {
-		return fmt.Errorf("failed to upsert issue: %w", err)
+		return fmt.Errorf("failed to project issue creation: %w", err)
 	}
-
-	// Use the resulting issue ID (may differ from event.IssueID if it was an update)
 	actualIssueID := resultIssue.ID
-
-	if !wasCreated {
-		h.logger.WithFields(map[string]interface{}{
-			"event_issue_id":  event.IssueID,
-			"actual_issue_id": actualIssueID,
-			"fingerprint":     event.Fingerprint,
-		}).Info("Issue already existed, merged into existing issue (race condition handled)")
-	}
-
-	// 1b. Update the first event to link it to this issue
-	if event.FirstEventID != "" {
-		if err := h.issueService.LinkEventToIssue(ctx, event.WorkspaceID, event.FirstEventID, actualIssueID); err != nil {
-			h.logger.WithError(err).Warn("Failed to update first event with issue ID")
-			return fmt.Errorf("failed to link first event %s to issue %s: %w", event.FirstEventID, actualIssueID, err)
-		}
-	}
 
 	// 2. Update metrics (only for new issues)
 	if wasCreated {
@@ -132,30 +92,12 @@ func (h *IssueEventHandler) HandleIssueUpdated(ctx context.Context, eventData []
 		"has_new_user": event.HasNewUser,
 	}).Info("Processing IssueUpdated event")
 
-	// 1. Atomically update issue stats (event_count++, optionally user_count++)
-	// This prevents the race condition where concurrent updates could overwrite
-	// each other's event counts with stale values.
-	issue, err := h.issueService.AtomicUpdateIssueStats(
-		ctx,
-		event.WorkspaceID,
-		event.IssueID,
-		event.NewEventID,
-		event.LastSeen,
-		event.HasNewUser,
-	)
+	issue, applied, err := h.issueService.ProjectIssueUpdated(ctx, event)
 	if err != nil {
-		return fmt.Errorf("failed to atomically update issue stats: %w", err)
+		return fmt.Errorf("failed to project issue update: %w", err)
 	}
-
-	// 2. Update the new event to link it to this issue
-	if event.NewEventID != "" {
-		// Check if event already has issue ID before linking
-		newEvent, err := h.issueService.GetErrorEvent(ctx, event.NewEventID)
-		if err == nil && newEvent != nil && newEvent.IssueID == "" {
-			if err := h.issueService.LinkEventToIssue(ctx, event.WorkspaceID, event.NewEventID, event.IssueID); err != nil {
-				h.logger.WithError(err).Warn("Failed to update new event with issue ID")
-			}
-		}
+	if !applied {
+		return nil
 	}
 
 	// 3. Update metrics

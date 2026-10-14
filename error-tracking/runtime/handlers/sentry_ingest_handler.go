@@ -21,12 +21,11 @@ import (
 )
 
 type sentryEventStore interface {
-	CreateErrorEvent(ctx context.Context, event *observabilitydomain.ErrorEvent) error
+	AcceptSentryEvent(ctx context.Context, event *observabilitydomain.ErrorEvent) (bool, error)
 }
 
 type sentryProjectStore interface {
 	GetProjectByKey(ctx context.Context, projectKey string) (*observabilitydomain.Project, error)
-	IncrementEventCount(ctx context.Context, workspaceID, projectID string, lastEventAt *time.Time) (int64, error)
 }
 
 type sentryEventProcessor interface {
@@ -119,20 +118,21 @@ func (h *SentryIngestHandler) handleEnvelope(c *gin.Context, expectedProjectNumb
 		return
 	}
 
-	if err := h.errorEventStore.CreateErrorEvent(ctx, event); err != nil {
+	_, err = h.errorEventStore.AcceptSentryEvent(ctx, event)
+	if err != nil {
 		h.logger.WithError(err).Error("failed to persist error event")
 		httpx.RespondWithError(c, http.StatusInternalServerError, "failed to store event")
 		return
 	}
 
-	if err := h.processor.ProcessEvent(ctx, event); err != nil {
-		h.logger.WithError(err).Error("failed to process error event")
-		httpx.RespondWithError(c, http.StatusInternalServerError, "failed to process event")
-		return
-	}
-
-	if _, err := h.projectStore.IncrementEventCount(ctx, project.WorkspaceID, project.ID, &event.Timestamp); err != nil {
-		h.logger.WithError(err).Warn("failed to update project event count")
+	// A pending replay republishes durable work. Projection is idempotent per
+	// source event, including an uncertain host acknowledgement or restart.
+	if event.IssueID == "" {
+		if err := h.processor.ProcessEvent(ctx, event); err != nil {
+			h.logger.WithError(err).Error("failed to publish error grouping")
+			httpx.RespondWithError(c, http.StatusServiceUnavailable, "event processing is not confirmed")
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

@@ -50,17 +50,42 @@ users, local variables, breadcrumbs and arbitrary context. Error messages remain
 untrusted application content. These reads do not change issue or case state.
 
 Installation is instance-scoped; projects and issue reads retain workspace
-isolation. A successful SDK flush or ingest HTTP response confirms acceptance,
-not completed asynchronous issue projection. For a deployment canary, send a
-labelled event with the actual application's environment/release settings, then
-poll the scoped issue detail with a deadline and verify the exact event ID,
-environment and release. Missing readback fails the canary.
+isolation. Ingest commits the immutable raw event and application count before
+publishing grouping work to the host's durable outbox. HTTP success waits for
+that publication; an uncertain publication returns a retryable error. Replaying
+an accepted envelope recovers its original project-scoped identity and never
+increments its application count again. A successful SDK flush alone remains
+transport evidence, not persisted readback.
+
+The host-scheduled recovery job in `manifest.json` claims bounded batches of raw
+events without issue links. Claims expire after interrupted work; no credentials
+or work queue are retained in process memory. Issue projection locks the source
+event and commits the issue counters and event link in the same transaction.
+Repeated delivery has no additional effect, and the workspace and project must
+match the source event. An additive partial index supports the pending scan.
+The old in-memory worker-count and queue-size settings no longer control delivery.
+
+Ingest and internal consumers own explicit transaction boundaries; a request-wide
+transaction must not defer their commit until after HTTP acknowledgement. Recovery
+uses a deadline and bounded batches; one failed publication does not prevent the
+remaining claimed events from being attempted. The host's job diagnostics expose
+failures and backoff. Recovery stops retrying once the source has a persisted issue
+link, including after a process restart.
+
+For a deployment canary, send a labelled event with the actual application's
+environment/release settings, then poll the scoped issue detail with a deadline
+and verify the exact event ID, environment and release. Missing readback fails the
+canary. Replay the exact envelope and verify one event, one issue contribution,
+and unchanged application counts. The PostgreSQL recovery tests also terminate a
+child process between acceptance and publication, inject commit/link failures,
+and exercise overlapping claims and repeated issue-event delivery.
 
 Canonical schema migrations:
 
 - `migrations/000001_init.up.sql`
 - `migrations/000002_rls.up.sql`
 - `migrations/000003_issue_case_claims.up.sql`
+- `migrations/000004_pending_error_events.up.sql`
 
 Those files are the canonical schema history for
 `ext_demandops_error_tracking`. Their applied versions are recorded in

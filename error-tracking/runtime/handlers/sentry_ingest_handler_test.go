@@ -50,12 +50,17 @@ type stubSentryEventStore struct {
 	createCalls int
 	lastEvent   *observabilitydomain.ErrorEvent
 	createErr   error
+	replay      bool
+	unprojected bool
 }
 
-func (s *stubSentryEventStore) CreateErrorEvent(_ context.Context, event *observabilitydomain.ErrorEvent) error {
+func (s *stubSentryEventStore) AcceptSentryEvent(_ context.Context, event *observabilitydomain.ErrorEvent) (bool, error) {
 	s.createCalls++
 	s.lastEvent = event
-	return s.createErr
+	if s.replay && !s.unprojected {
+		event.IssueID = "persisted-issue"
+	}
+	return !s.replay, s.createErr
 }
 
 type stubSentryProcessor struct {
@@ -230,9 +235,7 @@ func TestHandleEnvelopeWithProject_AcceptsGzipAndValuesContainers(t *testing.T) 
 	assert.Equal(t, "public-key-123", projectStore.gotProjectKey)
 	assert.Equal(t, 1, eventStore.createCalls)
 	assert.Equal(t, 1, processor.processCalls)
-	assert.Equal(t, 1, projectStore.incrementCalls)
-	assert.Equal(t, "workspace-1", projectStore.incrementWorkspace)
-	assert.Equal(t, "project-1", projectStore.incrementProject)
+	assert.Zero(t, projectStore.incrementCalls, "the acceptance transaction owns counting")
 
 	require.NotNil(t, eventStore.lastEvent)
 	assert.Equal(t, "0f4f0fb7e0ab4a5d80ec3cb13f0b4e55", eventStore.lastEvent.EventID)
@@ -270,4 +273,41 @@ func TestEnvelopeSizeLimitAlsoAppliesAfterDecompression(t *testing.T) {
 		_, err := readSentryEnvelopeBody(io.NopCloser(bytes.NewReader(data)), encoding)
 		require.ErrorContains(t, err, "size limit")
 	}
+}
+
+func TestSentryPersistedReplayAcknowledgesWithoutGroupingAgain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	project := &stubSentryProjectStore{project: &observabilitydomain.Project{ID: "project-1", WorkspaceID: "workspace-1", Status: "active", ProjectNumber: 42}}
+	stored := &stubSentryEventStore{replay: true}
+	processor := &stubSentryProcessor{}
+	handler := NewSentryIngestHandler(project, stored, processor, logger.NewNop())
+	router := gin.New()
+	router.POST("/api/:projectNumber/envelope", handler.HandleEnvelopeWithProject)
+	req := httptest.NewRequest(http.MethodPost, "/api/42/envelope", strings.NewReader("{}\n{\"type\":\"event\"}\n{\"event_id\":\"f4f4df0d3a764a549657fc4f8632c111\",\"message\":\"Acceptance retry\"}\n"))
+	req.Header.Set("Content-Type", "application/x-sentry-envelope")
+	req.Header.Set("X-Sentry-Auth", "Sentry sentry_key=public-key-123,sentry_version=7")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, req)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), `"event_id":"f4f4df0d3a764a549657fc4f8632c111"`)
+	require.Zero(t, processor.processCalls)
+	require.Zero(t, project.incrementCalls)
+}
+
+func TestSentryUnprojectedReplayRepublishesDurableWork(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	project := &stubSentryProjectStore{project: &observabilitydomain.Project{ID: "project-1", WorkspaceID: "workspace-1", Status: "active", ProjectNumber: 42}}
+	stored := &stubSentryEventStore{replay: true, unprojected: true}
+	processor := &stubSentryProcessor{}
+	handler := NewSentryIngestHandler(project, stored, processor, logger.NewNop())
+	router := gin.New()
+	router.POST("/api/:projectNumber/envelope", handler.HandleEnvelopeWithProject)
+	req := httptest.NewRequest(http.MethodPost, "/api/42/envelope", strings.NewReader("{}\n{\"type\":\"event\"}\n{\"event_id\":\"f4f4df0d3a764a549657fc4f8632c111\"}\n"))
+	req.Header.Set("Content-Type", "application/x-sentry-envelope")
+	req.Header.Set("X-Sentry-Auth", "Sentry sentry_key=public-key-123")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, req)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, 1, processor.processCalls)
+	require.Zero(t, project.incrementCalls)
 }

@@ -24,6 +24,8 @@ type ProjectStore interface {
 }
 
 type IssueStore interface {
+	ProjectIssueCreated(context.Context, observabilitydomain.IssueCreatedEvent) (*observabilitydomain.Issue, bool, error)
+	ProjectIssueUpdated(context.Context, observabilitydomain.IssueUpdatedEvent) (*observabilitydomain.Issue, bool, error)
 	CreateIssue(ctx context.Context, issue *observabilitydomain.Issue) error
 	CreateOrUpdateIssueByFingerprint(ctx context.Context, issue *observabilitydomain.Issue) (resultIssue *observabilitydomain.Issue, created bool, err error)
 	GetIssue(ctx context.Context, issueID string) (*observabilitydomain.Issue, error)

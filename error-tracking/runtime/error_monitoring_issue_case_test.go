@@ -21,6 +21,11 @@ import (
 // tables the migrations reference are stubbed: they belong to the platform and
 // are present in a real instance, but a test database has only this schema.
 func setupIssueCaseStore(t *testing.T) (*ErrorMonitoringStore, string, string) {
+	store, workspace, issue, _ := setupIssueCaseStoreDSN(t)
+	return store, workspace, issue
+}
+
+func setupIssueCaseStoreDSN(t *testing.T) (*ErrorMonitoringStore, string, string, string) {
 	t.Helper()
 	dsn, cleanup := testdb.SetupPostgres(t)
 	t.Cleanup(cleanup)
@@ -53,6 +58,16 @@ func setupIssueCaseStore(t *testing.T) (*ErrorMonitoringStore, string, string) {
 		require.NoErrorf(t, err, "apply %s", path)
 	}
 
+	// Match the host-provisioned owned-schema grants when the local cluster has
+	// the cross-workspace extension role. Never grant access outside this test DB.
+	_, err = conn.ExecContext(ctx, `DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mbr_admin') THEN
+   GRANT USAGE ON SCHEMA ext_demandops_error_tracking TO mbr_admin;
+   GRANT ALL ON ALL TABLES IN SCHEMA ext_demandops_error_tracking TO mbr_admin;
+  END IF;
+ END $$`)
+	require.NoError(t, err)
+
 	store := NewErrorMonitoringStore(db)
 	workspaceID := "11111111-1111-4111-8111-111111111111"
 	otherWorkspaceID := "22222222-2222-4222-8222-222222222222"
@@ -71,7 +86,7 @@ func setupIssueCaseStore(t *testing.T) (*ErrorMonitoringStore, string, string) {
 		_, err = conn.ExecContext(ctx, seed.query, seed.args...)
 		require.NoError(t, err)
 	}
-	return store, workspaceID, issueID
+	return store, workspaceID, issueID, dsn
 }
 
 func TestIssueCaseClaimIsTakenOnce(t *testing.T) {

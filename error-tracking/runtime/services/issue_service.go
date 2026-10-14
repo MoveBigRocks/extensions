@@ -441,3 +441,12 @@ func (s *IssueService) GetProject(ctx context.Context, projectID string) (*obser
 	}
 	return s.projectStore.GetProject(ctx, projectID)
 }
+
+// ProjectIssueCreated atomically applies a grouped source event exactly once.
+func (s *IssueService) ProjectIssueCreated(ctx context.Context, event observabilitydomain.IssueCreatedEvent) (*observabilitydomain.Issue, bool, error) {
+	return s.issueStore.ProjectIssueCreated(ctx, event)
+}
+
+func (s *IssueService) ProjectIssueUpdated(ctx context.Context, event observabilitydomain.IssueUpdatedEvent) (*observabilitydomain.Issue, bool, error) {
+	return s.issueStore.ProjectIssueUpdated(ctx, event)
+}

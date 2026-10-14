@@ -138,3 +138,10 @@ func TestIssueServiceResolveIssuePublishFailureIsBestEffort(t *testing.T) {
 	require.NotNil(t, store.issue.ResolvedAt)
 	assert.Len(t, publisher.snapshot(), 2)
 }
+
+func (f *issueStoreFake) ProjectIssueCreated(context.Context, obsdomain.IssueCreatedEvent) (*obsdomain.Issue, bool, error) {
+	return f.issue, true, nil
+}
+func (f *issueStoreFake) ProjectIssueUpdated(context.Context, obsdomain.IssueUpdatedEvent) (*obsdomain.Issue, bool, error) {
+	return f.issue, true, nil
+}

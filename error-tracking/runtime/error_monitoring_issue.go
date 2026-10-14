@@ -93,9 +93,10 @@ func (s *ErrorMonitoringStore) CreateOrUpdateIssueByFingerprint(ctx context.Cont
 			?, ?, ?
 		)
 		ON CONFLICT(project_id, fingerprint) DO UPDATE SET
-			last_seen = excluded.last_seen,
+			last_seen = GREATEST(issues.last_seen, excluded.last_seen),
 			event_count = issues.event_count + 1,
-			last_event_id = excluded.last_event_id,
+			last_event_id = CASE WHEN excluded.last_seen >= issues.last_seen THEN excluded.last_event_id ELSE issues.last_event_id END,
+			user_count = issues.user_count + excluded.user_count,
 			updated_at = excluded.updated_at
 		RETURNING id, (xmax = 0) AS was_created`
 
@@ -385,21 +386,21 @@ func (s *ErrorMonitoringStore) AtomicUpdateIssueStats(ctx context.Context, works
 			UPDATE ${SCHEMA_NAME}.issues SET
 				event_count = event_count + 1,
 				user_count = user_count + 1,
-				last_seen = ?,
-				last_event_id = ?,
+				last_event_id = CASE WHEN ? >= last_seen THEN ? ELSE last_event_id END,
+				last_seen = GREATEST(last_seen, ?),
 				updated_at = ?
 			WHERE id = ? AND workspace_id = ?`
 	} else {
 		query = `
 			UPDATE ${SCHEMA_NAME}.issues SET
 				event_count = event_count + 1,
-				last_seen = ?,
-				last_event_id = ?,
+				last_event_id = CASE WHEN ? >= last_seen THEN ? ELSE last_event_id END,
+				last_seen = GREATEST(last_seen, ?),
 				updated_at = ?
 			WHERE id = ? AND workspace_id = ?`
 	}
 
-	result, err := s.execContext(ctx, query, lastSeen, lastEventID, now, issueID, workspaceID)
+	result, err := s.execContext(ctx, query, lastSeen, lastEventID, lastSeen, now, issueID, workspaceID)
 	if err != nil {
 		return nil, TranslateSqlxError(err, "issues")
 	}

@@ -83,3 +83,24 @@ type CaseCreatedForContactEvent struct {
 	Priority     string
 	CreatedAt    time.Time
 }
+
+// IssueForSource derives the initial issue contribution from the accepted source
+// event. Redelivered transport timestamps and user-count hints are not authority
+// for the event's chronology or contribution.
+func (e IssueCreatedEvent) IssueForSource(source *ErrorEvent) *Issue {
+	issue := &Issue{
+		WorkspaceID: e.WorkspaceID, ProjectID: e.ProjectID,
+		Title: e.Title, Level: e.Level, Fingerprint: e.Fingerprint,
+		Platform: e.Platform, Culprit: e.Culprit, Status: IssueStatusUnresolved,
+		FirstSeen: source.Timestamp, LastSeen: source.Timestamp, EventCount: 1,
+		LastEventID: source.EventID, Tags: make(map[string]string),
+	}
+	if source.HasIdentifiedUser() {
+		issue.UserCount = 1
+	}
+	return issue
+}
+
+func (e *ErrorEvent) HasIdentifiedUser() bool {
+	return e.User != nil && e.User.ID != ""
+}

@@ -9,6 +9,7 @@ Canonical migration files:
 - `migrations/000001_init.up.sql`
 - `migrations/000002_rls.up.sql`
 - `migrations/000003_issue_case_claims.up.sql`
+- `migrations/000004_pending_error_events.up.sql`
 
 What belongs in these migrations:
 

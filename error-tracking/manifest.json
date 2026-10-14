@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "error-tracking",
   "name": "Error Tracking",
-  "version": "0.8.21",
+  "version": "0.8.32",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "instance",
@@ -12,12 +12,12 @@
   "schema": {
     "name": "ext_demandops_error_tracking",
     "packageKey": "demandops/error-tracking",
-    "targetVersion": "000003",
+    "targetVersion": "000004",
     "migrationEngine": "postgres_sql"
   },
   "runtime": {
     "protocol": "unix_socket_http",
-    "ociReference": "ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime:v0.8.21",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime:v0.8.32",
     "digest": "sha256:pending"
   },
   "description": "Sentry-compatible error ingestion and issue workflows across a Move Big Rocks instance.",
@@ -301,6 +301,14 @@
     {
       "name": "error-tracking.issues.list",
       "description": "List issues for the installed error-tracking extension."
+    }
+  ],
+  "scheduledJobs": [
+    {
+      "name": "error-recovery",
+      "description": "Recover accepted error events without an issue link after interrupted publication or processing.",
+      "intervalSeconds": 60,
+      "serviceTarget": "error-tracking.recover"
     }
   ]
 }

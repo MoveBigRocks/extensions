@@ -2,6 +2,8 @@ package sql
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,6 +15,46 @@ import (
 // =============================================================================
 // Error Event Operations
 // =============================================================================
+
+// AcceptSentryEvent records one immutable event and its application count in a
+// single transaction. Retries recover the project-scoped persisted receipt;
+// request metadata and timestamps on a replay never replace the original data.
+func (s *ErrorMonitoringStore) AcceptSentryEvent(ctx context.Context, event *observabilitydomain.ErrorEvent) (bool, error) {
+	created := false
+	var accepted *observabilitydomain.ErrorEvent
+	err := s.db.Transaction(ctx, func(tx context.Context) error {
+		if _, err := s.execContext(tx, `SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, "sentry:"+event.ProjectID+":"+event.EventID); err != nil {
+			return err
+		}
+		var existing models.ErrorEvent
+		err := s.getContext(tx, &existing, `SELECT * FROM ${SCHEMA_NAME}.error_events WHERE project_id = ? AND event_id = ?`, event.ProjectID, event.EventID)
+		if err == nil {
+			accepted, err = s.mapEventToDomain(&existing)
+			return err
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		pending := *event
+		if err := s.CreateErrorEvent(tx, &pending); err != nil {
+			return err
+		}
+		workspaceID, _, err := s.lookupProjectScope(tx, pending.ProjectID)
+		if err != nil {
+			return err
+		}
+		if _, err := s.IncrementEventCount(tx, workspaceID, pending.ProjectID, &pending.Timestamp); err != nil {
+			return err
+		}
+		accepted, created = &pending, true
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	*event = *accepted
+	return created, nil
+}
 
 func (s *ErrorMonitoringStore) CreateErrorEvent(ctx context.Context, event *observabilitydomain.ErrorEvent) error {
 	workspaceID, installID, err := s.lookupProjectScope(ctx, event.ProjectID)

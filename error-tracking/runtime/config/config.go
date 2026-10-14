@@ -11,10 +11,9 @@ import (
 )
 
 type Config struct {
-	DatabaseDSN     string
-	APIBaseURL      string
-	DatabasePool    DatabasePoolConfig
-	ErrorProcessing ErrorProcessingConfig
+	DatabaseDSN  string
+	APIBaseURL   string
+	DatabasePool DatabasePoolConfig
 }
 
 type DatabasePoolConfig struct {
@@ -22,11 +21,6 @@ type DatabasePoolConfig struct {
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 	ConnMaxIdleTime time.Duration
-}
-
-type ErrorProcessingConfig struct {
-	WorkerCount int
-	QueueSize   int
 }
 
 func Load() (*Config, error) {
@@ -42,10 +36,6 @@ func Load() (*Config, error) {
 			MaxOpenConns: envInt("DATABASE_MAX_OPEN_CONNS", 25), MaxIdleConns: envInt("DATABASE_MAX_IDLE_CONNS", 5),
 			ConnMaxLifetime: envDuration("DATABASE_CONN_MAX_LIFETIME", 5*time.Minute),
 			ConnMaxIdleTime: envDuration("DATABASE_CONN_MAX_IDLE_TIME", 5*time.Minute),
-		},
-		ErrorProcessing: ErrorProcessingConfig{
-			WorkerCount: envInt("ERROR_PROCESSING_WORKER_COUNT", 4),
-			QueueSize:   envInt("ERROR_PROCESSING_QUEUE_SIZE", 1000),
 		},
 	}, nil
 }

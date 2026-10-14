@@ -7,18 +7,21 @@ import (
 
 	"github.com/movebigrocks/extension-sdk/logger"
 	observabilitydomain "github.com/movebigrocks/extensions/error-tracking/runtime/domain"
-	observabilityservices "github.com/movebigrocks/extensions/error-tracking/runtime/services"
 )
 
 // ErrorEventHandler handles incoming error events from the error-events stream
 // It processes raw error events and groups them into issues
+type errorEventIngester interface {
+	IngestEvent(context.Context, *observabilitydomain.ErrorEvent) error
+}
+
 type ErrorEventHandler struct {
-	processor *observabilityservices.ErrorProcessor
+	processor errorEventIngester
 	logger    *logger.Logger
 }
 
 // NewErrorEventHandler creates a new error event handler
-func NewErrorEventHandler(processor *observabilityservices.ErrorProcessor, log *logger.Logger) *ErrorEventHandler {
+func NewErrorEventHandler(processor errorEventIngester, log *logger.Logger) *ErrorEventHandler {
 	if log == nil {
 		log = logger.NewNop()
 	}
@@ -29,7 +32,7 @@ func NewErrorEventHandler(processor *observabilityservices.ErrorProcessor, log *
 }
 
 // HandleErrorEvent processes an incoming error event
-// This is the bridge between the event bus and the ErrorProcessor
+// This is the bridge between the event bus and the durable ingestion service
 func (h *ErrorEventHandler) HandleErrorEvent(ctx context.Context, eventData []byte) error {
 	// Parse the error event
 	var event observabilitydomain.ErrorEvent
@@ -43,9 +46,9 @@ func (h *ErrorEventHandler) HandleErrorEvent(ctx context.Context, eventData []by
 		"level":      event.Level,
 	}).Info("Processing error event")
 
-	// Process the event through ErrorProcessor
+	// Process the event through durable ingestion service
 	// This will group the event into an issue and publish IssueCreated/IssueUpdated events
-	if err := h.processor.ProcessEvent(ctx, &event); err != nil {
+	if err := h.processor.IngestEvent(ctx, &event); err != nil {
 		h.logger.WithError(err).WithField("event_id", event.EventID).Error("Failed to process error event")
 		return fmt.Errorf("failed to process error event: %w", err)
 	}

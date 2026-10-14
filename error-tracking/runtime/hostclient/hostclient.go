@@ -39,17 +39,6 @@ func FromContext(ctx context.Context) (Host, error) {
 	return client, nil
 }
 
-// DetachedContext keeps only the request-scoped host client on a fresh
-// background context. It is safe to retain after an HTTP request completes and
-// deliberately drops request transactions and cancellation.
-func DetachedContext(ctx context.Context) context.Context {
-	client, err := FromContext(ctx)
-	if err != nil {
-		return context.Background()
-	}
-	return WithClient(context.Background(), client)
-}
-
 func Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if client, err := runtimehost.NewClientFromRequest(c.Request); err == nil {
