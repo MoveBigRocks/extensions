@@ -70,7 +70,12 @@ func main() {
 		"error-tracking.consumer.issue-events": scopedConsumer(runtime.db, newIssueConsumer(runtime)),
 		"error-tracking.consumer.case-events":  scopedConsumer(runtime.db, newCaseConsumer(runtime)),
 	}, map[string]func(context.Context) error{
-		"error-tracking.recover": runtime.ingestion.RecoverPendingEvents,
+		"error-tracking.recover": func(ctx context.Context) error {
+			err := runtime.ingestion.RecoverPendingEvents(ctx)
+			// Record only the job outcome, never an event payload or credential.
+			log.Info("Error recovery pass completed", "success", err == nil)
+			return err
+		},
 	})
 
 	log.Info("Starting error-tracking extension runtime", "package_key", packageKey)

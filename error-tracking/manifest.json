@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "error-tracking",
   "name": "Error Tracking",
-  "version": "0.8.32",
+  "version": "0.8.33",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "instance",
@@ -17,7 +17,7 @@
   },
   "runtime": {
     "protocol": "unix_socket_http",
-    "ociReference": "ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime:v0.8.32",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime:v0.8.33",
     "digest": "sha256:pending"
   },
   "description": "Sentry-compatible error ingestion and issue workflows across a Move Big Rocks instance.",

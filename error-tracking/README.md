@@ -70,7 +70,8 @@ transaction must not defer their commit until after HTTP acknowledgement. Recove
 uses a deadline and bounded batches; one failed publication does not prevent the
 remaining claimed events from being attempted. The host's job diagnostics expose
 failures and backoff. Recovery stops retrying once the source has a persisted issue
-link, including after a process restart.
+link, including after a process restart. Completed passes also log a success
+boolean so operators can verify scheduled execution without logging event data.
 
 For a deployment canary, send a labelled event with the actual application's
 environment/release settings, then poll the scoped issue detail with a deadline
