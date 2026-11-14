@@ -291,6 +291,20 @@ func (s *ErrorMonitoringStore) ListIssues(ctx context.Context, filters storecont
 		conditions = append(conditions, "level = ?")
 		args = append(args, filters.Level)
 	}
+	if filters.Environment != "" || filters.Release != "" {
+		// Served by idx_error_events_issue_environment_release as a per-issue
+		// index probe; the workspace predicate is repeated on the event side.
+		exists := "EXISTS (SELECT 1 FROM ${SCHEMA_NAME}.error_events e WHERE e.issue_id = issues.id AND e.workspace_id = issues.workspace_id"
+		if filters.Environment != "" {
+			exists += " AND e.environment = ?"
+			args = append(args, filters.Environment)
+		}
+		if filters.Release != "" {
+			exists += " AND e.release = ?"
+			args = append(args, filters.Release)
+		}
+		conditions = append(conditions, exists+")")
+	}
 
 	baseQuery := "FROM ${SCHEMA_NAME}.issues WHERE " + strings.Join(conditions, " AND ")
 

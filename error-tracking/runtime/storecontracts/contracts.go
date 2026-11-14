@@ -45,6 +45,10 @@ type ErrorEventStore interface {
 	GetIssueEvents(ctx context.Context, issueID string, limit int) ([]*observabilitydomain.ErrorEvent, error)
 	ListProjectEvents(ctx context.Context, projectID string, filter EventFilter) ([]*observabilitydomain.ErrorEvent, error)
 	UpdateEventIssueID(ctx context.Context, workspaceID, eventID, issueID string) error
+	// ListIssueEventEvidence and FindEventEvidenceByTag return events with only
+	// identity, timing, environment, release and tags populated, newest first.
+	ListIssueEventEvidence(ctx context.Context, query IssueEventPageQuery) ([]*observabilitydomain.ErrorEvent, error)
+	FindEventEvidenceByTag(ctx context.Context, query EventTagQuery) ([]*observabilitydomain.ErrorEvent, error)
 }
 
 type IssueCaseIntegrationStore interface {
@@ -104,6 +108,34 @@ type IssueFilters struct {
 	ProjectID   string
 	Status      string
 	Level       string
+	// Environment and Release keep issues with at least one matching event.
+	Environment string
+	Release     string
 	Limit       int
 	Offset      int
+}
+
+// EventKeysetCursor positions a newest-first page after the event with this
+// (timestamp, row id). A zero value starts at the newest event.
+type EventKeysetCursor struct {
+	Timestamp time.Time
+	ID        string
+}
+
+type IssueEventPageQuery struct {
+	WorkspaceID string
+	IssueID     string
+	After       EventKeysetCursor
+	Limit       int
+}
+
+type EventTagQuery struct {
+	WorkspaceID string
+	TagKey      string
+	TagValue    string
+	Environment string
+	Release     string
+	Since       time.Time
+	After       EventKeysetCursor
+	Limit       int
 }

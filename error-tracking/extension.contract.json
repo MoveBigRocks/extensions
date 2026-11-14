@@ -23,8 +23,10 @@
     "/api/envelope"
   ],
   "adminPaths": [
+    "/extensions/error-tracking/api/events",
     "/extensions/error-tracking/api/issues",
     "/extensions/error-tracking/api/issues/:id",
+    "/extensions/error-tracking/api/issues/:id/events",
     "/extensions/error-tracking/applications",
     "/extensions/error-tracking/applications/:id",
     "/extensions/error-tracking/applications/new",
@@ -38,7 +40,9 @@
     "error-tracking.issues.list"
   ],
   "agentPaths": [
+    "/extensions/error-tracking/api/agent/events",
     "/extensions/error-tracking/api/agent/issues",
-    "/extensions/error-tracking/api/agent/issues/:id"
+    "/extensions/error-tracking/api/agent/issues/:id",
+    "/extensions/error-tracking/api/agent/issues/:id/events"
   ]
 }

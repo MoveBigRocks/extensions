@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "error-tracking",
   "name": "Error Tracking",
-  "version": "0.8.33",
+  "version": "0.8.34",
   "publisher": "DemandOps",
   "kind": "product",
   "scope": "instance",
@@ -12,12 +12,12 @@
   "schema": {
     "name": "ext_demandops_error_tracking",
     "packageKey": "demandops/error-tracking",
-    "targetVersion": "000004",
+    "targetVersion": "000005",
     "migrationEngine": "postgres_sql"
   },
   "runtime": {
     "protocol": "unix_socket_http",
-    "ociReference": "ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime:v0.8.33",
+    "ociReference": "ghcr.io/movebigrocks/mbr-ext-error-tracking-runtime:v0.8.34",
     "digest": "sha256:pending"
   },
   "description": "Sentry-compatible error ingestion and issue workflows across a Move Big Rocks instance.",
@@ -292,6 +292,62 @@
       "auth": "agent_token",
       "workspaceBinding": "workspace_from_agent_token",
       "serviceTarget": "error-tracking.get",
+      "requiredPermissions": [
+        "issue:read"
+      ]
+    },
+    {
+      "name": "error-tracking-issue-events",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/issues/:id/events",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.issue.events",
+      "requiredPermissions": [
+        "issue:read"
+      ]
+    },
+    {
+      "name": "error-tracking-events-find",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/events",
+      "methods": [
+        "GET"
+      ],
+      "auth": "session",
+      "workspaceBinding": "workspace_from_session",
+      "serviceTarget": "error-tracking.events.find",
+      "requiredPermissions": [
+        "issue:read"
+      ]
+    },
+    {
+      "name": "error-tracking-agent-issue-events",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/agent/issues/:id/events",
+      "methods": [
+        "GET"
+      ],
+      "auth": "agent_token",
+      "workspaceBinding": "workspace_from_agent_token",
+      "serviceTarget": "error-tracking.issue.events",
+      "requiredPermissions": [
+        "issue:read"
+      ]
+    },
+    {
+      "name": "error-tracking-agent-events-find",
+      "class": "extension_api",
+      "mountPath": "/extensions/error-tracking/api/agent/events",
+      "methods": [
+        "GET"
+      ],
+      "auth": "agent_token",
+      "workspaceBinding": "workspace_from_agent_token",
+      "serviceTarget": "error-tracking.events.find",
       "requiredPermissions": [
         "issue:read"
       ]

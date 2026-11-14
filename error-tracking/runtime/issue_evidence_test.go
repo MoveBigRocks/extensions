@@ -27,7 +27,7 @@ func TestIssueEvidenceUsesRealScopedStoreAndOmitsPrivateContext(t *testing.T) {
 	other := "22222222-2222-4222-8222-222222222222"
 	for _, identity := range []string{ws, other, ""} {
 		t.Run(identity, func(t *testing.T) {
-			page, err := service.ReadIssuePage(t.Context(), identity, "", "", "", 1, 0)
+			page, err := service.ReadIssuePage(t.Context(), identity, "", "", "", "", "", 1, 0)
 			if identity == "" {
 				require.Error(t, err)
 				return

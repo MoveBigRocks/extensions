@@ -2,7 +2,10 @@ package observabilityservices
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,12 +34,39 @@ type IssuePage struct {
 	NextOffset *int           `json:"nextOffset,omitempty"`
 }
 type IssueEventEvidence struct {
-	EventID     string           `json:"eventId"`
-	Timestamp   time.Time        `json:"timestamp"`
-	Environment string           `json:"environment"`
-	Release     string           `json:"release"`
-	Exceptions  []IssueException `json:"exceptions"`
-	Frames      []IssueFrame     `json:"frames"`
+	EventID     string            `json:"eventId"`
+	Timestamp   time.Time         `json:"timestamp"`
+	Environment string            `json:"environment"`
+	Release     string            `json:"release"`
+	Tags        map[string]string `json:"tags"`
+	// TagsTruncated reports that more allowlisted tags existed than returned.
+	TagsTruncated bool             `json:"tagsTruncated,omitempty"`
+	Exceptions    []IssueException `json:"exceptions"`
+	Frames        []IssueFrame     `json:"frames"`
+}
+
+// EventSummary is the bounded, agent-facing identity of one stored event.
+type EventSummary struct {
+	EventID       string            `json:"eventId"`
+	IssueID       string            `json:"issueId,omitempty"`
+	ProjectID     string            `json:"projectId"`
+	Timestamp     time.Time         `json:"timestamp"`
+	Environment   string            `json:"environment"`
+	Release       string            `json:"release"`
+	Tags          map[string]string `json:"tags"`
+	TagsTruncated bool              `json:"tagsTruncated,omitempty"`
+}
+type EventPage struct {
+	Items []EventSummary `json:"items"`
+	Next  string         `json:"next,omitempty"`
+}
+
+// EventTagSearch is an exact tag lookup. Environment and Release are optional
+// exact filters; SinceHours bounds the lookup window.
+type EventTagSearch struct {
+	Key, Value, Environment, Release string
+	SinceHours, Limit                int
+	After                            string
 }
 type IssueException struct {
 	Type   string       `json:"type"`
@@ -65,6 +95,81 @@ func boundedIssueText(s string, limit int) string {
 	}
 	return s
 }
+
+const (
+	maxEventPage          = 50
+	defaultTagSearchHours = 24 * 7
+	maxTagSearchHours     = 24 * 90
+	maxEventCursorLength  = 128
+)
+
+func publicEventID(e *domain.ErrorEvent) string {
+	if e.EventID != "" {
+		return boundedIssueText(e.EventID, 64)
+	}
+	return e.ID
+}
+
+func summarizeEvent(e *domain.ErrorEvent) EventSummary {
+	tags, truncated := domain.PublicEventTags(e.Tags)
+	return EventSummary{EventID: publicEventID(e), IssueID: e.IssueID, ProjectID: e.ProjectID, Timestamp: e.Timestamp, Environment: boundedIssueText(e.Environment, 128), Release: boundedIssueText(e.Release, 256), Tags: tags, TagsTruncated: truncated}
+}
+
+// encodeEventCursor binds the next page to the last returned (timestamp, row
+// id). The cursor is opaque to clients and carries no workspace data; every
+// page re-applies the caller's workspace predicate.
+func encodeEventCursor(e *domain.ErrorEvent) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(e.Timestamp.UnixMicro(), 10) + "." + e.ID))
+}
+
+func decodeEventCursor(value string) (storecontracts.EventKeysetCursor, error) {
+	if value == "" {
+		return storecontracts.EventKeysetCursor{}, nil
+	}
+	if len(value) > maxEventCursorLength {
+		return storecontracts.EventKeysetCursor{}, ErrInvalidIssueRead
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return storecontracts.EventKeysetCursor{}, ErrInvalidIssueRead
+	}
+	micros, id, ok := strings.Cut(string(raw), ".")
+	n, err := strconv.ParseInt(micros, 10, 64)
+	if !ok || err != nil || n < 0 || !validReadID(id) {
+		return storecontracts.EventKeysetCursor{}, ErrInvalidIssueRead
+	}
+	return storecontracts.EventKeysetCursor{Timestamp: time.UnixMicro(n).UTC(), ID: id}, nil
+}
+
+// eventPage asks the store for one extra row so Next is only issued when a
+// further page exists.
+func eventPage(events []*domain.ErrorEvent, limit int, valid func(*domain.ErrorEvent) bool) (EventPage, error) {
+	out := EventPage{Items: []EventSummary{}}
+	for i, e := range events {
+		if e == nil || !valid(e) {
+			return EventPage{}, errors.New("invalid scoped event result")
+		}
+		if i == limit {
+			out.Next = encodeEventCursor(events[limit-1])
+			break
+		}
+		out.Items = append(out.Items, summarizeEvent(e))
+	}
+	return out, nil
+}
+
+func validEventText(value string, limit int) bool {
+	if value == "" || len([]rune(value)) > limit {
+		return false
+	}
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
 func summarizeIssue(i *domain.Issue) IssueSummary {
 	return IssueSummary{ID: i.ID, WorkspaceID: i.WorkspaceID, ProjectID: i.ProjectID, Title: boundedIssueText(i.Title, 1024), Culprit: boundedIssueText(i.Culprit, 512), Status: i.Status, Level: i.Level, FirstSeen: i.FirstSeen, LastSeen: i.LastSeen, EventCount: i.EventCount}
 }
@@ -86,9 +191,13 @@ func issueFrames(stack *domain.StacktraceData) []IssueFrame {
 // ReadIssuePage always supplies a workspace predicate, including for the
 // instance-scoped runtime's administrative database role. Pagination is a live
 // last-seen view; callers should deduplicate IDs while new events are arriving.
-func (s *IssueService) ReadIssuePage(ctx context.Context, ws, project, status, level string, limit, offset int) (IssuePage, error) {
+// Environment and release keep issues with at least one matching event.
+func (s *IssueService) ReadIssuePage(ctx context.Context, ws, project, status, level, environment, release string, limit, offset int) (IssuePage, error) {
 	out := IssuePage{Items: []IssueSummary{}}
 	if !validReadID(ws) || (project != "" && !validReadID(project)) || limit < 1 || limit > 100 || offset < 0 || offset > 100000 {
+		return out, ErrInvalidIssueRead
+	}
+	if (environment != "" && !validEventText(environment, 128)) || (release != "" && !validEventText(release, 256)) {
 		return out, ErrInvalidIssueRead
 	}
 	switch status {
@@ -101,7 +210,7 @@ func (s *IssueService) ReadIssuePage(ctx context.Context, ws, project, status, l
 	default:
 		return out, ErrInvalidIssueRead
 	}
-	issues, total, err := s.issueStore.ListIssues(ctx, storecontracts.IssueFilters{WorkspaceID: ws, ProjectID: project, Status: status, Level: level, Limit: limit, Offset: offset})
+	issues, total, err := s.issueStore.ListIssues(ctx, storecontracts.IssueFilters{WorkspaceID: ws, ProjectID: project, Status: status, Level: level, Environment: environment, Release: release, Limit: limit, Offset: offset})
 	if err != nil {
 		return out, err
 	}
@@ -118,8 +227,9 @@ func (s *IssueService) ReadIssuePage(ctx context.Context, ws, project, status, l
 	return out, nil
 }
 
-// ReadIssueEvidence deliberately excludes request headers, user details, tags,
-// local variables, breadcrumbs and arbitrary context objects from agent reads.
+// ReadIssueEvidence deliberately excludes request headers, user details, local
+// variables, breadcrumbs and arbitrary context objects from agent reads. Tags
+// pass only through the bounded allowlist in domain.PublicEventTags.
 func (s *IssueService) ReadIssueEvidence(ctx context.Context, ws, id string) (IssueEvidence, error) {
 	var out IssueEvidence
 	if !validReadID(ws) || !validReadID(id) {
@@ -141,7 +251,8 @@ func (s *IssueService) ReadIssueEvidence(ctx context.Context, ws, id string) (Is
 	if e == nil || e.IssueID != id || e.ProjectID != issue.ProjectID {
 		return IssueEvidence{}, errors.New("invalid scoped event result")
 	}
-	latest := &IssueEventEvidence{EventID: e.EventID, Timestamp: e.Timestamp, Environment: boundedIssueText(e.Environment, 128), Release: boundedIssueText(e.Release, 256), Exceptions: []IssueException{}, Frames: issueFrames(e.Stacktrace)}
+	tags, truncated := domain.PublicEventTags(e.Tags)
+	latest := &IssueEventEvidence{EventID: e.EventID, Timestamp: e.Timestamp, Environment: boundedIssueText(e.Environment, 128), Release: boundedIssueText(e.Release, 256), Tags: tags, TagsTruncated: truncated, Exceptions: []IssueException{}, Frames: issueFrames(e.Stacktrace)}
 	for i, ex := range e.Exception {
 		if i == 5 {
 			break
@@ -150,4 +261,61 @@ func (s *IssueService) ReadIssueEvidence(ctx context.Context, ws, id string) (Is
 	}
 	out.LatestEvent = latest
 	return out, nil
+}
+
+// ReadIssueEvents pages one issue's events newest first with only identity,
+// timing, environment, release and allowlisted tags.
+func (s *IssueService) ReadIssueEvents(ctx context.Context, ws, id string, limit int, after string) (EventPage, error) {
+	if !validReadID(ws) || !validReadID(id) || limit < 1 || limit > maxEventPage {
+		return EventPage{Items: []EventSummary{}}, ErrInvalidIssueRead
+	}
+	cursor, err := decodeEventCursor(after)
+	if err != nil {
+		return EventPage{Items: []EventSummary{}}, err
+	}
+	issue, err := s.GetIssueInWorkspace(ctx, ws, id)
+	if err != nil {
+		return EventPage{Items: []EventSummary{}}, err
+	}
+	events, err := s.errorEventStore.ListIssueEventEvidence(ctx, storecontracts.IssueEventPageQuery{WorkspaceID: ws, IssueID: id, After: cursor, Limit: limit + 1})
+	if err != nil {
+		return EventPage{Items: []EventSummary{}}, err
+	}
+	return eventPage(events, limit, func(e *domain.ErrorEvent) bool { return e.IssueID == id && e.ProjectID == issue.ProjectID })
+}
+
+// FindEventsByTag finds events in the workspace carrying an exact allowlisted
+// tag. Denied keys are refused rather than answered, so a lookup can never act
+// as an oracle for personal data such as an email address.
+func (s *IssueService) FindEventsByTag(ctx context.Context, ws string, q EventTagSearch, now time.Time) (EventPage, error) {
+	empty := EventPage{Items: []EventSummary{}}
+	if !validReadID(ws) || !domain.IsPublicTagKey(q.Key) || !domain.IsPublicTagValue(q.Value) || q.Limit < 1 || q.Limit > maxEventPage {
+		return empty, ErrInvalidIssueRead
+	}
+	if (q.Environment != "" && !validEventText(q.Environment, 128)) || (q.Release != "" && !validEventText(q.Release, 256)) {
+		return empty, ErrInvalidIssueRead
+	}
+	hours := q.SinceHours
+	if hours == 0 {
+		hours = defaultTagSearchHours
+	}
+	if hours < 1 || hours > maxTagSearchHours {
+		return empty, ErrInvalidIssueRead
+	}
+	cursor, err := decodeEventCursor(q.After)
+	if err != nil {
+		return empty, err
+	}
+	events, err := s.errorEventStore.FindEventEvidenceByTag(ctx, storecontracts.EventTagQuery{
+		WorkspaceID: ws, TagKey: q.Key, TagValue: q.Value, Environment: q.Environment, Release: q.Release,
+		Since: now.Add(-time.Duration(hours) * time.Hour), After: cursor, Limit: q.Limit + 1,
+	})
+	if err != nil {
+		return empty, err
+	}
+	// The store applies the workspace predicate; re-check the matched fields so
+	// a store defect cannot return events outside the requested lookup.
+	return eventPage(events, q.Limit, func(e *domain.ErrorEvent) bool {
+		return e.Tags[q.Key] == q.Value && (q.Environment == "" || e.Environment == q.Environment) && (q.Release == "" || e.Release == q.Release)
+	})
 }

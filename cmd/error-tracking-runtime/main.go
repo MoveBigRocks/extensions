@@ -137,6 +137,8 @@ func registerErrorTrackingRoutes(engine *gin.Engine, runtime *errorTrackingRunti
 	for _, prefix := range []string{"/extensions/error-tracking/api", "/extensions/error-tracking/api/agent"} {
 		engine.GET(prefix+"/issues", issueReader.List)
 		engine.GET(prefix+"/issues/:id", issueReader.Get)
+		engine.GET(prefix+"/issues/:id/events", issueReader.Events)
+		engine.GET(prefix+"/events", issueReader.FindEvents)
 	}
 	adminHandler := errortrackingruntime.NewErrorTrackingAdminHandler(
 		hostclient.FromContext,

@@ -42,12 +42,31 @@ the token's workspace in `?workspace=`, and `issue:read`. Session equivalents om
 `/agent`. The versioned response contract is `error-tracking/v1`; the host checks
 current authority and the runtime always applies a workspace predicate.
 
-Lists accept `project`, `status`, `level`, `limit` (1–100) and `offset` and return
-`issues.nextOffset`. They are live views ordered by last seen and ID; deduplicate
-IDs if new events arrive between pages. Detail returns the latest event's release,
-environment and bounded exception/stack evidence. It excludes request headers,
-users, local variables, breadcrumbs and arbitrary context. Error messages remain
-untrusted application content. These reads do not change issue or case state.
+Lists accept `project`, `status`, `level`, `environment`, `release`, `limit`
+(1–100) and `offset` and return `issues.nextOffset`. Environment and release keep
+issues with at least one matching event. They are live views ordered by last seen
+and ID; deduplicate IDs if new events arrive between pages. Detail returns the
+latest event's release, environment, allowlisted tags and bounded exception/stack
+evidence. It excludes request headers, users, local variables, breadcrumbs and
+arbitrary context. Error messages and tag values remain untrusted application
+content. These reads do not change issue or case state.
+
+`GET .../issues/:id/events` pages one issue's events newest first (`limit` 1–50,
+default 20, opaque `after` from `events.next`). `GET .../events` finds events in
+the workspace by one exact tag: `tag` and `value` are required; `environment`,
+`release`, `sinceHours` (1–2160, default 168) and the same `limit`/`after` are
+optional. Event items carry only `eventId`, `issueId`, `projectId`, `timestamp`,
+`environment`, `release` and `tags`. Pages use a stable (timestamp, ID) keyset.
+
+Tags are an allowlisted projection. A key must match `[a-z0-9_.]{1,64}` and must
+not name personal data, credentials, sessions, client addresses or URLs (for
+example `email`, `user.email`, `ip_address`, `username`, `url`, `request.url`,
+or any key containing `token`, `secret`, `cookie` or `session`). A value must be
+printable, at most 200 characters and not email-shaped; longer values are omitted,
+never truncated. At most 50 tags are returned in key order and `tagsTruncated`
+reports more. A lookup by a key or value outside this policy is refused, so tag
+search cannot confirm personal data. Lookups use a JSONB containment index and
+always apply the workspace, time window, page size and a statement timeout.
 
 Installation is instance-scoped; projects and issue reads retain workspace
 isolation. Ingest commits the immutable raw event and application count before
