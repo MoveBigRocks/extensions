@@ -2,7 +2,7 @@ module github.com/movebigrocks/extensions
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.26.11
 
 require (
 	github.com/dchest/siphash v1.2.3
