@@ -145,6 +145,16 @@ type Signal struct {
 	Status      string     `json:"status"`
 }
 
+// CasePriority maps an alert severity to the core case priority of the incident
+// case. Core case priorities are low, medium, high and urgent; the host refuses
+// any other value, so every severity must land on one of them.
+func CasePriority(severity string) string {
+	if severity == "critical" {
+		return "urgent"
+	}
+	return "medium"
+}
+
 func Normalize(source Source, batch AlertBatch, now time.Time) ([]Signal, bool, error) {
 	if batch.Version != "4" || len(batch.Alerts) == 0 || len(batch.Alerts) > 100 || batch.Truncated < 0 {
 		return nil, false, ErrInvalid

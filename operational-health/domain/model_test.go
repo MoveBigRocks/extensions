@@ -51,3 +51,11 @@ func TestObservationCannotInventRecovery(t *testing.T) {
 	obs.Checks[1].State = "unhealthy"
 	require.Equal(t, "unhealthy", obs.State(target, now))
 }
+
+func TestCasePriorityIsACoreCasePriority(t *testing.T) {
+	core := []string{"low", "medium", "high", "urgent"}
+	for severity, want := range map[string]string{"critical": "urgent", "warning": "medium", "info": "medium"} {
+		require.Equal(t, want, CasePriority(severity), severity)
+		require.Contains(t, core, CasePriority(severity), severity)
+	}
+}

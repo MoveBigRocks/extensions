@@ -76,6 +76,21 @@ func TestNewEpisodeLinksClosedIncidentWithoutReopeningIt(t *testing.T) {
 	require.Contains(t, payloads[0], page.Items[0].ID)
 }
 
+func TestIncidentCaseRequestUsesCoreCasePriority(t *testing.T) {
+	s, cfg, src := fixture(t)
+	now := time.Now().UTC()
+	sig := domain.Signal{Component: "api", AlertName: "SlowQueries", Severity: "warning", Fingerprint: "0123456789abcdef", StartsAt: now, Status: "firing"}
+	_, err := s.Ingest(t.Context(), testWS, cfg, src, []domain.Signal{sig}, 0, false, now)
+	require.NoError(t, err)
+	p, err := s.Claim(t.Context(), testWS, now.Add(time.Second))
+	require.NoError(t, err)
+	require.Equal(t, "create", p.Kind)
+	payload, err := DecodeProjection(*p)
+	require.NoError(t, err)
+	require.NotNil(t, payload.Create)
+	require.Equal(t, "medium", payload.Create.Priority, "the host refuses priorities outside low, medium, high and urgent")
+}
+
 func fixture(t *testing.T) (*Store, domain.Config, domain.Source) {
 	t.Helper()
 	dsn, cleanup := testdb.SetupPostgres(t)

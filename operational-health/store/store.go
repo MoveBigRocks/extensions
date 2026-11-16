@@ -141,11 +141,7 @@ func (s *Store) applySignal(ctx context.Context, ws string, cfg domain.Config, s
 			if err != nil {
 				return err
 			}
-			priority := "normal"
-			if in.Severity == "critical" {
-				priority = "urgent"
-			}
-			create := runtimehost.CreateCaseInput{WorkspaceID: ws, IdempotencyKey: "incident/" + incidentID, Subject: fmt.Sprintf("[%s] %s: %s", src.Environment, in.Component, in.AlertName), Description: "Operational incident. Follow linked evidence and verify current health before closure.", Priority: priority, Channel: "api", Category: "incident", QueueID: cfg.QueueID, AssignedToID: target.OwnerID, Tags: []string{"operational-health", src.Environment, in.Component}, CustomFields: map[string]any{"incident_id": incidentID, "source_id": src.ID, "environment": src.Environment, "component": in.Component, "canary": src.Canary}}
+			create := runtimehost.CreateCaseInput{WorkspaceID: ws, IdempotencyKey: "incident/" + incidentID, Subject: fmt.Sprintf("[%s] %s: %s", src.Environment, in.Component, in.AlertName), Description: "Operational incident. Follow linked evidence and verify current health before closure.", Priority: domain.CasePriority(in.Severity), Channel: "api", Category: "incident", QueueID: cfg.QueueID, AssignedToID: target.OwnerID, Tags: []string{"operational-health", src.Environment, in.Component}, CustomFields: map[string]any{"incident_id": incidentID, "source_id": src.ID, "environment": src.Environment, "component": in.Component, "canary": src.Canary}}
 			var previous struct {
 				ID     string
 				CaseID string `db:"case_id"`
